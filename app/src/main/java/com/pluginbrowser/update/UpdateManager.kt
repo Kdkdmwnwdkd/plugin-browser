@@ -31,11 +31,12 @@ object UpdateManager {
 
     /** 清单地址：按顺序尝试，任一可用即可（国内优先走加速代理） */
     private val MANIFEST_URLS = listOf(
+        // 首选 API：内容实时，不受 raw / 代理的 CDN 缓存影响（返回 base64 包装）
+        "https://api.github.com/repos/Kdkdmwnwdkd/plugin-browser/contents/version.json?ref=main",
+        // 以下为兜底：API 被限流或不可达时使用，内容可能有几分钟缓存
         "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
         "https://ghfast.top/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
         "https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
-        // GitHub API 作为兜底：实时内容，不受 raw CDN 缓存影响（返回 base64 包装）
-        "https://api.github.com/repos/Kdkdmwnwdkd/plugin-browser/contents/version.json?ref=main",
     )
 
     data class UpdateInfo(

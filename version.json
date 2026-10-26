@@ -1,13 +1,13 @@
 {
   "versionCode": 6,
   "versionName": "1.2.3",
-  "size": 6430834,
-  "sha256": "70bcbb14cfc2790ba429870deaa6fea39bef85e7bb5b826bd8eb885c55fb899b",
+  "size": 6430836,
+  "sha256": "49029efa232e3b0e7e4aad939ceee389df4160ec597995f32a055976f805578c",
   "notes": "标签页面板补回「关闭全部」入口（上一版换成底部面板时丢失）。\n如果你是从 1.2.2 更新，这一版主要用于验证应用内更新链路。",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.2.3/PluginBrowser-1.2.3-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.2.3/PluginBrowser-1.2.3-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.2.3/PluginBrowser-1.2.3-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.2.3/PluginBrowser-1.2.3-debug-r2.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.2.3/PluginBrowser-1.2.3-debug-r2.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.2.3/PluginBrowser-1.2.3-debug-r2.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
