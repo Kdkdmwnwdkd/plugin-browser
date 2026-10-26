@@ -61,6 +61,12 @@ class PluginStoreFragment : Fragment(R.layout.fragment_plugin_store) {
             sectionExternal = getString(R.string.plugins_section_external),
             onToggle = { info, on ->
                 pluginManager.setEnabled(info.id, on)
+                // 已加载页面不会自动撤销/追加注入，提示用户刷新
+                android.widget.Toast.makeText(
+                    requireContext(),
+                    if (on) "已启用，刷新页面后生效" else "已停用，刷新页面后移除",
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
                 refresh()
             },
             onClick = { info ->

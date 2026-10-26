@@ -33,6 +33,14 @@ class JsBridge(
     private val host: BrowserHost?,
     private val onNotifyPermissionNeeded: () -> Unit,
     private val reply: (String) -> Unit,
+    /** 当前 WebView 的 URL（来源校验用，页面脚本无法篡改） */
+    private val currentUrl: () -> String? = { null },
+    /**
+     * 判断某插件 id 是否「对当前页面生效」（已启用 + JS 插件 + @match 命中）。
+     * 页面里的 __plugin 参数是页面可写的，必须回到原生侧核对，
+     * 否则任意站点都能冒用已安装插件的 grant 与存储。
+     */
+    private val isPluginActive: (String, String) -> Boolean = { _, _ -> false },
     /** 查询插件声明的 grant 集合（PluginManager.grantsOf），未声明则受限方法拒绝执行 */
     private val grantsOf: (String) -> Set<String> = { emptySet() },
 ) {
@@ -68,6 +76,14 @@ class JsBridge(
     }
 
     private fun dispatch(id: Long, method: String, pluginId: String, params: JSONObject) {
+        // 1) 来源校验：插件必须对当前页面生效，防止任意站点冒用其他插件的权限与存储
+        val url = currentUrl().orEmpty()
+        if (!isPluginActive(pluginId, url)) {
+            Log.w(TAG, "plugin not active for page: plugin=$pluginId url=$url method=$method")
+            replyValue(id, JSONObject().put("error", "plugin \"$pluginId\" is not active for this page"))
+            return
+        }
+        // 2) grant 校验
         val requiredGrant = methodGrants[method]
         if (requiredGrant != null && requiredGrant !in grantsOf(pluginId)) {
             Log.w(TAG, "permission denied: plugin=$pluginId method=$method needs grant=$requiredGrant")
@@ -92,8 +108,8 @@ class JsBridge(
             }
             "notify" -> notify(pluginId, params.optString("title"), params.optString("body"), id)
             "tabs.open" -> {
-                val url = params.optString("url")
-                mainHandler.post { host?.openTab(url) }
+                val target = params.optString("url")
+                mainHandler.post { host?.openTab(target) }
                 replyValue(id, true)
             }
             else -> replyValue(id, JSONObject().put("error", "unknown method: $method"))
@@ -172,7 +188,10 @@ class JsBridge(
             val respHeaders = JSONObject()
             conn.headerFields?.forEach { (k, v) -> if (k != null) respHeaders.put(k, JSONArray(v)) }
             conn.disconnect()
-            result.put("status", code).put("headers", respHeaders).put("body", text)
+            result.put("status", code)
+                .put("statusText", conn.responseMessage.orEmpty())
+                .put("headers", respHeaders)
+                .put("body", text)
         } catch (e: Exception) {
             Log.w(TAG, "http request failed", e)
             result.put("error", e.message ?: "request failed")
@@ -217,6 +236,7 @@ class JsBridge(
             .setAutoCancel(true)
             .build()
         runCatching { nm.notify(pluginId.hashCode(), notification) }
+            .onFailure { Log.w(TAG, "notify failed: plugin=$pluginId", it) }
         replyValue(id, true)
     }
 }

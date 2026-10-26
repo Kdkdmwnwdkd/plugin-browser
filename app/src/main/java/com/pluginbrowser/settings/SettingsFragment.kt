@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.webkit.CookieManager
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
+import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
@@ -61,9 +62,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
 
         findPreference<SwitchPreferenceCompat>("block_ads")?.setOnPreferenceChangeListener { _, newValue ->
-            val on = newValue as Boolean
-            settings.blockAds = on
-            pluginManager.setEnabled(PluginManager.ADBLOCK_PLUGIN_ID, on)
+            // 唯一数据源：插件启用状态（不再往 pb_settings 写一份 blockAds）
+            pluginManager.setEnabled(PluginManager.ADBLOCK_PLUGIN_ID, newValue as Boolean)
             true
         }
 
@@ -103,9 +103,16 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     override fun onResume() {
         super.onResume()
-        // 插件商店可能改过广告拦截开关，同步设置页状态
+        // Preference 框架读的是自己的默认值，业务值在 pb_settings / pb_plugin_states，
+        // 每次进入都按真实值回填，避免「关了再进仍显示开」
+        findPreference<ListPreference>("search_engine")?.value = settings.searchEngine
+        findPreference<EditTextPreference>("home_url")?.text = settings.homeUrl
+        findPreference<SwitchPreferenceCompat>("javascript")?.isChecked = settings.javascriptEnabled
+        findPreference<SwitchPreferenceCompat>("third_party_cookies")?.isChecked = settings.thirdPartyCookies
         findPreference<SwitchPreferenceCompat>("block_ads")?.isChecked =
             pluginManager.isEnabled(PluginManager.ADBLOCK_PLUGIN_ID, true)
+        findPreference<SwitchPreferenceCompat>("desktop_ua")?.isChecked = settings.desktopUa
+        findPreference<ListPreference>("theme")?.value = settings.theme
     }
 
     private fun lifecycleScopeLaunch(block: suspend () -> Unit) {

@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.webkit.CookieManager
 import com.pluginbrowser.PluginBrowserApp
 import com.pluginbrowser.util.UrlUtils
 import com.pluginbrowser.data.BrowserStore
@@ -41,18 +42,22 @@ class DownloadTracker private constructor(private val context: Context) {
         }
     }
 
-    /** 启动下载并记录，返回本地记录 id；失败返回 null */
+    /** 启动下载并异步记录；返回是否已成功入队 */
     fun enqueue(
         url: String,
         userAgent: String,
         contentDisposition: String?,
         mimeType: String?,
-    ): Long? {
+    ): Boolean {
         val fileName = UrlUtils.guessFileName(url, contentDisposition, mimeType)
         val request = DownloadManager.Request(Uri.parse(url)).apply {
             setTitle(fileName)
             setDescription(url)
             addRequestHeader("User-Agent", userAgent)
+            // 需要登录态的直链要带上当前 Cookie，否则常见 403
+            CookieManager.getInstance().getCookie(url)
+                ?.takeIf { it.isNotBlank() }
+                ?.let { addRequestHeader("Cookie", it) }
             setMimeType(mimeType ?: "application/octet-stream")
             setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             if (Build.VERSION.SDK_INT <= 28) {
@@ -68,13 +73,14 @@ class DownloadTracker private constructor(private val context: Context) {
             dm.enqueue(request)
         } catch (e: Exception) {
             null
-        } ?: return null
+        } ?: return false
 
         val path = localPath(fileName)
-        val localId = kotlinx.coroutines.runBlocking {
-            store.insertDownload(fileName, url, path, mimeType ?: "", dmId)
+        // 写库放到 IO 线程，避免在 UI 线程 runBlocking 造成卡顿/ANR
+        PluginBrowserApp.appScope.launch {
+            runCatching { store.insertDownload(fileName, url, path, mimeType ?: "", dmId) }
         }
-        return localId
+        return true
     }
 
     /** 下载完成/状态变化后同步本地记录 */

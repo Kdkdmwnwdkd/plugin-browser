@@ -54,11 +54,32 @@ class AdBlockPlugin(private val context: Context) : NativePlugin {
     ): WebResourceResponse? {
         if (!ready || request.isForMainFrame) return null
         val host = request.url.host?.lowercase() ?: return null
-        val hit = host in blockedHosts || blockedHosts.any { host.endsWith(".$it") }
-        if (hit) {
-            // 以空响应替代广告请求
-            return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+        if (!isBlocked(host)) return null
+        // 以空响应替代广告请求；带上 CORS 头，避免站点脚本因读取响应头报错
+        return WebResourceResponse(
+            "text/plain",
+            "utf-8",
+            200,
+            "OK",
+            mapOf(
+                "Access-Control-Allow-Origin" to "*",
+                "Cache-Control" to "no-store",
+            ),
+            ByteArrayInputStream(ByteArray(0)),
+        )
+    }
+
+    /**
+     * 逐级查父域：a.b.example.com → b.example.com → example.com。
+     * 相比 `blockedHosts.any { host.endsWith(".$it") }`，每条子资源从 O(名单长度) 降到 O(域名层数)。
+     */
+    private fun isBlocked(host: String): Boolean {
+        var candidate = host
+        while (true) {
+            if (candidate in blockedHosts) return true
+            val dot = candidate.indexOf('.')
+            if (dot < 0) return false
+            candidate = candidate.substring(dot + 1)
         }
-        return null
     }
 }

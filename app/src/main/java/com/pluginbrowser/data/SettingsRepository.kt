@@ -26,10 +26,6 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_TPC, false)
         set(value) = prefs.edit().putBoolean(KEY_TPC, value).apply()
 
-    var blockAds: Boolean
-        get() = prefs.getBoolean(KEY_BLOCK_ADS, true)
-        set(value) = prefs.edit().putBoolean(KEY_BLOCK_ADS, value).apply()
-
     var desktopUa: Boolean
         get() = prefs.getBoolean(KEY_DESKTOP_UA, false)
         set(value) = prefs.edit().putBoolean(KEY_DESKTOP_UA, value).apply()
@@ -56,7 +52,6 @@ class SettingsRepository(context: Context) {
         private const val KEY_HOME_URL = "home_url"
         private const val KEY_JS = "javascript"
         private const val KEY_TPC = "third_party_cookies"
-        private const val KEY_BLOCK_ADS = "block_ads"
         private const val KEY_DESKTOP_UA = "desktop_ua"
         private const val KEY_THEME = "theme"
     }

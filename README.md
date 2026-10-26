@@ -212,45 +212,53 @@ my-plugin/
 ### user.js 可用 API（由 pb-bridge.js 注入）
 
 ```js
-// 存储（按插件隔离，异步）
+// 存储（按插件隔离，返回 Promise；也可以传回调作为第二个参数）
 await PB.storage.set('key', { any: 'json' });
 const v = await PB.storage.get('key');
 await PB.storage.remove('key');
 await PB.storage.keys();
 
-// 跨域 HTTP 请求（原生发起，无 CORS 限制）
+// 跨域 HTTP 请求（原生发起，无 CORS 限制），PB.http.request 是 PB.http 的别名
 const resp = await PB.http.request({
   url: 'https://api.example.com/data',
   method: 'GET',            // GET/POST/...
   headers: { 'X-Token': '...' },
-  body: 'a=1&b=2',          // 可选
+  data: 'a=1&b=2',          // 可选，POST/PUT/PATCH 时作为请求体
 });
-// resp = { status, statusText, headers, body }
+// resp = { status, statusText, headers, body }；失败时为 { error }
 
 // 剪贴板 / 通知 / 新标签
 await PB.clipboard.write('文本');
 await PB.notify('标题', '内容');
 await PB.tabs.open('https://example.com');
 
-// 页面信息
-PB.page.url; PB.page.title;
+// 页面信息（注意是函数）
+PB.page.url(); PB.page.title();
 
 // 日志（Logcat 可见）
 PB.log('hello');
+
+// 回调风格同样可用（Promise 与回调可混用）
+PB.storage.get('key', function (v) { console.log(v); });
 
 // GM_* 兼容（详见下表）
 GM_setValue / GM_getValue / GM_getResourceText / GM_info ...
 ```
 
-> 所有异步 API 返回 Promise（内部经 `window.__PB_REPLY__` 回传）。
+> 所有异步 API 返回 Promise（内部经 `window.__PB_REPLY__` 回传），同时保留回调参数，
+> Tampermonkey 风格的 `GM_*` 回调写法不需要改。
+
+> **安全边界**：所有桥接调用都会在原生侧校验「该插件是否对当前页面生效」
+> （已启用 + JS 类型 + `matches` 命中）。页面脚本即使伪造 `__plugin` 参数，
+> 也无法冒用其他插件的 `grant` 与存储。
 
 ### GM_* API 兼容清单
 
 | API | 风格 | 说明 |
 | --- | --- | --- |
-| `GM_setValue` / `GM_getValue` / `GM_deleteValue` / `GM_listValues` | 异步（回调） | 等价 `PB.storage.*`，按插件 id 隔离 |
-| `GM_xmlhttpRequest(opts, cb)` | 异步（`onload`/`onerror`） | 等价 `PB.http`，原生发起无 CORS 限制 |
-| `GM_setClipboard(text)` | 异步（回调） | 写剪贴板 |
+| `GM_setValue` / `GM_getValue` / `GM_deleteValue` / `GM_listValues` | **Promise + 回调** | 等价 `PB.storage.*`，按插件 id 隔离 |
+| `GM_xmlhttpRequest(opts, cb)` | **Promise + 回调**（`onload`/`onerror`） | 等价 `PB.http`，原生发起无 CORS 限制 |
+| `GM_setClipboard(text)` | **Promise + 回调** | 写剪贴板 |
 | `GM_notification(opts)` | 异步 | 系统通知，`opts: {title, text}` |
 | `GM_openInTab(url, opts, cb)` | 异步 | 新开标签页 |
 | `GM_info` | **同步** | `{ scriptHandler: 'PluginBrowser', version, script: {name, version, author, icon} }` |
@@ -259,7 +267,8 @@ GM_setValue / GM_getValue / GM_getResourceText / GM_info ...
 
 **迁移提示**：为 Tampermonkey 编写的脚本若使用同步 `GM_getResourceText` /
 `GM_info`（常见于把 CSS 嵌进模板字符串的脚本，如 LinkSwift），
-在本宿主机可直接运行；使用同步 `GM_getValue` 的脚本需改为回调/Promise 风格。
+在本宿主机可直接运行；使用同步 `GM_getValue` 的脚本需改为回调或 `await` 风格
+（本宿主两种都支持，同步取值仍不支持）。
 
 ### 打包为 .pbp 安装
 ```
@@ -339,6 +348,11 @@ interface NativePlugin {
 
 - **安装校验**：`.pbp` 解压逐条校验路径，拒绝 `../` 穿越；仅接受 `type=js`；
   `requires`/`resources` 声明的文件必须存在于包内，否则拒绝安装；
+  `id` 必须匹配 `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`（id 会直接作为磁盘目录名），
+  且不得与内置插件同名，避免覆盖或双份注入；
+- **桥接来源校验**：`PB.*` / `GM_*` 的每个调用都会回原生侧核对
+  「该插件已启用、是 JS 类型、且 `matches` 命中当前页面」，页面脚本伪造
+  `__plugin` 也无法冒用其他插件的 `grant` 与存储；
 - **依赖读取边界**：`readPluginFile` 以规范路径（canonicalPath）限制在
   插件目录内，用户脚本无法通过 `../` 读取宿主私有文件；
 - **内置保护**：assets 内置 JS 插件不可卸载；

@@ -45,6 +45,11 @@ class TabManager(
 
     @SuppressLint("SetJavaScriptEnabled")
     fun newTab(url: String? = null, incognito: Boolean = incognitoMode, select: Boolean = true): Tab {
+        // 标签数上限：超出时先回收最早的非当前标签，避免每个标签一个 WebView 把内存吃满
+        if (tabs.size >= MAX_TABS) {
+            val victim = tabs.indexOfFirst { it !== currentTab() }
+            if (victim >= 0) closeTab(victim)
+        }
         val tab = Tab(url = url ?: "", incognito = incognito)
         val wv = WebView(activity)
         with(wv.settings) {
@@ -58,10 +63,12 @@ class TabManager(
             builtInZoomControls = true
             displayZoomControls = false
             setSupportMultipleWindows(true)
-            javaScriptCanOpenWindowsAutomatically = true
-            mediaPlaybackRequiresUserGesture = false
+            // 弹窗必须由用户手势触发，避免广告页无手势批量开标签
+            javaScriptCanOpenWindowsAutomatically = false
+            // 音视频需用户手势才播放，避免后台偷跑流量
+            mediaPlaybackRequiresUserGesture = true
             @Suppress("DEPRECATION")
-            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             if (settings.desktopUa) userAgentString = DESKTOP_UA
         }
         wv.setDownloadListener { dlUrl, userAgent, cd, mime, len ->
@@ -137,6 +144,21 @@ class TabManager(
         tabs.forEach { runCatching { it.webView.onPause() } }
     }
 
+    /** 释放全部标签的 WebView（Activity 销毁时调用，避免原生内存泄漏） */
+    fun destroyAll() {
+        tabs.forEach { tab ->
+            if (!tab.isCreated) return@forEach
+            (tab.webView.parent as? ViewGroup)?.removeView(tab.webView)
+            runCatching {
+                tab.webView.stopLoading()
+                tab.webView.loadUrl("about:blank")
+                tab.webView.destroy()
+            }
+        }
+        tabs.clear()
+        currentIndex = -1
+    }
+
     /* ---------------- 会话保存与恢复 ---------------- */
 
     fun saveSession() {
@@ -171,6 +193,9 @@ class TabManager(
     companion object {
         const val DESKTOP_UA =
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+        /** 标签数上限（每个标签持有独立 WebView，过多会 OOM） */
+        private const val MAX_TABS = 20
 
         private const val KEY_SESSION = "session_tabs"
     }

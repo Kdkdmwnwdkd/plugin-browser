@@ -31,6 +31,9 @@ class PluginManager(
         private const val TAG = "PB/PluginManager"
         private const val PREFS_NAME = "pb_plugin_states"
         private const val PLUGIN_ROOT = "plugins"
+
+        /** 插件 id 白名单：id 会被直接用作磁盘目录名 */
+        private val ID_PATTERN = Regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
     }
 
     private val prefs: SharedPreferences =
@@ -89,8 +92,12 @@ class PluginManager(
     }
 
     private fun loadManifestFromAssets(assetDir: String) {
+        jsPlugins.add(readManifestFromAssets(assetDir))
+    }
+
+    private fun readManifestFromAssets(assetDir: String): PluginManifest {
         val json = context.assets.open("$assetDir/manifest.json").bufferedReader().use { it.readText() }
-        jsPlugins.add(PluginManifest.fromJson(JSONObject(json), "assets:$assetDir"))
+        return PluginManifest.fromJson(JSONObject(json), "assets:$assetDir")
     }
 
     private fun loadManifestFromDir(dir: File) {
@@ -141,22 +148,30 @@ class PluginManager(
             }
         } ?: error("无法读取所选文件")
 
-        val manifestFile = File(tmp, "manifest.json")
-        require(manifestFile.exists()) { "插件包中缺少 manifest.json" }
-        val manifest = PluginManifest.fromJson(JSONObject(manifestFile.readText()), tmp.absolutePath)
+        // manifest.json 允许在 zip 根目录，或唯一一级子目录（常见于「右键压缩文件夹」）
+        val root = manifestRootOf(tmp)
+        val manifest = PluginManifest.fromJson(
+            JSONObject(File(root, "manifest.json").readText()),
+            root.absolutePath,
+        )
         require(manifest.type == PluginType.JS) { "仅支持导入 JS 脚本插件（type=js）" }
+        // id 会成为磁盘目录名，必须白名单校验，否则 ../ 之类的 id 可把文件写到 filesDir 之外
+        require(ID_PATTERN.matches(manifest.id)) {
+            "非法的插件 id：${manifest.id}（仅允许字母、数字、点、下划线、连字符，且不能以符号开头）"
+        }
+        require(manifest.id !in builtinIds()) { "插件 id 与内置插件冲突：${manifest.id}" }
         val entryName = manifest.entry ?: "user.js"
-        require(File(tmp, entryName).exists()) { "入口文件 $entryName 不存在" }
+        require(File(root, entryName).exists()) { "入口文件 $entryName 不存在" }
         manifest.requires.forEach { req ->
-            require(File(tmp, req).exists()) { "依赖文件缺失: $req" }
+            require(File(root, req).exists()) { "依赖文件缺失: $req" }
         }
         manifest.resources.values.forEach { res ->
-            require(File(tmp, res).exists()) { "资源文件缺失: $res" }
+            require(File(root, res).exists()) { "资源文件缺失: $res" }
         }
 
-        val dest = File(pluginRoot(), manifest.id)
+        val dest = safeResolve(pluginRoot(), manifest.id)
         if (dest.exists()) dest.deleteRecursively()
-        tmp.copyRecursively(dest, overwrite = true)
+        root.copyRecursively(dest, overwrite = true)
         tmp.deleteRecursively()
 
         reload()
@@ -164,15 +179,35 @@ class PluginManager(
         manifest
     }.onFailure { Log.w(TAG, "install failed", it) }
 
+    /** 定位插件包根目录：根目录优先，其次唯一的子目录 */
+    private fun manifestRootOf(dir: File): File {
+        if (File(dir, "manifest.json").exists()) return dir
+        val subDirs = dir.listFiles()?.filter { it.isDirectory }.orEmpty()
+        if (subDirs.size == 1 && File(subDirs[0], "manifest.json").exists()) return subDirs[0]
+        error("插件包中缺少 manifest.json")
+    }
+
     private fun safeResolve(base: File, name: String): File {
-        val f = File(base, name)
-        require(f.canonicalPath.startsWith(base.canonicalPath)) { "非法的文件路径: $name" }
+        val basePath = base.canonicalFile
+        val f = File(basePath, name).canonicalFile
+        // 用「父路径 + 分隔符」比较，避免 plugins_evil 命中 plugins 的前缀
+        require(f.path == basePath.path || f.path.startsWith(basePath.path + File.separator)) {
+            "非法的文件路径: $name"
+        }
         return f
     }
 
+    /** 内置（assets）插件 id，用于阻止导入时同名覆盖 */
+    private fun builtinIds(): Set<String> = runCatching {
+        context.assets.list(PLUGIN_ROOT)?.mapNotNull { name ->
+            runCatching { readManifestFromAssets("$PLUGIN_ROOT/$name").id }.getOrNull()
+        }.orEmpty().toSet()
+    }.getOrElse { emptySet() }
+
     /** 卸载用户安装的 JS 插件（内置插件不可卸载） */
     fun uninstall(id: String): Boolean {
-        val dir = File(pluginRoot(), id)
+        if (!ID_PATTERN.matches(id)) return false
+        val dir = safeResolve(pluginRoot(), id)
         val ok = dir.exists() && dir.deleteRecursively()
         if (ok) {
             prefs.edit().remove(id).apply()
@@ -236,8 +271,24 @@ class PluginManager(
      * 查询指定 JS 插件声明的权限集合（grant）。
      * 供桥接层校验 http / clipboard / notify / tabs 等受限能力调用。
      */
+    @Synchronized
     fun grantsOf(pluginId: String): Set<String> =
         jsPlugins.firstOrNull { it.id == pluginId }?.permissions?.toSet() ?: emptySet()
+
+    /**
+     * 插件对指定 URL 是否「应当生效」：已启用 + JS 类型 + @match 命中。
+     * JS Bridge 用它做来源校验——页面里的 __plugin 是页面可写的，
+     * 只认「当前 URL 确实命中该插件」的调用。
+     */
+    @Synchronized
+    fun isPluginActiveFor(pluginId: String, url: String): Boolean {
+        if (!url.startsWith("http://") && !url.startsWith("https://")) return false
+        return jsPlugins.any {
+            it.id == pluginId && it.type == PluginType.JS &&
+                isEnabled(it.id, it.defaultEnabled) &&
+                PluginManifest.matchesUrl(it.matches, url)
+        }
+    }
 
     /**
      * 生成注入到指定页面的脚本分块（按顺序逐个 evaluateJavascript）：
@@ -322,9 +373,10 @@ class PluginManager(
             val assetPath = m.sourceDir.removePrefix("assets:").trimEnd('/') + "/" + relativePath
             context.assets.open(assetPath).bufferedReader().use { it.readText() }
         } else {
-            val f = File(m.sourceDir, relativePath)
-            // 防路径穿越
-            if (!f.canonicalPath.startsWith(File(m.sourceDir).canonicalPath)) null
+            val root = File(m.sourceDir).canonicalFile
+            val f = File(root, relativePath).canonicalFile
+            // 防路径穿越：按「父路径 + 分隔符」比较，避免 plugins_evil 命中 plugins 前缀
+            if (!f.path.startsWith(root.path + File.separator)) null
             else if (f.exists()) f.readText() else null
         }
     } catch (e: Exception) {
@@ -332,9 +384,11 @@ class PluginManager(
         null
     }
 
-    /** 把任意文本编码为 JS 字符串字面量（JSON 编码再防 </script> 之类场景） */
+    /** 把任意文本编码为 JS 字符串字面量（JSON 编码，并转义 JS 的行分隔符） */
     private fun jsStringLiteral(text: String): String =
         org.json.JSONObject.quote(text)
+            .replace("\u2028", "\\u2028")
+            .replace("\u2029", "\\u2029")
 
     private fun bridgeScript(): String =
         bridgeScriptCache ?: context.assets.open("js/pb-bridge.js").bufferedReader()

@@ -50,6 +50,16 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
         handleIntent(intent)
     }
 
+    override fun onDestroy() {
+        // 释放 WebView 原生内存（重建/退出都不会自动回收）
+        if (::tabManager.isInitialized) tabManager.destroyAll()
+        // Application 级的 PluginManager 持有 hostProvider={ this }，不置空会泄漏整个 Activity
+        if (::tabManager.isInitialized) {
+            PluginBrowserApp.from(this).pluginManager.hostProvider = null
+        }
+        super.onDestroy()
+    }
+
     /** 处理外部 App 分享进来的链接 */
     private fun handleIntent(intent: Intent?) {
         if (intent?.action != Intent.ACTION_VIEW) return

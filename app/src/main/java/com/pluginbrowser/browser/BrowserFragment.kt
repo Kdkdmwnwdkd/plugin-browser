@@ -317,8 +317,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     /** 打开 URL（书签、外部链接、插件 API 调用） */
     fun openUrl(url: String, incognito: Boolean = false) {
         if (url.isBlank()) return
-        if (incognito) tabManager.incognitoMode = true
-        val tab = tabManager.newTab(url = url)
+        // 只影响本次新建的标签，不再改写全局 incognitoMode（否则之后所有新标签都变无痕）
+        val tab = tabManager.newTab(url = url, incognito = incognito)
         onCurrentTabChanged(tab)
     }
 
@@ -479,9 +479,9 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     private fun startDownload(pending: PendingDownload) {
-        val id = DownloadTracker.get(requireContext())
+        val started = DownloadTracker.get(requireContext())
             .enqueue(pending.url, pending.userAgent, pending.contentDisposition, pending.mimeType)
-        if (id == null) {
+        if (!started) {
             toast("下载启动失败")
         } else {
             toast(getString(R.string.downloads_status_running))
@@ -563,6 +563,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             reply = { js ->
                 wv.post { runCatching { wv.evaluateJavascript(js, null) } }
             },
+            currentUrl = { runCatching { wv.url }.getOrNull() },
+            isPluginActive = pluginManager::isPluginActiveFor,
             grantsOf = pluginManager::grantsOf,
         )
         wv.addJavascriptInterface(bridge, JsBridge.JS_NAME)

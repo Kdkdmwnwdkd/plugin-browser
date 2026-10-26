@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  备份规则（Android 11 及以下）。
+  浏览历史、Cookie、插件存储都属于隐私数据，不参与云备份；
+  仅保留用户偏好设置，避免换机后设置全部丢失。
+-->
+<full-backup-content>
+    <include domain="sharedpref" path="pb_settings.xml" />
+    <exclude domain="sharedpref" path="pb_plugin_states.xml" />
+    <exclude domain="sharedpref" path="pb_plugin_data_" />
+    <exclude domain="sharedpref" path="pb_session.xml" />
+    <exclude domain="database" path="browser.db" />
+    <exclude domain="file" path="plugins/" />
+</full-backup-content>
