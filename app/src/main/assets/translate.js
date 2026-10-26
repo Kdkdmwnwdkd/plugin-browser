@@ -5,6 +5,9 @@
  *  1) 块级（p/li/h1-h6/td…）整段翻译 —— 语序正常，但会丢掉 <b> 这类内联样式；
  *  2) 文本节点逐段翻译 —— 仅用于含 <a>/<img> 等交互元素的段落，保住可点性。
  * 原文保存在元素上，restore() 完整还原。
+ *
+ * id 约定：b<下标> 对应 blocks，t<下标> 对应 nodes。
+ * 原生侧必须原样回传该**字符串** id —— 传数字会让 apply 抛异常、整页无变化。
  */
 (function () {
   if (window.__PB_TR) return;
@@ -71,35 +74,60 @@
     return out;
   }
 
+  /** 返回 { applied, failed, total }；节点被页面重建时计入 failed 而不是静默丢弃 */
   function apply(pairs) {
+    var applied = 0;
+    var failed = 0;
+    if (!pairs || typeof pairs.length !== 'number') {
+      return { applied: 0, failed: 0, total: 0 };
+    }
+
     for (var i = 0; i < pairs.length; i++) {
       var pair = pairs[i];
-      if (!pair || typeof pair.t !== 'string' || !pair.t) continue;
+      if (!pair || typeof pair.id !== 'string' || typeof pair.t !== 'string' || !pair.t) {
+        failed++;
+        continue;
+      }
       var index = parseInt(pair.id.slice(1), 10);
+      if (isNaN(index)) {
+        failed++;
+        continue;
+      }
 
       if (pair.id.charAt(0) === 'b') {
         var el = blocks[index];
-        if (!el) continue;
+        if (!el || !el.parentNode) {
+          failed++;
+          continue;
+        }
         if (el.__pbOrigHtml === undefined) el.__pbOrigHtml = el.innerHTML;
         el.textContent = pair.t;
+        applied++;
       } else {
         var node = nodes[index];
-        if (!node) continue;
+        if (!node || !node.parentNode) {
+          failed++;
+          continue;
+        }
         if (node.__pbOrig === undefined) node.__pbOrig = node.nodeValue;
         var orig = node.__pbOrig;
         var lead = (orig.match(/^\s*/) || [''])[0];
         var trail = (orig.match(/\s*$/) || [''])[0];
         node.nodeValue = lead + pair.t + trail;
+        applied++;
       }
     }
+    return { applied: applied, failed: failed, total: pairs.length };
   }
 
   function restore() {
+    var n = 0;
     for (var b = 0; b < blocks.length; b++) {
       var el = blocks[b];
       if (el && el.__pbOrigHtml !== undefined) {
         el.innerHTML = el.__pbOrigHtml;
         delete el.__pbOrigHtml;
+        n++;
       }
     }
     for (var t = 0; t < nodes.length; t++) {
@@ -107,10 +135,12 @@
       if (node && node.__pbOrig !== undefined) {
         node.nodeValue = node.__pbOrig;
         delete node.__pbOrig;
+        n++;
       }
     }
     blocks = [];
     nodes = [];
+    return n;
   }
 
   window.__PB_TR = { collect: collect, apply: apply, restore: restore };

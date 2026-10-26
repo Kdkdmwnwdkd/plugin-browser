@@ -43,6 +43,9 @@ class TranslateManager(context: Context) {
                 return@withContext Result.failure(IOException("这一页没有可翻译的文字"))
             }
 
+            // 页面给的 id 形如 "b0"/"t3"，必须原样带回去：
+            // 传整数下标会让页面的 apply 在 pair.id.slice(1) 处抛异常，整页无变化
+            val ids = (0 until items.length()).map { items.getJSONObject(it).optString("id") }
             val texts = (0 until items.length()).map { items.getJSONObject(it).getString("t") }
             val batches = batch(texts)
 
@@ -60,12 +63,25 @@ class TranslateManager(context: Context) {
             }
 
             val pairs = JSONArray()
-            translated.forEachIndexed { index, text ->
-                pairs.put(JSONObject().put("id", index).put("t", text.orEmpty()))
+            ids.forEachIndexed { index, id ->
+                pairs.put(
+                    JSONObject()
+                        .put("id", id)
+                        // 某段翻译失败就退回原文，避免把页面清空
+                        .put("t", translated.getOrNull(index) ?: texts.getOrElse(index) { "" }),
+                )
             }
-            evaluate(webView, "window.__PB_TR.apply($pairs)")
 
-            Result.success(texts.size)
+            // 回填结果必须校验：曾经出现过"提示已翻译 N 段、页面却一行没变"
+            val check = evaluate(webView, "JSON.stringify(window.__PB_TR.apply($pairs))")
+            val applied = parseApplied(check)
+            if (applied == 0) {
+                return@withContext Result.failure(
+                    IOException("译文没有写入页面，可能是页面脚本重建了内容，请稍后重试"),
+                )
+            }
+
+            Result.success(applied)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -75,6 +91,12 @@ class TranslateManager(context: Context) {
         evaluate(webView, "window.__PB_TR.restore()")
         Unit
     }
+
+    /** evaluateJavascript 的返回值是 JSON 编码过的字符串，这里剥两层后取 applied */
+    private fun parseApplied(raw: String?): Int = runCatching {
+        val inner = (JSONTokener(raw ?: "").nextValue() as? String).orEmpty()
+        JSONObject(inner).optInt("applied", 0)
+    }.getOrDefault(0)
 
     /** 单批不超过 20 段 / 1200 字符，避免触发长度与频率限制 */
     private fun batch(texts: List<String>): List<List<Pair<Int, String>>> {

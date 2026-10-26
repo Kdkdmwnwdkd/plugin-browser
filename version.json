@@ -1,13 +1,13 @@
 {
-  "versionCode": 12,
-  "versionName": "1.5.3",
-  "size": 6496145,
-  "sha256": "fd4ec7d87415f50145ea6e0b90b40fcb9d4f09fb40f60aa650a06635a2a098c0",
-  "notes": "翻译连接诊断升级：\n· 自动把全角字母转成半角（中文输入法常把 D 打成 Ｄ，字形一样但签名必然失败）\n· 输入即保存 + 自动清除空格、零宽字符，签名失败时多形态重试\n· 测试失败改为弹窗，显示密钥位数与指纹，可直接对照是否打错字符",
+  "versionCode": 13,
+  "versionName": "1.5.4",
+  "size": 6497293,
+  "sha256": "20b696aae380b1dcda9b272f6ec661ef6d11c12b3adcb107dd0cb7f314477491",
+  "notes": "修复整页翻译「提示已翻译但页面没变」：\n· 回填时把页面给的字符串 id 原样带回（之前传的是整数下标，导致脚本内部报错、整页未更新）\n· 回填后校验实际写入数量，写不进去会如实报错而不是谎报成功\n· 单段失败退回原文，不再把页面清空",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.3/PluginBrowser-1.5.3-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.3/PluginBrowser-1.5.3-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.3/PluginBrowser-1.5.3-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.4/PluginBrowser-1.5.4-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.4/PluginBrowser-1.5.4-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.4/PluginBrowser-1.5.4-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
