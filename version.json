@@ -2,7 +2,7 @@
   "versionCode": 21,
   "versionName": "1.9.0",
   "size": 6755172,
-  "sha256": "fdc2f17de0701abfafbe465e3869774bb55786a7fd5249817a73c912cdfbefdc",
+  "sha256": "3c8f955c9e03c63ab76c3c8f08200b8a9a48a690eeaf23929e89d5123a4da7e7",
   "notes": "改名字，换图标。\n· 应用名从「插件浏览器」改为「青鸢」，英文名 Kite\n· 新图标是只折纸风筝：左右两翼一明一暗，底下一线尾，系统遮罩成圆形也好看\n· 顺带补了 Android 13 主题图标（跟着壁纸变色的那种）\n· 首页左上角的标志同步换成新风筝\n· 长截图存到 Pictures/Kite\n· 包名没变，直接覆盖安装，书签、插件、设置都在",
   "apk": [
     "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.9.0/Kite-1.9.0-debug.apk",
