@@ -31,5 +31,6 @@ class GestureSettingsFragment : PreferenceFragmentCompat() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         preferenceManager.sharedPreferencesName = "pb_settings"
         setPreferencesFromResource(R.xml.pref_gesture, rootKey)
+        preferenceScreen?.dropIconSpace()
     }
 }
