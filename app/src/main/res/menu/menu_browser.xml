@@ -8,6 +8,11 @@
         android:title="@string/menu_refresh"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_translate"
+        android:icon="@drawable/ic_link"
+        android:title="@string/menu_translate"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_find"
         android:icon="@drawable/ic_search"
         android:title="@string/menu_find"

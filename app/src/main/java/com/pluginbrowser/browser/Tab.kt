@@ -14,6 +14,8 @@ class Tab(
     var favicon: Bitmap? = null,
     /** 最近一次加载失败的原始 URL（展示错误页时保留） */
     var failedUrl: String? = null,
+    /** 当前页面是否已整页翻译（用于菜单显示"还原原文"） */
+    var translated: Boolean = false,
 ) {
     lateinit var webView: WebView
 

@@ -17,6 +17,8 @@ import com.pluginbrowser.R
 import com.pluginbrowser.data.BrowserStore
 import com.pluginbrowser.data.SettingsRepository
 import com.pluginbrowser.plugin.PluginManager
+import com.pluginbrowser.translate.TranslateSettings
+import com.pluginbrowser.translate.TranslateSettingsFragment
 import com.pluginbrowser.update.UpdateManager
 import kotlinx.coroutines.launch
 
@@ -92,6 +94,17 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 }
                 .show()
             true
+        }
+
+        findPreference<Preference>("translate_service")?.apply {
+            summary = TranslateSettings(requireContext()).provider.label
+            setOnPreferenceClickListener {
+                requireActivity().supportFragmentManager.beginTransaction()
+                    .replace(R.id.main_container, TranslateSettingsFragment())
+                    .addToBackStack(null)
+                    .commit()
+                true
+            }
         }
 
         findPreference<Preference>("check_update")?.apply {

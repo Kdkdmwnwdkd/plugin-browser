@@ -23,6 +23,7 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -47,6 +48,8 @@ import com.pluginbrowser.plugin.api.PluginMenuItem
 import com.pluginbrowser.plugin.js.JsBridge
 import com.pluginbrowser.plugin.store.PluginStoreFragment
 import com.pluginbrowser.settings.SettingsFragment
+import com.pluginbrowser.translate.TranslateManager
+import com.pluginbrowser.translate.TranslateSettingsFragment
 import com.pluginbrowser.ui.BookmarksFragment
 import com.pluginbrowser.util.UrlUtils
 import kotlinx.coroutines.launch
@@ -66,6 +69,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private val pluginManager: PluginManager
         get() = PluginBrowserApp.from(requireContext()).pluginManager
     private val tabManager: TabManager get() = (requireActivity() as MainActivity).tabManager
+    private val translateManager by lazy { TranslateManager(requireContext()) }
 
     private lateinit var webViewClient: BrowserWebViewClient
     private lateinit var webChromeClient: BrowserWebChromeClient
@@ -254,6 +258,58 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         btnReload.setOnClickListener { onReloadClicked() }
     }
 
+    /* ---------------- 整页翻译 ---------------- */
+
+    private fun toggleTranslate() {
+        val tab = tabManager.currentTab() ?: return
+        val webView = currentWebView() ?: return
+
+        if (!translateManager.isConfigured()) {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.translate_need_config)
+                .setMessage(R.string.translate_need_config_msg)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.translate_go_settings) { _, _ ->
+                    openScreen(TranslateSettingsFragment())
+                }
+                .show()
+            return
+        }
+
+        if (tab.translated) {
+            lifecycleScope.launch {
+                translateManager.restore(webView)
+                tab.translated = false
+                toast(getString(R.string.translate_restored))
+            }
+            return
+        }
+
+        val content = layoutInflater.inflate(R.layout.dialog_translate_progress, null)
+        val status = content.findViewById<TextView>(R.id.translate_status)
+        val bar = content.findViewById<ProgressBar>(R.id.translate_progress)
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.menu_translate)
+            .setView(content)
+            .setCancelable(false)
+            .create()
+        dialog.show()
+
+        lifecycleScope.launch {
+            val result = translateManager.translatePage(webView) { done, total ->
+                bar.progress = if (total == 0) 0 else done * 100 / total
+                status.text = getString(R.string.translate_progress, done, total)
+            }
+            dialog.dismiss()
+            result.onSuccess { count ->
+                tab.translated = true
+                toast(getString(R.string.translate_done, count))
+            }.onFailure { error ->
+                toast(getString(R.string.translate_failed, error.message ?: ""))
+            }
+        }
+    }
+
     /* ---------------- 页内查找 ---------------- */
 
     private fun setupFindBar() {
@@ -413,6 +469,11 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         desktopItem.isCheckable = true
         desktopItem.isChecked = settings.desktopUa
 
+        popup.menu.findItem(R.id.action_translate)?.title = getString(
+            if (tabManager.currentTab()?.translated == true) R.string.menu_restore_translate
+            else R.string.menu_translate,
+        )
+
         // 原生插件贡献的菜单项
         val pluginMenuMap = mutableMapOf<Int, PluginMenuItem>()
         var nextId = MENU_PLUGIN_ID_BASE
@@ -431,6 +492,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             when (menuItem.itemId) {
                 R.id.action_refresh -> { reload(); true }
                 R.id.action_find -> { showFindBar(); true }
+                R.id.action_translate -> { toggleTranslate(); true }
                 R.id.action_add_bookmark -> { showAddBookmarkDialog(); true }
                 R.id.action_share -> { shareCurrentUrl(); true }
                 R.id.action_desktop_ua -> { toggleDesktopUa(); true }

@@ -59,6 +59,7 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         if (!url.startsWith("data:")) {
             tab.url = url
             tab.failedUrl = null
+            tab.translated = false
         }
         tab.progress = 5
         // 记录来源页面 & 让嗅探器知道当前在哪个站

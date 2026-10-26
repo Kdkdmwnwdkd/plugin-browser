@@ -44,4 +44,7 @@
         <item name="cornerSizeBottomRight">0dp</item>
     </style>
 
+    <!-- 动态生成的输入框用：Material3 描边风格 -->
+    <style name="Widget.PluginBrowser.TextField" parent="Widget.Material3.TextInputLayout.OutlinedBox" />
+
 </resources>

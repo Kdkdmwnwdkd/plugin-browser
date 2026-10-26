@@ -40,6 +40,11 @@
             android:defaultValue="false"
             android:key="desktop_ua"
             android:title="@string/settings_desktop_ua" />
+
+        <Preference
+            android:key="translate_service"
+            android:summary="@string/settings_translate_summary"
+            android:title="@string/settings_translate" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="外观">

@@ -125,6 +125,30 @@
     <string name="search_engine_duckduckgo">DuckDuckGo</string>
     <string name="search_suggestion">搜索「%1$s」</string>
 
+    <!-- 翻译 -->
+    <string name="menu_translate">翻译此页</string>
+    <string name="menu_restore_translate">还原原文</string>
+    <string name="translate_settings_title">翻译服务</string>
+    <string name="translate_provider">服务商</string>
+    <string name="translate_target">目标语言</string>
+    <string name="translate_save">保存</string>
+    <string name="translate_test">测试连接</string>
+    <string name="translate_testing">正在测试连接…</string>
+    <string name="translate_saved">已保存</string>
+    <string name="translate_test_ok">连接正常，译文：%1$s</string>
+    <string name="translate_test_fail">连接失败：%1$s</string>
+    <string name="translate_privacy">密钥只保存在本机。翻译时页面文字会发送给你选择的服务商。</string>
+    <string name="translate_preparing">正在收集页面文字…</string>
+    <string name="translate_progress">正在翻译 %1$d/%2$d 段</string>
+    <string name="translate_done">已翻译 %1$d 段，再点一次可还原</string>
+    <string name="translate_failed">翻译失败：%1$s</string>
+    <string name="translate_restored">已还原原文</string>
+    <string name="translate_need_config">还没有配置翻译服务</string>
+    <string name="translate_need_config_msg">去设置里选一个供应商，填入密钥即可。以后想换供应商也在这里改，不需要重新装包。</string>
+    <string name="translate_go_settings">去设置</string>
+    <string name="settings_translate">翻译服务</string>
+    <string name="settings_translate_summary">供应商、密钥与目标语言</string>
+
     <!-- 资源嗅探 -->
     <string name="menu_sniffer">资源嗅探</string>
     <string name="sniffer_title">资源嗅探</string>
