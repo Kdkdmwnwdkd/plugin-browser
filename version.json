@@ -1,13 +1,13 @@
 {
-  "versionCode": 21,
-  "versionName": "1.9.0",
-  "size": 6755172,
-  "sha256": "3c8f955c9e03c63ab76c3c8f08200b8a9a48a690eeaf23929e89d5123a4da7e7",
-  "notes": "改名字，换图标。\n· 应用名从「插件浏览器」改为「青鸢」，英文名 Kite\n· 新图标是只折纸风筝：左右两翼一明一暗，底下一线尾，系统遮罩成圆形也好看\n· 顺带补了 Android 13 主题图标（跟着壁纸变色的那种）\n· 首页左上角的标志同步换成新风筝\n· 长截图存到 Pictures/Kite\n· 包名没变，直接覆盖安装，书签、插件、设置都在",
+  "versionCode": 22,
+  "versionName": "1.9.1",
+  "size": 6613024,
+  "sha256": "08dd6e8b4b8666195ae80b197ffdf9679bb442427775e9db6a2dffc888365756",
+  "notes": "设置页排版修正。\n· 每行左侧原本空着 72dp，是 Material 给图标预留的位置，这页没有图标，白留一条\n· 现在从 16dp 起，标题和说明铺满整行，长说明少换一行\n· 手势设置页同样处理\n· 顺带：应用名改为「青鸢」，新图标，关于页版本号自动读取",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.9.0/Kite-1.9.0-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.9.0/Kite-1.9.0-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.9.0/Kite-1.9.0-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.9.1/Kite-1.9.1-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.9.1/Kite-1.9.1-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.9.1/Kite-1.9.1-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
