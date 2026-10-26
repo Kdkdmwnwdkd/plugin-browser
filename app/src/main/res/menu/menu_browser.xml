@@ -8,6 +8,11 @@
         android:title="@string/menu_refresh"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_find"
+        android:icon="@drawable/ic_search"
+        android:title="@string/menu_find"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_add_bookmark"
         android:icon="@drawable/ic_bookmark_border"
         android:title="@string/menu_add_bookmark"

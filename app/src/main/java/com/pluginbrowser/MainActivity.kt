@@ -5,6 +5,8 @@ import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import android.util.TypedValue
+import android.view.MotionEvent
+import kotlin.math.abs
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -27,6 +29,13 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
         private set
 
     private lateinit var settings: SettingsRepository
+
+    /* 边缘滑动返回：轻量浏览器的核心手感之一 */
+    private var edgeTracking = false
+    private var edgeStartX = 0f
+    private var edgeStartY = 0f
+    private val edgeSlop by lazy { 22 * resources.displayMetrics.density }
+    private val swipeDistance by lazy { 72 * resources.displayMetrics.density }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         settings = SettingsRepository(this)
@@ -66,6 +75,41 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
         window.navigationBarColor = surface
         WindowCompat.getInsetsController(window, window.decorView)
             .isAppearanceLightStatusBars = !night
+    }
+
+    /**
+     * 从屏幕左/右 22dp 内水平滑出 72dp 触发前进/后退。
+     * 放在 dispatch 层拦截，WebView 自身收不到这段手势，不影响页面滚动。
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                val screenWidth = resources.displayMetrics.widthPixels
+                edgeTracking = ev.x <= edgeSlop || ev.x >= screenWidth - edgeSlop
+                edgeStartX = ev.x
+                edgeStartY = ev.y
+            }
+            MotionEvent.ACTION_UP -> {
+                if (edgeTracking) {
+                    edgeTracking = false
+                    val dx = ev.x - edgeStartX
+                    val dy = abs(ev.y - edgeStartY)
+                    if (abs(dx) >= swipeDistance && abs(dx) > dy * 1.5f) {
+                        val webView = tabManager.currentWebViewOrNull()
+                        if (dx > 0 && webView?.canGoBack() == true) {
+                            webView.goBack()
+                            return true
+                        }
+                        if (dx < 0 && webView?.canGoForward() == true) {
+                            webView.goForward()
+                            return true
+                        }
+                    }
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> edgeTracking = false
+        }
+        return super.dispatchTouchEvent(ev)
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -19,6 +19,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebChromeClient.FileChooserParams
 import android.webkit.WebView
 import android.widget.AutoCompleteTextView
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -86,6 +87,10 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private lateinit var btnTabs: View
     private lateinit var btnMenu: ImageButton
     private lateinit var tabCountBadge: TextView
+    private lateinit var findBar: View
+    private lateinit var findInput: EditText
+    private lateinit var findCount: TextView
+    private var findQuery: String = ""
 
     /* ---------------- 状态 ---------------- */
 
@@ -174,6 +179,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         tabCountBadge = view.findViewById(R.id.tab_count_badge)
 
         setupAddressBar()
+        setupFindBar()
         setupBottomBar()
 
         // 配置 WebView 工厂（必须在创建标签之前）
@@ -246,6 +252,74 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             }
         }
         btnReload.setOnClickListener { onReloadClicked() }
+    }
+
+    /* ---------------- 页内查找 ---------------- */
+
+    private fun setupFindBar() {
+        findBar = view?.findViewById(R.id.find_bar) ?: return
+        findInput = findBar.findViewById(R.id.find_input)
+        findCount = findBar.findViewById(R.id.find_count)
+
+        findBar.findViewById<ImageButton>(R.id.find_close).setOnClickListener { closeFindBar() }
+        findBar.findViewById<ImageButton>(R.id.find_next).setOnClickListener { findNext(true) }
+        findBar.findViewById<ImageButton>(R.id.find_prev).setOnClickListener { findNext(false) }
+
+        findInput.addTextChangedListener { editable ->
+            startFind(editable?.toString().orEmpty())
+        }
+        findInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                findNext(true)
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    private fun showFindBar() {
+        if (!::findBar.isInitialized) return
+        findBar.isVisible = true
+        findInput.requestFocus()
+        findInput.selectAll()
+        findInput.postDelayed({
+            if (!isAdded) return@postDelayed
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(findInput, InputMethodManager.SHOW_IMPLICIT)
+        }, 120)
+        if (findQuery.isNotBlank()) startFind(findQuery)
+    }
+
+    private fun startFind(query: String) {
+        findQuery = query
+        val webView = currentWebView() ?: return
+        if (query.isBlank()) {
+            webView.clearMatches()
+            findCount.text = ""
+            return
+        }
+        // findNext 的计数通过监听回传，会随输入实时变化
+        webView.setFindListener { active, total, _ ->
+            findCount.text = if (total == 0) getString(R.string.find_no_result) else "$active/$total"
+        }
+        webView.findAllAsync(query)
+    }
+
+    private fun findNext(forward: Boolean) {
+        val webView = currentWebView() ?: return
+        if (findQuery.isBlank()) return
+        webView.findNext(forward)
+    }
+
+    private fun closeFindBar() {
+        findBar.isVisible = false
+        currentWebView()?.clearMatches()
+        findInput.setText("")
+        findInput.clearFocus()
+        findCount.text = ""
+        findQuery = ""
+        hideKeyboard()
     }
 
     private fun setupBottomBar() {
@@ -356,6 +430,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             }
             when (menuItem.itemId) {
                 R.id.action_refresh -> { reload(); true }
+                R.id.action_find -> { showFindBar(); true }
                 R.id.action_add_bookmark -> { showAddBookmarkDialog(); true }
                 R.id.action_share -> { shareCurrentUrl(); true }
                 R.id.action_desktop_ua -> { toggleDesktopUa(); true }
@@ -576,7 +651,13 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
     override fun onPageStarted(tab: Tab) = refreshUi()
 
-    override fun onPageFinished(tab: Tab) = refreshUi()
+    override fun onPageFinished(tab: Tab) {
+        refreshUi()
+        // 跳转后旧的高亮会失效，若查找栏还开着就重新搜一次
+        if (::findBar.isInitialized && findBar.isVisible && findQuery.isNotBlank()) {
+            startFind(findQuery)
+        }
+    }
 
     override fun onProgressChanged(tab: Tab, progress: Int) = refreshUi()
 

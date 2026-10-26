@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/browser_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -93,6 +94,77 @@
         </LinearLayout>
     </LinearLayout>
 
+    <!-- 页内查找栏：默认隐藏，只在需要时占位 -->
+    <LinearLayout
+        android:id="@+id/find_bar"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:background="?attr/colorSurface"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="4dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/address_bar_row"
+        tools:visibility="visible">
+
+        <EditText
+            android:id="@+id/find_input"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:background="@null"
+            android:hint="@string/find_hint"
+            android:imeOptions="actionSearch"
+            android:inputType="text"
+            android:maxLines="1"
+            android:singleLine="true"
+            android:textColor="?attr/colorOnSurface"
+            android:textColorHint="?attr/colorOnSurfaceVariant"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/find_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_marginEnd="2dp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="11.5sp" />
+
+        <ImageButton
+            android:id="@+id/find_prev"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/find_prev"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_chevron_up"
+            app:tint="?attr/colorOnSurfaceVariant" />
+
+        <ImageButton
+            android:id="@+id/find_next"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/find_next"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_chevron_down"
+            app:tint="?attr/colorOnSurfaceVariant" />
+
+        <ImageButton
+            android:id="@+id/find_close"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/find_close"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_close"
+            app:tint="?attr/colorOnSurfaceVariant" />
+    </LinearLayout>
+
     <!-- WebView 容器：所有标签页的 WebView 在此切换 -->
     <FrameLayout
         android:id="@+id/web_container"
@@ -101,7 +173,7 @@
         app:layout_constraintBottom_toTopOf="@id/bar_divider"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/address_bar_row" />
+        app:layout_constraintTop_toBottomOf="@id/find_bar" />
 
     <View
         android:id="@+id/bar_divider"

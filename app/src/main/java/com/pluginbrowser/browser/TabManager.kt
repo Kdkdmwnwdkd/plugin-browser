@@ -90,6 +90,9 @@ class TabManager(
 
     fun currentTab(): Tab? = tabs.getOrNull(currentIndex)
 
+    /** 当前标签的 WebView（未创建或没有标签时返回 null），手势与查找用 */
+    fun currentWebViewOrNull(): WebView? = currentTab()?.takeIf { it.isCreated }?.webView
+
     fun findTab(webView: WebView): Tab? = tabs.firstOrNull { it.isCreated && it.webView === webView }
 
     fun switchTo(index: Int) {
