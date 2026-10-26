@@ -451,6 +451,12 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                     openScreen(BookmarksFragment.newInstance(BookmarksFragment.MODE_HISTORY))
                     true
                 }
+                R.id.action_sniffer -> {
+                    if (requireActivity().supportFragmentManager.findFragmentByTag(TAG_SNIFFER) == null) {
+                        ResourceSnifferFragment().show(requireActivity().supportFragmentManager, TAG_SNIFFER)
+                    }
+                    true
+                }
                 R.id.action_downloads -> { openScreen(DownloadsFragment()); true }
                 R.id.action_plugins -> { openScreen(PluginStoreFragment()); true }
                 R.id.action_settings -> { openScreen(SettingsFragment()); true }
@@ -846,6 +852,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
     companion object {
         private const val TAG_TABS = "tab_switcher"
+        private const val TAG_SNIFFER = "resource_sniffer"
         private const val PROGRESS_ANIM_MS = 160L
         private const val MENU_GROUP_PLUGIN = 1
         private const val MENU_PLUGIN_ID_BASE = 10000

@@ -61,6 +61,8 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
             tab.failedUrl = null
         }
         tab.progress = 5
+        // 记录来源页面 & 让嗅探器知道当前在哪个站
+        if (url.startsWith("http")) ResourceSniffer.currentPageUrl = url
         owner.browserPluginManager.enabledNativePlugins().forEach { it.onPageStarted(view, url) }
         // 提前注入声明 document_start 的 JS 插件（尽力而为：晚于页面脚本执行时仍会在加载完成后生效）
         if (url.startsWith("http")) {
@@ -97,6 +99,9 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         view: WebView,
         request: WebResourceRequest,
     ): WebResourceResponse? {
+        // 嗅探媒体资源（内部只做后缀判断，开销很小）
+        ResourceSniffer.record(request.url.toString())
+
         for (plugin in owner.browserPluginManager.enabledNativePlugins()) {
             val resp = plugin.shouldInterceptRequest(view, request)
             if (resp != null) return resp

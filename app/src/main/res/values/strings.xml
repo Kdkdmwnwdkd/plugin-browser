@@ -125,6 +125,26 @@
     <string name="search_engine_duckduckgo">DuckDuckGo</string>
     <string name="search_suggestion">搜索「%1$s」</string>
 
+    <!-- 资源嗅探 -->
+    <string name="menu_sniffer">资源嗅探</string>
+    <string name="sniffer_title">资源嗅探</string>
+    <string name="sniffer_clear">清空</string>
+    <string name="sniffer_scope">来源：%1$s</string>
+    <string name="sniffer_scope_all">来源：未知页面</string>
+    <string name="sniffer_empty">还没有捕获到可下载的资源\n播放一下页面里的视频，再回来看看</string>
+    <string name="sniffer_hint">只收录视频 / 音频 / 流媒体 / 文件，图片不计入</string>
+    <string name="sniffer_kind_video">视</string>
+    <string name="sniffer_kind_audio">音</string>
+    <string name="sniffer_kind_stream">流</string>
+    <string name="sniffer_kind_image">图</string>
+    <string name="sniffer_kind_file">文</string>
+    <string name="sniffer_download">下载</string>
+    <string name="sniffer_download_title">下载此资源？</string>
+    <string name="sniffer_download_started">已加入下载</string>
+    <string name="sniffer_download_failed">下载启动失败</string>
+    <string name="sniffer_stream_copied">流媒体地址已复制，需要专用下载器（如 m3u8 下载器）</string>
+    <string name="sniffer_stream_meta">%1$s · 流媒体</string>
+
     <!-- 页内查找 -->
     <string name="menu_find">在页面中查找</string>
     <string name="find_hint">查找页面内容</string>

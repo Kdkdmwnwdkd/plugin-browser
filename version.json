@@ -1,13 +1,13 @@
 {
-  "versionCode": 7,
-  "versionName": "1.3.0",
-  "size": 6425187,
-  "sha256": "68083c9add6ff0836f059cf4af4d96c943945547e6dc9a363234676a0edaffa5",
-  "notes": "新增页内查找（菜单 → 在页面中查找，支持上下跳转与命中计数）。\n新增边缘手势：从屏幕左右边缘滑动可前进 / 后退。",
+  "versionCode": 8,
+  "versionName": "1.4.0",
+  "size": 6444567,
+  "sha256": "92b66ddb296043991d4b2f7bc3e53f93f0ef1be40a7e0da7a9ecbfe335fa8f6b",
+  "notes": "新增资源嗅探：菜单 → 资源嗅探，列出当前页面加载过的视频 / 音频 / 流媒体 / 文件，可直接下载；m3u8 这类流媒体会复制地址。",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.3.0/PluginBrowser-1.3.0-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.3.0/PluginBrowser-1.3.0-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.3.0/PluginBrowser-1.3.0-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.4.0/PluginBrowser-1.4.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.4.0/PluginBrowser-1.4.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.4.0/PluginBrowser-1.4.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

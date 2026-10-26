@@ -48,6 +48,11 @@
         android:title="@string/menu_history"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_sniffer"
+        android:icon="@drawable/ic_download"
+        android:title="@string/menu_sniffer"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_downloads"
         android:icon="@drawable/ic_download"
         android:title="@string/menu_downloads"
