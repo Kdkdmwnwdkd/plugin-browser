@@ -1,13 +1,13 @@
 {
-  "versionCode": 9,
-  "versionName": "1.5.0",
-  "size": 6491285,
-  "sha256": "43dd6d8244c47fc715278d15eac47017717b55ff1167c5d180da7cbd1000893a",
-  "notes": "新增整页翻译：菜单 → 翻译此页，可还原原文。\n翻译服务支持多家供应商（百度大模型 / 彩云小译 / OpenAI 兼容 / LibreTranslate），在 设置 → 翻译服务 里选一家填好密钥即可，换供应商不用换包。",
+  "versionCode": 10,
+  "versionName": "1.5.1",
+  "size": 6491841,
+  "sha256": "fd47e095f2bc88e8c8199840b2afedd53fa27f9029f6559f1b69b71373acdbce",
+  "notes": "修复百度翻译鉴权：改用 APPID + 密钥（MD5 签名），不再需要 API Key。\n设置 → 翻译服务 → 百度大模型翻译，填 APPID 和「开发者信息」页里的密钥即可。",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.0/PluginBrowser-1.5.0-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.0/PluginBrowser-1.5.0-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.0/PluginBrowser-1.5.0-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.1/PluginBrowser-1.5.1-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.1/PluginBrowser-1.5.1-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.1/PluginBrowser-1.5.1-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

@@ -15,8 +15,8 @@ enum class TranslateProvider(
 ) {
     BAIDU("baidu", "百度大模型翻译", listOf(
         Field("appid", "APPID", "控制台 → 开发者信息，17 位数字"),
-        Field("key", "API Key", "控制台 → API Keys 管理", secret = true),
-    ), "大模型翻译每月 100 万字符免费，QPS 较低，整页翻译会限速。"),
+        Field("secret", "密钥", "同页的「密钥」，不是 API Key", secret = true),
+    ), "用 APPID + 密钥签名调用。大模型翻译每月 100 万字符免费，QPS 较低，整页翻译会限速。"),
 
     CAIYUN("caiyun", "彩云小译", listOf(
         Field("token", "Token", "彩云小译开放平台的 token", secret = true),

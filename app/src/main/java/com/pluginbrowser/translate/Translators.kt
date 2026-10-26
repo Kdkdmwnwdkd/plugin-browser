@@ -28,7 +28,7 @@ object Translators {
             settings.value(provider, provider.fields.first { it.key == key })
 
         return when (provider) {
-            TranslateProvider.BAIDU -> baidu(field("appid"), field("key"), texts, target)
+            TranslateProvider.BAIDU -> baidu(field("appid"), field("secret"), texts, target)
             TranslateProvider.CAIYUN -> caiyun(field("token"), texts, target)
             TranslateProvider.OPENAI -> openAi(field("base"), field("key"), field("model"), texts, target)
             TranslateProvider.LIBRE -> libre(field("url"), field("key"), texts, target)
@@ -37,49 +37,58 @@ object Translators {
 
     /* ---------------- 百度大模型翻译 ---------------- */
 
-    private fun baidu(appId: String, apiKey: String, texts: List<String>, target: TranslateTarget): List<String> {
-        // 官方支持 q 多行，返回逐行结果；行数对不上时退回逐段翻译
+    private fun baidu(appId: String, secret: String, texts: List<String>, target: TranslateTarget): List<String> {
+        // 官方支持 q 用 \n 分段，返回等长数组；段数对不上时退回逐段
         val joined = texts.joinToString("\n")
-        val parsed = runCatching { baiduOnce(appId, apiKey, joined, target) }.getOrNull()
+        val parsed = runCatching { baiduOnce(appId, secret, joined, target) }.getOrNull()
         if (parsed != null && parsed.size == texts.size) return parsed
 
-        return texts.map { baiduOnce(appId, apiKey, it, target).firstOrNull() ?: it }
+        return texts.map { baiduOnce(appId, secret, it, target).firstOrNull() ?: it }
     }
 
-    private fun baiduOnce(appId: String, apiKey: String, q: String, target: TranslateTarget): List<String> {
+    /**
+     * 百度大模型翻译：APPID + 密钥 + MD5 签名。
+     * 注意 salt 必须是**数字**，传字符串会报 53001。
+     */
+    private fun baiduOnce(appId: String, secret: String, q: String, target: TranslateTarget): List<String> {
+        val salt = System.currentTimeMillis() % 10_000_000_000L
+        val sign = md5(appId + q + salt + secret)
+
         val body = JSONObject()
             .put("appid", appId)
             .put("from", "auto")
             .put("to", target.code)
             .put("q", q)
+            .put("salt", salt)
+            .put("sign", sign)
 
         val resp = postJson(
             "https://fanyi-api.baidu.com/ait/api/aiTextTranslate",
             body.toString(),
-            mapOf("Authorization" to "Bearer $apiKey"),
+            emptyMap(),
         )
         val json = JSONObject(resp)
         val code = json.optInt("error_code", 0)
         if (code != 0) {
             throw IOException("百度翻译错误 $code：${json.optString("error_msg")}")
         }
-        val data = json.optJSONObject("data")
-        val array = data?.optJSONArray("trans_result")
-            ?: data?.optJSONArray("result")
-            ?: json.optJSONArray("trans_result")
+        val array = json.optJSONArray("trans_result")
+            ?: json.optJSONObject("data")?.optJSONArray("trans_result")
             ?: throw IOException("百度返回缺少 trans_result：${resp.take(200)}")
 
         val out = ArrayList<String>(array.length())
         for (i in 0 until array.length()) {
             val item = array.optJSONObject(i) ?: continue
-            val dst = item.optString("dst").ifBlank {
-                item.optString("trans").ifBlank { item.optString("text") }
-            }
-            out.add(dst)
+            out.add(item.optString("dst"))
         }
         if (out.isEmpty()) throw IOException("百度返回空结果")
         return out
     }
+
+    private fun md5(text: String): String =
+        java.security.MessageDigest.getInstance("MD5")
+            .digest(text.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
 
     /* ---------------- 彩云小译 ---------------- */
 
