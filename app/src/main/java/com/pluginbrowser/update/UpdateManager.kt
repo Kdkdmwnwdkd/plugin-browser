@@ -34,6 +34,8 @@ object UpdateManager {
         "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
         "https://ghfast.top/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
         "https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
+        // GitHub API 作为兜底：实时内容，不受 raw CDN 缓存影响（返回 base64 包装）
+        "https://api.github.com/repos/Kdkdmwnwdkd/plugin-browser/contents/version.json?ref=main",
     )
 
     data class UpdateInfo(
@@ -68,22 +70,31 @@ object UpdateManager {
     /** 检查更新（网络请求在 IO 线程） */
     suspend fun check(context: Context): Result = withContext(Dispatchers.IO) {
         var lastError = "网络不可用"
+        var best: UpdateInfo? = null
+        val current = currentVersionCode(context)
+
         for (url in MANIFEST_URLS) {
             val raw = runCatching { httpGet(url) }.getOrElse {
                 lastError = it.message ?: "请求失败"
                 null
             } ?: continue
+
             val info = runCatching { parse(raw) }.getOrElse {
                 lastError = "清单格式错误"
                 null
             } ?: continue
-            return@withContext if (info.versionCode > currentVersionCode(context)) {
-                Result.Available(info)
-            } else {
-                Result.UpToDate(currentVersionName(context))
-            }
+
+            // 取所有源里版本号最大的一个：某个源被缓存成旧版时不会误判
+            if (best == null || info.versionCode > best!!.versionCode) best = info
+            if (info.versionCode > current) break
         }
-        Result.Failed(lastError)
+
+        val latest = best ?: return@withContext Result.Failed(lastError)
+        return@withContext if (latest.versionCode > current) {
+            Result.Available(latest)
+        } else {
+            Result.UpToDate(currentVersionName(context))
+        }
     }
 
     /**
@@ -154,7 +165,13 @@ object UpdateManager {
     /* ---------------- 内部实现 ---------------- */
 
     private fun parse(raw: String): UpdateInfo {
-        val json = JSONObject(raw)
+        val text = if (raw.contains("\"encoding\"") && raw.contains("\"content\"")) {
+            // GitHub Contents API：{"encoding":"base64","content":"..."}
+            String(android.util.Base64.decode(JSONObject(raw).getString("content"), android.util.Base64.DEFAULT))
+        } else {
+            raw
+        }
+        val json = JSONObject(text)
         val apk = json.optJSONArray("apk")?.let { arr ->
             (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) }
         } ?: emptyList()
@@ -170,7 +187,9 @@ object UpdateManager {
     }
 
     private fun httpGet(url: String): String {
-        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+        // 加一次性参数：gh-proxy / raw.githubusercontent 都会按 URL 缓存清单
+        val busted = url + (if (url.contains('?')) "&" else "?") + "t=" + System.currentTimeMillis()
+        val conn = (URL(busted).openConnection() as HttpURLConnection).apply {
             connectTimeout = CONNECT_TIMEOUT
             readTimeout = READ_TIMEOUT
             instanceFollowRedirects = true

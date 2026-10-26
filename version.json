@@ -1,8 +1,8 @@
 {
   "versionCode": 6,
   "versionName": "1.2.3",
-  "size": 6416329,
-  "sha256": "c51ba6aeba39d6505cb04b279b3576bd5a0b2110206c1ca922766e0775d8103f",
+  "size": 6430834,
+  "sha256": "70bcbb14cfc2790ba429870deaa6fea39bef85e7bb5b826bd8eb885c55fb899b",
   "notes": "标签页面板补回「关闭全部」入口（上一版换成底部面板时丢失）。\n如果你是从 1.2.2 更新，这一版主要用于验证应用内更新链路。",
   "apk": [
     "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.2.3/PluginBrowser-1.2.3-debug.apk",
