@@ -1,0 +1,13 @@
+{
+  "id": "builtin.nightmode",
+  "name": "网页夜间模式",
+  "version": "1.0.0",
+  "author": "插件浏览器",
+  "description": "为不支持暗色的网页强制注入暗色样式，缓解夜间浏览刺眼问题。同时演示 PB.storage 插件存储 API。",
+  "type": "js",
+  "entry": "user.js",
+  "matches": ["*://*/*"],
+  "runAt": "document_end",
+  "permissions": ["storage"],
+  "builtin": true
+}

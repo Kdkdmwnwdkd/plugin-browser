@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      原生插件 APK 应保持精简：不引入 Material/AndroidX 等依赖，
+      宿主 App 通过 DexClassLoader 加载插件类并负责提供公共接口。
+      入口 Activity 仅用于被发现，直接使用框架主题即可。
+    -->
+    <style name="Theme.PluginBrowserSample" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

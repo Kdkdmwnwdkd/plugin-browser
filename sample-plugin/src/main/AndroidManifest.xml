@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:theme="@style/Theme.PluginBrowserSample">
+
+        <!--
+          原生插件的注册方式：
+          声明一个入口 Activity（仅用于被发现，无需真实界面），
+          action 固定为 com.pluginbrowser.plugin.NATIVE，
+          并通过 meta-data 指定插件实现类的全名。
+        -->
+        <activity
+            android:name=".PluginEntryActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.pluginbrowser.plugin.NATIVE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="com.pluginbrowser.plugin.ENTRY"
+                android:value="com.pluginbrowser.sample.SamplePlugin" />
+            <meta-data
+                android:name="com.pluginbrowser.plugin.MIN_HOST_VERSION"
+                android:value="1" />
+        </activity>
+    </application>
+</manifest>

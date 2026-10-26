@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material3 颜色角色（深色） -->
+    <color name="colorPrimary">#A8C7FA</color>
+    <color name="colorOnPrimary">#062E6F</color>
+    <color name="colorPrimaryContainer">#0842A0</color>
+    <color name="colorOnPrimaryContainer">#D3E3FD</color>
+    <color name="colorSecondary">#BFC6DC</color>
+    <color name="colorOnSecondary">#293042</color>
+    <color name="colorSecondaryContainer">#3F4759</color>
+    <color name="colorOnSecondaryContainer">#DAE2F9</color>
+    <color name="colorSurface">#111318</color>
+    <color name="colorOnSurface">#E3E3E9</color>
+    <color name="colorSurfaceVariant">#45464F</color>
+    <color name="colorOnSurfaceVariant">#C6C6D0</color>
+    <color name="colorOutline">#90909A</color>
+    <color name="colorOutlineVariant">#45464F</color>
+    <color name="colorError">#FFB4AB</color>
+    <color name="colorOnError">#690005</color>
+
+    <color name="pb_progress">#A8C7FA</color>
+    <color name="pb_incognito">#B69DF8</color>
+    <color name="pb_thumbnail_bg">#2A2B33</color>
+    <color name="pb_scrim">#99000000</color>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 下载目录：应用外部私有目录 -->
+    <external-files-path
+        name="app_downloads"
+        path="Download/" />
+    <!-- API 28 及以下的公共下载目录（旧版存储） -->
+    <external-path
+        name="public_downloads"
+        path="Download/" />
+</paths>

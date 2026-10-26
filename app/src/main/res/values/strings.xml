@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">插件浏览器</string>
+
+    <!-- 浏览器界面 -->
+    <string name="address_bar_hint">搜索或输入网址</string>
+    <string name="menu_refresh">刷新</string>
+    <string name="menu_stop">停止加载</string>
+    <string name="menu_home">主页</string>
+    <string name="menu_bookmarks">书签</string>
+    <string name="menu_history">历史记录</string>
+    <string name="menu_downloads">下载管理</string>
+    <string name="menu_plugins">插件管理</string>
+    <string name="menu_new_tab">新建标签页</string>
+    <string name="menu_new_incognito_tab">新建无痕标签页</string>
+    <string name="menu_desktop_ua">桌面版网站</string>
+    <string name="menu_share">分享</string>
+    <string name="menu_settings">设置</string>
+    <string name="menu_exit">退出</string>
+    <string name="menu_add_bookmark">添加书签</string>
+    <string name="menu_find_in_page">页内查找</string>
+    <string name="security_https">连接安全</string>
+    <string name="security_http">连接不安全</string>
+    <string name="incognito_badge">无痕</string>
+    <string name="new_tab_page">新标签页</string>
+
+    <!-- 标签页切换器 -->
+    <string name="tabs_title">标签页</string>
+    <string name="tabs_new">新建标签页</string>
+    <string name="tabs_close_all">关闭全部</string>
+    <string name="tabs_incognito_on">无痕模式：开</string>
+    <string name="tabs_incognito_off">无痕模式：关</string>
+    <string name="tabs_empty">没有标签页，点击下方按钮新建</string>
+
+    <!-- 插件 -->
+    <string name="plugins_title">插件管理</string>
+    <string name="plugins_import">导入插件</string>
+    <string name="plugins_section_installed">脚本插件（JS）</string>
+    <string name="plugins_section_native">原生插件（内置）</string>
+    <string name="plugins_section_external">外部原生插件</string>
+    <string name="plugins_empty">还没有安装插件，点击右下角导入 .pbp 插件包</string>
+    <string name="plugins_enabled">已启用</string>
+    <string name="plugins_disabled">已禁用</string>
+    <string name="plugins_uninstall">卸载</string>
+    <string name="plugins_import_success">插件「%1$s」安装成功</string>
+    <string name="plugins_import_failed">插件安装失败：%1$s</string>
+    <string name="plugins_builtin_tag">内置</string>
+    <string name="plugins_uninstall_builtin">内置插件不可卸载，可以禁用</string>
+    <string name="plugins_detail_enable">启用插件</string>
+    <string name="plugins_type_js">JS 脚本插件</string>
+    <string name="plugins_type_native">原生插件</string>
+    <string name="plugins_field_permissions">权限</string>
+    <string name="plugins_field_matches">生效网址</string>
+    <string name="plugins_field_entry">入口文件</string>
+    <string name="plugins_none">无</string>
+    <string name="plugins_default_desc">暂无描述</string>
+
+    <!-- 书签 / 历史 -->
+    <string name="bookmarks_title">书签</string>
+    <string name="history_title">历史记录</string>
+    <string name="archive_empty">暂无记录</string>
+    <string name="archive_clear">清空</string>
+    <string name="archive_cleared">已清空</string>
+    <string name="bookmark_add">添加书签</string>
+    <string name="bookmark_added">已添加书签</string>
+    <string name="bookmark_removed">已移除书签</string>
+    <string name="bookmark_exists">该书签已存在</string>
+    <string name="bookmark_name">名称</string>
+    <string name="bookmark_url">地址</string>
+
+    <!-- 下载 -->
+    <string name="downloads_title">下载管理</string>
+    <string name="downloads_empty">暂无下载任务</string>
+    <string name="downloads_clear">清空已完成</string>
+    <string name="downloads_status_pending">等待中</string>
+    <string name="downloads_status_running">下载中</string>
+    <string name="downloads_status_done">已完成</string>
+    <string name="downloads_status_failed">失败</string>
+    <string name="downloads_permission_needed">需要存储权限才能保存文件</string>
+    <string name="downloads_open_failed">没有可用于打开该文件的应用</string>
+
+    <!-- 设置 -->
+    <string name="settings_title">设置</string>
+    <string name="settings_search_engine">搜索引擎</string>
+    <string name="settings_home_url">主页地址</string>
+    <string name="settings_javascript">启用 JavaScript</string>
+    <string name="settings_third_party_cookies">允许第三方 Cookie</string>
+    <string name="settings_block_ads">拦截广告与跟踪</string>
+    <string name="settings_desktop_ua">默认使用桌面版 UA</string>
+    <string name="settings_theme">主题</string>
+    <string name="settings_theme_system">跟随系统</string>
+    <string name="settings_theme_light">浅色</string>
+    <string name="settings_theme_dark">深色</string>
+    <string name="settings_clear_data">清除浏览数据</string>
+    <string name="settings_clear_data_summary">清空历史、缓存与 Cookie（书签保留）</string>
+    <string name="settings_about">关于</string>
+    <string name="settings_about_summary">插件浏览器 1.0.0 · 支持 JS 与原生双插件运行时</string>
+    <string name="settings_clear_confirm">确定要清除浏览数据吗？此操作不可恢复。</string>
+    <string name="settings_search_hint">输入搜索关键词</string>
+
+    <!-- 通用 -->
+    <string name="clear">清空</string>
+    <string name="cancel">取消</string>
+    <string name="confirm">确定</string>
+    <string name="save">保存</string>
+    <string name="copy_link">复制链接</string>
+    <string name="open_new_tab">在新标签页打开</string>
+    <string name="save_image">保存图片</string>
+    <string name="copy_text">复制文字</string>
+    <string name="link_copied">链接已复制</string>
+    <string name="text_copied">已复制</string>
+    <string name="image_saved">图片已保存</string>
+    <string name="share_via">分享到</string>
+    <string name="error_page_title">无法访问此网页</string>
+    <string name="error_page_retry">重试</string>
+    <string name="search_engine_google">Google</string>
+    <string name="search_engine_bing">Bing</string>
+    <string name="search_engine_baidu">百度</string>
+    <string name="search_engine_duckduckgo">DuckDuckGo</string>
+    <string name="search_suggestion">搜索「%1$s」</string>
+</resources>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>插件浏览器</title>
+<style>
+  :root { --bg:#f5f7fb; --card:#ffffff; --text:#1b1b1f; --sub:#5f6368; --accent:#0b57d0; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#111318; --card:#1f2128; --text:#e3e3e9; --sub:#9aa0a6; --accent:#a8c7fa; }
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+         min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:0 20px 40px; }
+  .logo { margin-top:11vh; font-size:32px; font-weight:700; display:flex; align-items:center; gap:10px; }
+  .logo svg { width:36px; height:36px; color:var(--accent); }
+  form { margin-top:26px; width:100%; max-width:560px; display:flex; background:var(--card);
+         border-radius:26px; box-shadow:0 2px 12px rgba(0,0,0,.08); padding:4px; }
+  input { flex:1; border:none; outline:none; background:transparent; color:var(--text);
+          font-size:16px; padding:12px 18px; min-width:0; }
+  button { border:none; background:var(--accent); color:#fff; border-radius:22px;
+           padding:12px 22px; font-size:15px; white-space:nowrap; }
+  .grid { margin-top:36px; width:100%; max-width:560px; display:grid;
+          grid-template-columns:repeat(4,1fr); gap:16px 12px; }
+  a { text-decoration:none; color:var(--text); display:flex; flex-direction:column;
+      align-items:center; gap:8px; font-size:13px; }
+  .tile { width:52px; height:52px; border-radius:16px; background:var(--card);
+          display:flex; align-items:center; justify-content:center; font-size:22px;
+          font-weight:600; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+  .tip { margin-top:34px; color:var(--sub); font-size:12px; text-align:center; }
+</style>
+</head>
+<body>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M3 12h18M12 3c2.6 2.6 2.6 15.4 0 18M12 3c-2.6 2.6-2.6 15.4 0 18"/>
+    </svg>
+    插件浏览器
+  </div>
+  <form action="https://www.baidu.com/s" method="get">
+    <input name="word" placeholder="搜索或输入网址" autocomplete="off" enterkeyhint="search">
+    <button type="submit">搜索</button>
+  </form>
+  <div class="grid">
+    <a href="https://www.baidu.com"><span class="tile">百</span>百度</a>
+    <a href="https://www.bilibili.com"><span class="tile">B</span>哔哩哔哩</a>
+    <a href="https://www.zhihu.com"><span class="tile">知</span>知乎</a>
+    <a href="https://www.taobao.com"><span class="tile">淘</span>淘宝</a>
+    <a href="https://weibo.com"><span class="tile">博</span>微博</a>
+    <a href="https://github.com"><span class="tile">G</span>GitHub</a>
+    <a href="https://www.douyin.com"><span class="tile">抖</span>抖音</a>
+    <a href="https://map.baidu.com"><span class="tile">图</span>地图</a>
+  </div>
+  <div class="tip">点击底部菜单 → 插件管理，安装你的第一个插件<br>本页可在 设置 → 主页地址 中自定义</div>
+</body>
+</html>

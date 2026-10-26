@@ -1,0 +1,13 @@
+{
+  "id": "builtin.reader",
+  "name": "阅读模式",
+  "version": "1.0.0",
+  "author": "插件浏览器",
+  "description": "提取网页正文，以纯净排版浮层展示，支持调节字号并记忆偏好。演示 DOM 提取、浮层 UI 与 PB.storage。",
+  "type": "js",
+  "entry": "user.js",
+  "matches": ["*://*/*"],
+  "runAt": "document_end",
+  "permissions": ["storage"],
+  "builtin": true
+}

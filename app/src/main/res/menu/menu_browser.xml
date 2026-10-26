@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_refresh"
+        android:icon="@drawable/ic_refresh"
+        android:title="@string/menu_refresh"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_add_bookmark"
+        android:icon="@drawable/ic_bookmark_border"
+        android:title="@string/menu_add_bookmark"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_share"
+        android:icon="@drawable/ic_share"
+        android:title="@string/menu_share"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_desktop_ua"
+        android:icon="@drawable/ic_desktop"
+        android:title="@string/menu_desktop_ua"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_new_tab"
+        android:icon="@drawable/ic_add"
+        android:title="@string/menu_new_tab"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_new_incognito_tab"
+        android:icon="@drawable/ic_incognito"
+        android:title="@string/menu_new_incognito_tab"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_bookmarks"
+        android:icon="@drawable/ic_bookmark"
+        android:title="@string/menu_bookmarks"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_history"
+        android:icon="@drawable/ic_history"
+        android:title="@string/menu_history"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_downloads"
+        android:icon="@drawable/ic_download"
+        android:title="@string/menu_downloads"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_plugins"
+        android:icon="@drawable/ic_extension"
+        android:title="@string/menu_plugins"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_settings"
+        android:icon="@drawable/ic_settings"
+        android:title="@string/menu_settings"
+        app:showAsAction="never" />
+</menu>
