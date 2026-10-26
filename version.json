@@ -1,13 +1,13 @@
 {
-  "versionCode": 10,
-  "versionName": "1.5.1",
-  "size": 6491841,
-  "sha256": "fd47e095f2bc88e8c8199840b2afedd53fa27f9029f6559f1b69b71373acdbce",
-  "notes": "修复百度翻译鉴权：改用 APPID + 密钥（MD5 签名），不再需要 API Key。\n设置 → 翻译服务 → 百度大模型翻译，填 APPID 和「开发者信息」页里的密钥即可。",
+  "versionCode": 11,
+  "versionName": "1.5.2",
+  "size": 6495053,
+  "sha256": "2f2c25f48ced717c8427c27b96c405732aebcbfbedd5a4d0ec5e91da929194e5",
+  "notes": "修复翻译「测试连接」报 54001 invalid sign：\n· 输入即保存，不会再测到旧值/空值\n· 自动清除密钥里的空格与零宽字符，签名失败时按多种形态自动重试\n· 密钥框右侧加眼睛图标，可核对 0/O、l/1 这类同形字符\n· 报错附 APPID 与密钥位数，便于判断是否填全",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.1/PluginBrowser-1.5.1-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.1/PluginBrowser-1.5.1-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.1/PluginBrowser-1.5.1-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.2/PluginBrowser-1.5.2-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.2/PluginBrowser-1.5.2-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.5.2/PluginBrowser-1.5.2-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

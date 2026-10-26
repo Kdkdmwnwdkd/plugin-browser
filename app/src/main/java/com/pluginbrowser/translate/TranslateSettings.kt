@@ -76,7 +76,19 @@ class TranslateSettings(context: Context) {
         prefs.getString("${provider.id}_${field.key}", "").orEmpty()
 
     fun putValue(provider: TranslateProvider, field: TranslateProvider.Field, value: String) {
-        prefs.edit().putString("${provider.id}_${field.key}", value.trim()).apply()
+        prefs.edit().putString("${provider.id}_${field.key}", sanitize(value)).apply()
+    }
+
+    /**
+     * 去掉不可见字符：空白、NBSP、零宽、BOM。
+     * 从网页/聊天窗口复制密钥时经常带这些，肉眼看不出来，
+     * 但会让签名对不上（百度会直接报 54001 invalid sign）。
+     */
+    private fun sanitize(raw: String): String = raw.filterNot { ch ->
+        ch.isWhitespace() ||
+            ch == '\u00A0' || ch == '\u2007' || ch == '\u202F' ||   // 各类不换行空格
+            ch == '\u200B' || ch == '\u200C' || ch == '\u200D' ||   // 零宽字符
+            ch == '\uFEFF' || ch == '\u2060'                         // BOM / word joiner
     }
 
     /** 当前供应商是否已配置齐全 */

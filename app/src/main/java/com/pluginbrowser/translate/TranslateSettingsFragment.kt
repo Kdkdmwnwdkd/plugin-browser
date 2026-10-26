@@ -6,6 +6,7 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.view.ContextThemeWrapper
+import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.appbar.MaterialToolbar
@@ -94,6 +95,14 @@ class TranslateSettingsFragment : Fragment(R.layout.fragment_translate_settings)
                 }
                 setSingleLine(true)
             }
+            if (field.secret) {
+                // 密钥容易被 0/O、l/1 这类同形字符写错，给个眼睛看一眼
+                layout.endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
+            }
+            // 输入即落库：避免"填完直接点测试"时读到上一次的旧值
+            edit.doAfterTextChanged { text ->
+                settings.putValue(provider, field, text?.toString().orEmpty())
+            }
             layout.addView(edit)
             fieldsContainer.addView(layout)
             inputs[field] = edit
@@ -125,7 +134,15 @@ class TranslateSettingsFragment : Fragment(R.layout.fragment_translate_settings)
             result.onSuccess { texts ->
                 toast(getString(R.string.translate_test_ok, texts.firstOrNull().orEmpty()))
             }.onFailure { error ->
-                toast(getString(R.string.translate_test_fail, error.message ?: "unknown"))
+                // 签名类错误从文案上看不出问题，把字段位数一并显示，便于核对是否填全
+                val diag = if (provider == TranslateProvider.BAIDU) {
+                    val appId = settings.value(provider, TranslateProvider.BAIDU.fields[0])
+                    val secret = settings.value(provider, TranslateProvider.BAIDU.fields[1])
+                    "（APPID ${appId.length} 位，密钥 ${secret.length} 位）"
+                } else {
+                    ""
+                }
+                toast(getString(R.string.translate_test_fail, (error.message ?: "unknown") + diag))
             }
         }
     }

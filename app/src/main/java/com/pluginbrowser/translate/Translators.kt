@@ -38,12 +38,66 @@ object Translators {
     /* ---------------- 百度大模型翻译 ---------------- */
 
     private fun baidu(appId: String, secret: String, texts: List<String>, target: TranslateTarget): List<String> {
-        // 官方支持 q 用 \n 分段，返回等长数组；段数对不上时退回逐段
+        val cleanId = appId.trim()
+        val candidates = secretCandidates(secret)
+
+        // 密钥若被粘贴带入不可见字符，签名一定对不上；逐个形态试一次，成功即用
+        fun once(q: String): List<String> {
+            var last: IOException? = null
+            for ((index, candidate) in candidates.withIndex()) {
+                try {
+                    return baiduOnce(cleanId, candidate, q, target)
+                } catch (e: IOException) {
+                    last = e
+                    if (!isSignError(e)) throw e           // 额度/频率类错误重试无意义
+                    if (index > 0) Thread.sleep(350)       // 免费版 QPS=1，连续重试留间隔
+                }
+            }
+            throw last ?: IOException("百度翻译失败")
+        }
+
+        // 官方支持 q 用 \n 分段，一次返回等长数组；段数对不上时退回逐段
         val joined = texts.joinToString("\n")
-        val parsed = runCatching { baiduOnce(appId, secret, joined, target) }.getOrNull()
+        val parsed = runCatching { once(joined) }.getOrNull()
         if (parsed != null && parsed.size == texts.size) return parsed
 
-        return texts.map { baiduOnce(appId, secret, it, target).firstOrNull() ?: it }
+        val out = ArrayList<String>(texts.size)
+        var lastError: IOException? = null
+        var success = 0
+        for (q in texts) {
+            val one = runCatching { once(q) }.getOrElse {
+                lastError = it as? IOException ?: IOException(it.message ?: "翻译失败")
+                null
+            }
+            if (one != null) {
+                out.add(one.firstOrNull() ?: q)
+                success++
+            } else {
+                out.add(q)
+            }
+        }
+        // 一段都没成，说明是配置问题，别静默返回原文骗用户"翻译成功"
+        if (success == 0) throw lastError ?: IOException("百度翻译失败")
+        return out
+    }
+
+    /** 同一份密钥的几种等价形态，用于兜住粘贴带进来的不可见字符 */
+    private fun secretCandidates(secret: String): List<String> {
+        val set = LinkedHashSet<String>()
+        fun add(value: String) {
+            if (value.isNotEmpty()) set.add(value)
+        }
+        add(secret)
+        add(secret.trim())
+        add(secret.filterNot { it.isWhitespace() })
+        add(secret.filter { it.code in 0x21..0x7E })   // 只保留可见 ASCII
+        if (set.isEmpty()) set.add("")
+        return set.toList()
+    }
+
+    private fun isSignError(e: IOException): Boolean {
+        val msg = e.message.orEmpty()
+        return msg.contains("54001") || msg.contains("invalid sign")
     }
 
     /**
@@ -70,7 +124,7 @@ object Translators {
         val json = JSONObject(resp)
         val code = json.optInt("error_code", 0)
         if (code != 0) {
-            throw IOException("百度翻译错误 $code：${json.optString("error_msg")}")
+            throw IOException("百度翻译 $code：${baiduHint(code, json.optString("error_msg"))}")
         }
         val array = json.optJSONArray("trans_result")
             ?: json.optJSONObject("data")?.optJSONArray("trans_result")
@@ -83,6 +137,16 @@ object Translators {
         }
         if (out.isEmpty()) throw IOException("百度返回空结果")
         return out
+    }
+
+    private fun baiduHint(code: Int, raw: String): String = when (code) {
+        54001 -> "APPID 与密钥不匹配，或密钥含空格/隐藏字符（大小写、0 与 O 也要核对）"
+        54003 -> "请求过于频繁（免费版限 1 次/秒），稍等再试"
+        54004 -> "账户额度不足"
+        52001 -> "请求超时，检查网络"
+        52003 -> "APPID 无效或服务未开通"
+        53001 -> "请求参数格式错误"
+        else -> raw.ifBlank { "未知错误" }
     }
 
     private fun md5(text: String): String =
