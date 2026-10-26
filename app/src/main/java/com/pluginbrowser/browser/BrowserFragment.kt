@@ -847,14 +847,46 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     override fun openExternally(url: String): Boolean {
+        // intent:// 是 Android 标准的"调起别的 App"写法，自带失败回退地址，
+        // 直接 startActivity 会失败（它需要按 URI_INTENT_SCHEME 解析）
+        if (url.startsWith("intent:", ignoreCase = true)) return openIntentUrl(url)
         return try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            startActivity(intent)
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
             true
         } catch (e: Exception) {
-            toast("未能找到可以处理该链接的应用")
+            toast(getString(R.string.no_app_for_link))
             false
         }
+    }
+
+    private fun openIntentUrl(url: String): Boolean {
+        val intent = runCatching { Intent.parseUri(url, Intent.URI_INTENT_SCHEME) }.getOrNull()
+        if (intent != null) {
+            try {
+                intent.addCategory(Intent.CATEGORY_BROWSABLE)
+                intent.component = null
+                startActivity(intent)
+                return true
+            } catch (_: Exception) {
+                // 目标 App 没装：优先用它带的 http 回退地址
+                val fallback = intent.getStringExtra("browser_fallback_url")
+                if (!fallback.isNullOrBlank()) {
+                    navigateTo(fallback)
+                    return true
+                }
+                val pkg = intent.`package`
+                if (!pkg.isNullOrBlank()) {
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg")))
+                        return true
+                    } catch (_: Exception) {
+                        // 没有应用商店，往下走提示
+                    }
+                }
+            }
+        }
+        toast(getString(R.string.no_app_for_link))
+        return false
     }
 
     override fun runIo(block: suspend () -> Unit) {

@@ -1,13 +1,13 @@
 {
-  "versionCode": 14,
-  "versionName": "1.6.0",
-  "size": 6515076,
-  "sha256": "5b3254939997eae72fdb3635e9a58eb2fb89aa59d31f15011e5beabd9878ed58",
-  "notes": "新增：\n· 手势设置（设置 → 手势）：左右边缘滑动动作可自定义，触发宽度与距离可调，支持双击动作\n· 长截图（菜单 → 长截图）：逐屏拼接整页，保存到相册 Pictures/PluginBrowser\n修复：下载改为保存到系统「下载/PluginBrowser」，文件管理器和下载 App 都能看到",
+  "versionCode": 15,
+  "versionName": "1.6.1",
+  "size": 6519208,
+  "sha256": "fb523e7445d1dfd76bec538d1118fa0b61d9eb086c2c52f6e4363161dd6b1214",
+  "notes": "修复长截图尾部大片空白：\n· 高度改为用 JS 实测「最后一个可见元素」的底部，并按 CSS→物理像素正确换算\n· 每屏停留 200ms，给懒加载与滚动动画留时间\n· 两帧完全相同（滚不动了）时立即结束，不再重复截屏\n修复下载：\n· intent:// 链接按标准解析，App 未安装时自动走它自带的回退地址\n· .apk/.zip/.pdf 等直链直接交给下载器，不再尝试在页面里渲染",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.0/PluginBrowser-1.6.0-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.0/PluginBrowser-1.6.0-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.0/PluginBrowser-1.6.0-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.1/PluginBrowser-1.6.1-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.1/PluginBrowser-1.6.1-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.1/PluginBrowser-1.6.1-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

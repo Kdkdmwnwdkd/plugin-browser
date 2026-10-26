@@ -172,6 +172,8 @@
     <string name="sniffer_stream_copied">流媒体地址已复制，需要专用下载器（如 m3u8 下载器）</string>
     <string name="sniffer_stream_meta">%1$s · 流媒体</string>
 
+    <string name="no_app_for_link">这个链接要用对应的 App 打开，本机没安装或暂不支持</string>
+
     <!-- 长截图 -->
     <string name="screenshot_title">长截图</string>
     <string name="screenshot_preparing">准备中…</string>

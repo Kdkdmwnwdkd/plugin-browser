@@ -15,6 +15,15 @@ import com.pluginbrowser.plugin.PluginManager
  */
 class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
 
+    /** 这些后缀的直链点开就下载，不尝试在页面里渲染 */
+    private val DOWNLOAD_EXTENSIONS = setOf(
+        "apk", "zip", "rar", "7z", "tar", "gz", "xz",
+        "exe", "dmg", "iso",
+        "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+        "epub", "mobi", "torrent",
+        "mp3", "flac", "wav", "m4a", "mp4", "mkv", "avi", "mov",
+    )
+
     interface Owner {
         val browserSettings: SettingsRepository
         val browserStore: BrowserStore
@@ -44,13 +53,35 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         val url = request.url.toString()
         // 首页用 pb:// 把「点空白处聚焦地址栏」的意图交给原生
         if (url.startsWith("pb://")) return owner.onInternalScheme(url)
-        if (url.startsWith("http://") || url.startsWith("https://") ||
-            url.startsWith("file://") || url.startsWith("about:")
-        ) {
+
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            // 直链文件（.apk/.zip/.pdf…）直接交给下载器。
+            // 交给 WebView 的话，服务端 Content-Type 不规范时只会显示一屏乱码或空白
+            if (looksLikeDownload(url)) {
+                return owner.onDownloadRequested(
+                    url,
+                    view.settings.userAgentString,
+                    null,
+                    null,
+                    -1L,
+                )
+            }
             return false
         }
-        // 自定义 scheme（tel: / mailto: / intent: 等）交给外部应用
+        if (url.startsWith("file://") || url.startsWith("about:")) return false
+
+        // 自定义 scheme（tel: / mailto: / intent: / 各家 App 的 deep link）
         return owner.openExternally(url)
+    }
+
+    /** 按路径后缀判断是不是"点开就该下载"的直链 */
+    private fun looksLikeDownload(url: String): Boolean {
+        val path = runCatching { android.net.Uri.parse(url).path }.getOrNull()
+            ?.lowercase()
+            ?: return false
+        val name = path.substringAfterLast('/')
+        if (!name.contains('.')) return false
+        return name.substringAfterLast('.') in DOWNLOAD_EXTENSIONS
     }
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
