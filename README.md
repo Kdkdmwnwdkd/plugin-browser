@@ -375,3 +375,28 @@ interface NativePlugin {
 | 广告拦截示例 | `app/.../plugin/native/AdBlockPlugin.kt` |
 | 多标签管理 | `app/.../browser/TabManager.kt` |
 | 主界面 | `app/.../browser/BrowserFragment.kt` |
+
+---
+
+## 10. 应用内更新
+
+设置 → 关于 → **检查更新**：客户端读取仓库根目录的 `version.json`，
+与自身 `versionCode` 比较；有新版则弹出版本说明，确认后多源下载、校验 SHA-256，
+再拉起系统安装器。
+
+清单地址按顺序尝试（国内优先走加速代理）：
+
+```
+https://gh-proxy.com/https://raw.githubusercontent.com/<owner>/<repo>/main/version.json
+https://ghfast.top/https://raw.githubusercontent.com/<owner>/<repo>/main/version.json
+https://raw.githubusercontent.com/<owner>/<repo>/main/version.json
+```
+
+**发布新版本只需三步**（不需要改代码）：
+
+1. 改 `app/build.gradle.kts` 的 `versionCode` / `versionName`，编译出 APK；
+2. 建对应的 Release，把 APK 传成附件；
+3. 更新仓库根的 `version.json`：`versionCode`、`versionName`、`size`、`sha256`、`apk` 链接列表。
+
+老版本客户端下次「检查更新」即可看到新版本。`apk` 数组支持多个源，
+客户端会按顺序尝试，任一成功且 SHA-256 匹配即采用。

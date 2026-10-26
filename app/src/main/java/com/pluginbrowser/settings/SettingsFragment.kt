@@ -2,6 +2,8 @@ package com.pluginbrowser.settings
 
 import android.os.Bundle
 import android.webkit.CookieManager
+import android.widget.ProgressBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.EditTextPreference
@@ -15,6 +17,7 @@ import com.pluginbrowser.R
 import com.pluginbrowser.data.BrowserStore
 import com.pluginbrowser.data.SettingsRepository
 import com.pluginbrowser.plugin.PluginManager
+import com.pluginbrowser.update.UpdateManager
 import kotlinx.coroutines.launch
 
 /** 设置页（Preference 框架） */
@@ -91,6 +94,17 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
+        findPreference<Preference>("check_update")?.apply {
+            summary = getString(
+                R.string.update_check_summary,
+                UpdateManager.currentVersionName(requireContext()),
+            )
+            setOnPreferenceClickListener {
+                checkForUpdate()
+                true
+            }
+        }
+
         findPreference<Preference>("about")?.setOnPreferenceClickListener {
             Toast.makeText(
                 requireContext(),
@@ -113,6 +127,96 @@ class SettingsFragment : PreferenceFragmentCompat() {
             pluginManager.isEnabled(PluginManager.ADBLOCK_PLUGIN_ID, true)
         findPreference<SwitchPreferenceCompat>("desktop_ua")?.isChecked = settings.desktopUa
         findPreference<ListPreference>("theme")?.value = settings.theme
+    }
+
+    /* ---------------- 应用内更新 ---------------- */
+
+    private fun checkForUpdate() {
+        val app = requireContext().applicationContext
+        Toast.makeText(requireContext(), R.string.update_checking, Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch {
+            when (val result = UpdateManager.check(app)) {
+                is UpdateManager.Result.Available -> if (isAdded) showUpdateDialog(result.info)
+                is UpdateManager.Result.UpToDate -> if (isAdded) {
+                    Toast.makeText(
+                        requireContext(),
+                        getString(R.string.update_latest, result.currentVersion),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+                is UpdateManager.Result.Failed -> if (isAdded) {
+                    Toast.makeText(
+                        requireContext(),
+                        getString(R.string.update_check_failed, result.reason),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    }
+
+    private fun showUpdateDialog(info: UpdateManager.UpdateInfo) {
+        val sizeText = if (info.size > 0) {
+            String.format(java.util.Locale.US, "%.1f MB", info.size / 1024.0 / 1024.0)
+        } else {
+            ""
+        }
+        val message = buildString {
+            if (sizeText.isNotEmpty()) {
+                append(getString(R.string.update_size, sizeText))
+                append("\n\n")
+            }
+            append(info.notes.ifBlank { getString(R.string.update_no_notes) })
+        }
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.update_available_title, info.versionName))
+            .setMessage(message)
+            .setNegativeButton(R.string.update_later, null)
+            .setPositiveButton(R.string.update_download) { _, _ -> startDownload(info) }
+            .show()
+    }
+
+    private fun startDownload(info: UpdateManager.UpdateInfo) {
+        val ctx = requireContext()
+        val app = ctx.applicationContext
+        val content = layoutInflater.inflate(R.layout.dialog_update_progress, null)
+        val status = content.findViewById<TextView>(R.id.update_status)
+        val bar = content.findViewById<ProgressBar>(R.id.update_progress)
+
+        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+            .setTitle(R.string.update_downloading_title)
+            .setView(content)
+            .setCancelable(false)
+            .create()
+        dialog.show()
+
+        lifecycleScope.launch {
+            val result = UpdateManager.download(app, info) { percent ->
+                // 回调在 IO 线程，转回主线程更新进度
+                bar.post {
+                    bar.progress = percent
+                    status.text = getString(R.string.update_downloading, percent)
+                }
+            }
+            dialog.dismiss()
+            result.onSuccess { file ->
+                if (!isAdded) return@onSuccess
+                val started = UpdateManager.install(requireContext(), file)
+                Toast.makeText(
+                    requireContext(),
+                    if (started) R.string.update_install_hint else R.string.update_permission_hint,
+                    Toast.LENGTH_LONG,
+                ).show()
+            }.onFailure { error ->
+                if (isAdded) {
+                    Toast.makeText(
+                        requireContext(),
+                        getString(R.string.update_download_failed, error.message ?: ""),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
     }
 
     private fun lifecycleScopeLaunch(block: suspend () -> Unit) {

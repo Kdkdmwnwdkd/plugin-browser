@@ -1,0 +1,17 @@
+{
+  "versionCode": 5,
+  "versionName": "1.2.2",
+  "size": 6416005,
+  "sha256": "b18361c73e752d7096a21598a984959a95bcae0a2c985ec412e842c843291149",
+  "notes": "新增应用内更新：设置 → 关于 → 检查更新，之后有新版本可直接在软件内下载安装。\n首页只保留顶部地址栏作为唯一输入口。",
+  "apk": [
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.2.2/PluginBrowser-1.2.2-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.2.2/PluginBrowser-1.2.2-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.2.2/PluginBrowser-1.2.2-debug.apk"
+  ],
+  "manifest": [
+    "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
+    "https://ghfast.top/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
+    "https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json"
+  ]
+}
