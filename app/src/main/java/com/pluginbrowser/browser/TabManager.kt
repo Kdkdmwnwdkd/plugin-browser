@@ -2,6 +2,7 @@ package com.pluginbrowser.browser
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Configuration
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebSettings
@@ -51,7 +52,7 @@ class TabManager(
             if (victim >= 0) closeTab(victim)
         }
         val tab = Tab(url = url ?: "", incognito = incognito)
-        val wv = WebView(activity)
+        val wv = WebView(webViewContext())
         with(wv.settings) {
             javaScriptEnabled = settings.javascriptEnabled
             domStorageEnabled = true
@@ -69,7 +70,14 @@ class TabManager(
             mediaPlaybackRequiresUserGesture = true
             @Suppress("DEPRECATION")
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-            if (settings.desktopUa) userAgentString = DESKTOP_UA
+            if (settings.desktopUa) {
+                userAgentString = DESKTOP_UA
+            } else {
+                when (settings.uaPreset) {
+                    "quark" -> userAgentString = SettingsRepository.UA_QUARK
+                    "baidu" -> userAgentString = SettingsRepository.UA_BAIDU
+                }
+            }
         }
         wv.setDownloadListener { dlUrl, userAgent, cd, mime, len ->
             onDownloadHandler?.invoke(dlUrl, userAgent, cd, mime, len)
@@ -141,6 +149,20 @@ class TabManager(
             ),
         )
         tab.webView.onResume()
+    }
+
+    /**
+     * WebView 的 prefers-color-scheme 只认自己的 Configuration，不跟随 AppCompatDelegate。
+     * App 强制浅色、系统却是深色时，会出现「浏览器 UI 浅色、页面深色」的矛盾，
+     * 所以手动给它一个与 App 主题一致的 context。
+     */
+    private fun webViewContext(): Context {
+        val mode = settings.theme
+        if (mode != "light" && mode != "dark") return activity
+        val config = Configuration(activity.resources.configuration)
+        config.uiMode = (config.uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or
+            if (mode == "dark") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
+        return activity.createConfigurationContext(config)
     }
 
     fun pauseAll() {

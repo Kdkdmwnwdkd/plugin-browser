@@ -56,6 +56,11 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
+        findPreference<ListPreference>("ua_preset")?.setOnPreferenceChangeListener { _, newValue ->
+            settings.uaPreset = newValue as String
+            true
+        }
+
         findPreference<SwitchPreferenceCompat>("javascript")?.setOnPreferenceChangeListener { _, newValue ->
             settings.javascriptEnabled = newValue as Boolean
             true

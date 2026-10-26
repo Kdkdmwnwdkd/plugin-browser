@@ -45,6 +45,9 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
             contentLength: Long,
         ): Boolean
 
+        /** WebView 渲染进程崩溃：必须丢弃这个 WebView，否则整页白屏且无法恢复 */
+        fun onRenderProcessGone(tab: Tab)
+
         /** 在协程作用域执行（记录历史等） */
         fun runIo(block: suspend () -> Unit)
     }
@@ -139,6 +142,16 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
             if (resp != null) return resp
         }
         return null
+    }
+
+    override fun onRenderProcessGone(
+        view: WebView,
+        detail: android.webkit.RenderProcessGoneDetail?,
+    ): Boolean {
+        val tab = owner.browserTabManager.findTab(view) ?: return true
+        owner.onRenderProcessGone(tab)
+        // 返回 true 表示已处理，避免系统直接杀掉整个应用
+        return true
     }
 
     override fun onReceivedError(

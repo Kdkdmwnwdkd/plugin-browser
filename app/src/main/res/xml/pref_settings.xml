@@ -31,6 +31,15 @@
             android:key="third_party_cookies"
             android:title="@string/settings_third_party_cookies" />
 
+        <ListPreference
+            android:defaultValue="default"
+            android:entries="@array/ua_preset_entries"
+            android:entryValues="@array/ua_preset_values"
+            android:key="ua_preset"
+            android:summary="部分站点只对特定浏览器提供下载直链，可切换试试（重开页面生效）"
+            android:title="浏览器标识"
+            app:useSimpleSummaryProvider="true" />
+
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="block_ads"

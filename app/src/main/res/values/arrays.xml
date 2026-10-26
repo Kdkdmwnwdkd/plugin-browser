@@ -87,4 +87,16 @@
         <item>new_tab</item>
         <item>reload</item>
     </string-array>
+
+    <string-array name="ua_preset_entries">
+        <item>默认</item>
+        <item>夸克</item>
+        <item>百度</item>
+    </string-array>
+
+    <string-array name="ua_preset_values">
+        <item>default</item>
+        <item>quark</item>
+        <item>baidu</item>
+    </string-array>
 </resources>

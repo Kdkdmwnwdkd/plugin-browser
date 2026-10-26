@@ -35,6 +35,11 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_THEME, "system")!!
         set(value) = prefs.edit().putString(KEY_THEME, value).apply()
 
+    /** 浏览器标识：default / quark / baidu。部分站点只对特定浏览器返回直链 */
+    var uaPreset: String
+        get() = prefs.getString(KEY_UA_PRESET, "default")!!
+        set(value) = prefs.edit().putString(KEY_UA_PRESET, value).apply()
+
     /* ---------------- 手势 ---------------- */
 
     var gestureEnabled: Boolean
@@ -79,12 +84,23 @@ class SettingsRepository(context: Context) {
     companion object {
         const val DEFAULT_HOME = "file:///android_asset/home.html"
 
+        const val UA_QUARK =
+            "Mozilla/5.0 (Linux; U; Android 13; zh-CN; SM-G9910 Build/TP1A.220624.014) " +
+                "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/111.0.0.0 " +
+                "Mobile Safari/537.36 Quark/6.9.2.360"
+
+        const val UA_BAIDU =
+            "Mozilla/5.0 (Linux; Android 13; SM-G9910 Build/TP1A.220624.014; wv) " +
+                "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/111.0.0.0 " +
+                "Mobile Safari/537.36 baiduboxapp/13.42.0.10"
+
         private const val KEY_SEARCH_ENGINE = "search_engine"
         private const val KEY_HOME_URL = "home_url"
         private const val KEY_JS = "javascript"
         private const val KEY_TPC = "third_party_cookies"
         private const val KEY_DESKTOP_UA = "desktop_ua"
         private const val KEY_THEME = "theme"
+        private const val KEY_UA_PRESET = "ua_preset"
         private const val KEY_GESTURE_ENABLED = "gesture_enabled"
         private const val KEY_GESTURE_LEFT = "gesture_left_edge"
         private const val KEY_GESTURE_RIGHT = "gesture_right_edge"

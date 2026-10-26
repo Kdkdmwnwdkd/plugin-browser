@@ -148,8 +148,17 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
     private val backCallback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
+            val tab = tabManager.currentTab()
+            val url = tab?.let { it.failedUrl ?: it.url }.orEmpty()
             when {
                 customView != null -> exitFullscreen()
+                // 首页（或空标签）按返回就退出，不要停在一片空白上
+                url.isBlank() || tabManager.isHomeUrl(url) -> {
+                    isEnabled = false
+                    requireActivity().finish()
+                }
+                // 加载失败的页面没有可回退的内容，直接回首页
+                tab?.failedUrl != null -> navigateTo(settings.homeUrl)
                 currentWebView()?.canGoBack() == true -> currentWebView()?.goBack()
                 else -> {
                     isEnabled = false
@@ -157,6 +166,15 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                     isEnabled = true
                 }
             }
+        }
+    }
+
+    /** 页面 20 秒还没加载完就当作失败，避免一直白屏、退不出去 */
+    private val loadTimeout = Runnable {
+        val tab = tabManager.currentTab() ?: return@Runnable
+        if (tab.progress < 100 && tab.failedUrl == null && tab.url.isNotBlank()) {
+            tab.webView.stopLoading()
+            onErrorPageNeeded(tab, android.webkit.WebViewClient.ERROR_TIMEOUT)
         }
     }
 
@@ -804,9 +822,14 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
     /* ---------------- 页面事件（Owner 回调） ---------------- */
 
-    override fun onPageStarted(tab: Tab) = refreshUi()
+    override fun onPageStarted(tab: Tab) {
+        refreshUi()
+        view?.removeCallbacks(loadTimeout)
+        view?.postDelayed(loadTimeout, 20_000)
+    }
 
     override fun onPageFinished(tab: Tab) {
+        view?.removeCallbacks(loadTimeout)
         refreshUi()
         // 跳转后旧的高亮会失效，若查找栏还开着就重新搜一次
         if (::findBar.isInitialized && findBar.isVisible && findQuery.isNotBlank()) {
@@ -833,6 +856,16 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         tab.webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
     }
 
+    override fun onRenderProcessGone(tab: Tab) {
+        val index = tabManager.tabs.indexOf(tab)
+        if (index >= 0) tabManager.closeTab(index)
+        if (tabManager.tabs.isEmpty()) {
+            openUrl(settings.homeUrl)
+        } else {
+            toast(getString(R.string.renderer_crashed))
+        }
+    }
+
     override fun onInternalScheme(url: String): Boolean {
         if (url.startsWith("pb://focus-address")) {
             addressInput.requestFocus()
@@ -847,6 +880,11 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     override fun openExternally(url: String): Boolean {
+        // 很多"用 App 打开"的链接会把真实地址塞在参数里，先解出来
+        extractHttpFromDeepLink(url)?.let { direct ->
+            offerDirectDownload(direct)
+            return true
+        }
         // intent:// 是 Android 标准的"调起别的 App"写法，自带失败回退地址，
         // 直接 startActivity 会失败（它需要按 URI_INTENT_SCHEME 解析）
         if (url.startsWith("intent:", ignoreCase = true)) {
@@ -863,6 +901,33 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             offerPageDownloads()
             false
         }
+    }
+
+    /** 深度链接的 query 里带 http(s) 地址时取出来（常见于导流下载页） */
+    private fun extractHttpFromDeepLink(raw: String): String? {
+        val uri = runCatching { Uri.parse(raw) }.getOrNull() ?: return null
+        val names = uri.queryParameterNames.orEmpty()
+        for (name in names) {
+            val value = runCatching { uri.getQueryParameter(name) }.getOrNull() ?: continue
+            val decoded = Uri.decode(value)
+            if (decoded.startsWith("http://") || decoded.startsWith("https://")) {
+                return decoded
+            }
+        }
+        return null
+    }
+
+    private fun offerDirectDownload(link: String) {
+        val name = link.substringBefore('?').substringAfterLast('/').ifBlank { link }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.deep_link_found)
+            .setMessage(name)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.sniffer_download) { _, _ ->
+                val ua = currentWebView()?.settings?.userAgentString.orEmpty()
+                onDownloadRequested(link, ua, null, null, -1L)
+            }
+            .show()
     }
 
     /**
