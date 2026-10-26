@@ -2,7 +2,7 @@
   "id": "builtin.purify",
   "name": "网页净化",
   "version": "1.0.0",
-  "author": "插件浏览器",
+  "author": "青鸢",
   "description": "移除常见广告位与浮动遮挡元素，并用 MutationObserver 持续清理动态插入的广告节点。",
   "type": "js",
   "entry": "user.js",

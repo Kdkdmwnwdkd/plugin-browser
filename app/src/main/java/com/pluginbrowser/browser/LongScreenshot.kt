@@ -215,7 +215,7 @@ object LongScreenshot {
      * 更低版本写应用外部 Pictures 目录并通知相册扫描。
      */
     fun saveToGallery(context: Context, bitmap: Bitmap): Uri? = runCatching {
-        val name = "PB_" + java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+        val name = "Kite_" + java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
             .format(java.util.Date()) + ".png"
 
         if (Build.VERSION.SDK_INT >= 29) {
@@ -224,7 +224,7 @@ object LongScreenshot {
                 put(MediaStore.Images.Media.MIME_TYPE, "image/png")
                 put(
                     MediaStore.Images.Media.RELATIVE_PATH,
-                    "${Environment.DIRECTORY_PICTURES}/PluginBrowser",
+                    "${Environment.DIRECTORY_PICTURES}/Kite",
                 )
                 put(MediaStore.Images.Media.IS_PENDING, 1)
             }
@@ -241,7 +241,7 @@ object LongScreenshot {
         } else {
             val dir = File(
                 context.getExternalFilesDir(Environment.DIRECTORY_PICTURES),
-                "PluginBrowser",
+                "Kite",
             ).apply { mkdirs() }
             val file = File(dir, name)
             FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }

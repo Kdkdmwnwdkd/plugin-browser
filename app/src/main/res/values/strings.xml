@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">插件浏览器</string>
+    <string name="app_name">青鸢</string>
 
     <!-- 浏览器界面 -->
     <string name="address_bar_hint">搜索或输入网址</string>
@@ -100,7 +100,7 @@
     <string name="settings_clear_data">清除浏览数据</string>
     <string name="settings_clear_data_summary">清空历史、缓存与 Cookie（书签保留）</string>
     <string name="settings_about">关于</string>
-    <string name="settings_about_summary">插件浏览器 1.0.0 · 支持 JS 与原生双插件运行时</string>
+    <string name="settings_about_summary">青鸢 Kite 1.9.0 · 支持 JS 与原生双插件运行时</string>
     <string name="settings_clear_confirm">确定要清除浏览数据吗？此操作不可恢复。</string>
     <string name="settings_search_hint">输入搜索关键词</string>
 
@@ -183,7 +183,7 @@
     <string name="screenshot_title">长截图</string>
     <string name="screenshot_preparing">准备中…</string>
     <string name="screenshot_progress">正在拼接 %1$d/%2$d 屏</string>
-    <string name="screenshot_saved">已保存到相册（Pictures/PluginBrowser）</string>
+    <string name="screenshot_saved">已保存到相册（Pictures/Kite）</string>
     <string name="screenshot_failed">截图失败，页面可能过长或尚未加载完成</string>
 
     <!-- 页内查找 -->
