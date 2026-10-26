@@ -147,6 +147,8 @@
     <string name="translate_need_config">还没有配置翻译服务</string>
     <string name="translate_need_config_msg">去设置里选一个供应商，填入密钥即可。以后想换供应商也在这里改，不需要重新装包。</string>
     <string name="translate_go_settings">去设置</string>
+    <string name="settings_plugins">插件管理</string>
+    <string name="settings_plugins_summary">查看、开关或导入插件（含内置的阅读模式、夜间模式）</string>
     <string name="settings_gesture_title">手势</string>
     <string name="settings_gesture_summary">边缘滑动动作与触发范围</string>
     <string name="settings_translate">翻译服务</string>
@@ -172,6 +174,7 @@
     <string name="sniffer_stream_copied">流媒体地址已复制，需要专用下载器（如 m3u8 下载器）</string>
     <string name="sniffer_stream_meta">%1$s · 流媒体</string>
 
+    <string name="page_download_title">页面里有这些文件，要下载哪个？</string>
     <string name="no_app_for_link">这个链接要用对应的 App 打开，本机没安装或暂不支持</string>
 
     <!-- 长截图 -->

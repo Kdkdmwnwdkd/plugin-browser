@@ -42,6 +42,11 @@
             android:title="@string/settings_desktop_ua" />
 
         <Preference
+            android:key="plugin_store"
+            android:summary="@string/settings_plugins_summary"
+            android:title="@string/settings_plugins" />
+
+        <Preference
             android:key="gesture_settings"
             android:summary="@string/settings_gesture_summary"
             android:title="@string/settings_gesture_title" />

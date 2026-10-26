@@ -96,6 +96,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
+        findPreference<Preference>("plugin_store")?.setOnPreferenceClickListener {
+            requireActivity().supportFragmentManager.beginTransaction()
+                .replace(R.id.main_container, com.pluginbrowser.plugin.store.PluginStoreFragment())
+                .addToBackStack(null)
+                .commit()
+            true
+        }
+
         findPreference<Preference>("gesture_settings")?.setOnPreferenceClickListener {
             requireActivity().supportFragmentManager.beginTransaction()
                 .replace(R.id.main_container, GestureSettingsFragment())

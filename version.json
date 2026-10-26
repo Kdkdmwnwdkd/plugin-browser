@@ -1,13 +1,13 @@
 {
-  "versionCode": 15,
-  "versionName": "1.6.1",
-  "size": 6519208,
-  "sha256": "fb523e7445d1dfd76bec538d1118fa0b61d9eb086c2c52f6e4363161dd6b1214",
-  "notes": "修复长截图尾部大片空白：\n· 高度改为用 JS 实测「最后一个可见元素」的底部，并按 CSS→物理像素正确换算\n· 每屏停留 200ms，给懒加载与滚动动画留时间\n· 两帧完全相同（滚不动了）时立即结束，不再重复截屏\n修复下载：\n· intent:// 链接按标准解析，App 未安装时自动走它自带的回退地址\n· .apk/.zip/.pdf 等直链直接交给下载器，不再尝试在页面里渲染",
+  "versionCode": 16,
+  "versionName": "1.6.2",
+  "size": 6600208,
+  "sha256": "f326ebb43f3a5f0ffc4a030dc8d7b5ef4b270237ffc6372c622aac17bdeb8a10",
+  "notes": "下载改进：\n· 深链接（quark:// 等）调起失败时，自动在页面源码里找 apk/zip/pdf 直链，弹窗让你选着下\n· 有安装包时优先只列安装包，不混入无关文件\n设置新增「插件管理」入口（之前只在浏览器菜单最底部）",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.1/PluginBrowser-1.6.1-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.1/PluginBrowser-1.6.1-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.1/PluginBrowser-1.6.1-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.2/PluginBrowser-1.6.2-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.2/PluginBrowser-1.6.2-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.2/PluginBrowser-1.6.2-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

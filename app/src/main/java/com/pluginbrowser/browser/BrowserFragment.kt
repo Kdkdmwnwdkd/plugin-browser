@@ -849,13 +849,86 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     override fun openExternally(url: String): Boolean {
         // intent:// 是 Android 标准的"调起别的 App"写法，自带失败回退地址，
         // 直接 startActivity 会失败（它需要按 URI_INTENT_SCHEME 解析）
-        if (url.startsWith("intent:", ignoreCase = true)) return openIntentUrl(url)
+        if (url.startsWith("intent:", ignoreCase = true)) {
+            if (openIntentUrl(url)) return true
+            offerPageDownloads()
+            return false
+        }
         return try {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
             true
         } catch (e: Exception) {
-            toast(getString(R.string.no_app_for_link))
+            // 调起失败（通常是"用我的 App 打开"这类深度链接）：
+            // 很多推广页把真正的下载地址藏在自己源码里，试着挖出来给用户
+            offerPageDownloads()
             false
+        }
+    }
+
+    /**
+     * 深度链接调起失败时，在页面里找可下载的文件。
+     * 推广页常见做法：按钮只挂 deep link，但 HTML 里仍留着 apk 直链。
+     */
+    private fun offerPageDownloads() {
+        val webView = currentWebView() ?: return
+        val js = """
+            (function () {
+              var out = [], seen = {};
+              // innerHTML 里 & 会变成 &amp;、引号变成 &quot;，直接抓到会带脏尾巴
+              function clean(u) {
+                var cut = u.search(/&quot;|&#39;|&lt;|&gt;|["'<>]/);
+                if (cut >= 0) u = u.slice(0, cut);
+                u = u.replace(/&amp;/g, '&');
+                return u.replace(/[),.;]+$/, '');
+              }
+              function push(raw) {
+                var u = clean(raw || '');
+                if (!u || seen[u] || out.length >= 8) return;
+                if (!/^https?:/i.test(u)) return;
+                seen[u] = 1; out.push(u);
+              }
+              var as = document.querySelectorAll('a[href]');
+              for (var i = 0; i < as.length; i++) {
+                var h = as[i].href || '';
+                if (/\.(apk|zip|rar|7z|pdf|docx?|xlsx?|pptx?|epub)([?#]|${'$'})/i.test(h)) push(h);
+              }
+              var html = document.documentElement.innerHTML || '';
+              var re = /https?:\/\/[^\s"'<>\\]+\.(?:apk|zip|rar|7z|pdf)(?:\?[^\s"'<>\\]*)?/gi;
+              var m;
+              while ((m = re.exec(html)) !== null) push(m[0]);
+              return JSON.stringify(out);
+            })()
+        """
+        webView.evaluateJavascript(js) { raw ->
+            if (!isAdded) return@evaluateJavascript
+            val all = runCatching {
+                val inner = (org.json.JSONTokener(raw).nextValue() as? String).orEmpty()
+                val arr = org.json.JSONArray(inner)
+                (0 until arr.length()).map { arr.getString(it) }.distinct()
+            }.getOrDefault(emptyList())
+
+            // 有安装包就只列安装包，别让 PDF、压缩包混进来干扰
+            val apks = all.filter { it.substringBefore('?').endsWith(".apk", ignoreCase = true) }
+            val candidates = if (apks.isNotEmpty()) apks else all
+
+            if (candidates.isEmpty()) {
+                toast(getString(R.string.no_app_for_link))
+                return@evaluateJavascript
+            }
+
+            val labels = candidates.map { link ->
+                val name = link.substringBefore('?').substringAfterLast('/')
+                if (name.isBlank()) link else name
+            }.toTypedArray()
+
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.page_download_title)
+                .setItems(labels) { _, which ->
+                    val link = candidates[which]
+                    onDownloadRequested(link, webView.settings.userAgentString, null, null, -1L)
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
         }
     }
 
@@ -885,7 +958,6 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                 }
             }
         }
-        toast(getString(R.string.no_app_for_link))
         return false
     }
 
