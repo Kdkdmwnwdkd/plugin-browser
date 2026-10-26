@@ -45,6 +45,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         settings = SettingsRepository(requireContext())
         setPreferencesFromResource(R.xml.pref_settings, rootKey)
+        preferenceScreen?.dropIconSpace()
 
         findPreference<ListPreference>("search_engine")?.setOnPreferenceChangeListener { _, newValue ->
             settings.searchEngine = newValue as String
