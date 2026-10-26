@@ -100,7 +100,7 @@
     <string name="settings_clear_data">清除浏览数据</string>
     <string name="settings_clear_data_summary">清空历史、缓存与 Cookie（书签保留）</string>
     <string name="settings_about">关于</string>
-    <string name="settings_about_summary">青鸢 Kite 1.9.0 · 支持 JS 与原生双插件运行时</string>
+    <string name="settings_about_summary">青鸢 Kite %1$s · 支持 JS 与原生双插件运行时</string>
     <string name="settings_clear_confirm">确定要清除浏览数据吗？此操作不可恢复。</string>
     <string name="settings_search_hint">输入搜索关键词</string>
 
