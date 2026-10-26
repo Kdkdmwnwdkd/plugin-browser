@@ -147,6 +147,8 @@
     <string name="translate_need_config">还没有配置翻译服务</string>
     <string name="translate_need_config_msg">去设置里选一个供应商，填入密钥即可。以后想换供应商也在这里改，不需要重新装包。</string>
     <string name="translate_go_settings">去设置</string>
+    <string name="settings_gesture_title">手势</string>
+    <string name="settings_gesture_summary">边缘滑动动作与触发范围</string>
     <string name="settings_translate">翻译服务</string>
     <string name="settings_translate_summary">供应商、密钥与目标语言</string>
 
@@ -169,6 +171,13 @@
     <string name="sniffer_download_failed">下载启动失败</string>
     <string name="sniffer_stream_copied">流媒体地址已复制，需要专用下载器（如 m3u8 下载器）</string>
     <string name="sniffer_stream_meta">%1$s · 流媒体</string>
+
+    <!-- 长截图 -->
+    <string name="screenshot_title">长截图</string>
+    <string name="screenshot_preparing">准备中…</string>
+    <string name="screenshot_progress">正在拼接 %1$d/%2$d 屏</string>
+    <string name="screenshot_saved">已保存到相册（Pictures/PluginBrowser）</string>
+    <string name="screenshot_failed">截图失败，页面可能过长或尚未加载完成</string>
 
     <!-- 页内查找 -->
     <string name="menu_find">在页面中查找</string>

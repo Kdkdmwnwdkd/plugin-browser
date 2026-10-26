@@ -42,6 +42,11 @@
             android:title="@string/settings_desktop_ua" />
 
         <Preference
+            android:key="gesture_settings"
+            android:summary="@string/settings_gesture_summary"
+            android:title="@string/settings_gesture_title" />
+
+        <Preference
             android:key="translate_service"
             android:summary="@string/settings_translate_summary"
             android:title="@string/settings_translate" />

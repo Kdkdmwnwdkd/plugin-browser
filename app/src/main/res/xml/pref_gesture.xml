@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="滑动">
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="gesture_enabled"
+            android:summary="关掉后边缘滑动交还页面，用于横向滑动为主的站点"
+            android:title="启用边缘手势" />
+
+        <ListPreference
+            android:defaultValue="back"
+            android:entries="@array/gesture_action_entries"
+            android:entryValues="@array/gesture_action_values"
+            android:key="gesture_left_edge"
+            android:title="从左边缘向右滑"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            android:defaultValue="forward"
+            android:entries="@array/gesture_action_entries"
+            android:entryValues="@array/gesture_action_values"
+            android:key="gesture_right_edge"
+            android:title="从右边缘向左滑"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="触发范围">
+
+        <ListPreference
+            android:defaultValue="22"
+            android:entries="@array/gesture_edge_entries"
+            android:entryValues="@array/gesture_edge_values"
+            android:key="gesture_edge_width"
+            android:title="边缘起始宽度"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            android:defaultValue="72"
+            android:entries="@array/gesture_distance_entries"
+            android:entryValues="@array/gesture_distance_values"
+            android:key="gesture_distance"
+            android:title="横向滑出距离"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="其它">
+
+        <ListPreference
+            android:defaultValue="none"
+            android:entries="@array/gesture_double_tap_entries"
+            android:entryValues="@array/gesture_double_tap_values"
+            android:key="gesture_double_tap"
+            android:summary="双击可能影响页面内的选词，默认关闭"
+            android:title="双击页面"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <Preference
+        android:enabled="false"
+        android:summary="手势只在页面区域生效，地址栏与底栏不受影响。边缘滑动方向必须朝屏幕内侧，纵向滑动会交还给页面滚动。" />
+</PreferenceScreen>

@@ -35,6 +35,37 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_THEME, "system")!!
         set(value) = prefs.edit().putString(KEY_THEME, value).apply()
 
+    /* ---------------- 手势 ---------------- */
+
+    var gestureEnabled: Boolean
+        get() = prefs.getBoolean(KEY_GESTURE_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_GESTURE_ENABLED, value).apply()
+
+    /** 左边缘向右滑触发的动作 */
+    var gestureLeftEdge: String
+        get() = prefs.getString(KEY_GESTURE_LEFT, "back")!!
+        set(value) = prefs.edit().putString(KEY_GESTURE_LEFT, value).apply()
+
+    /** 右边缘向左滑触发的动作 */
+    var gestureRightEdge: String
+        get() = prefs.getString(KEY_GESTURE_RIGHT, "forward")!!
+        set(value) = prefs.edit().putString(KEY_GESTURE_RIGHT, value).apply()
+
+    /** 双击页面触发的动作，默认关闭（会影响页面内选词） */
+    var gestureDoubleTap: String
+        get() = prefs.getString(KEY_GESTURE_DOUBLE, "none")!!
+        set(value) = prefs.edit().putString(KEY_GESTURE_DOUBLE, value).apply()
+
+    /** 边缘判定宽度（dp）。ListPreference 存的是字符串，这里统一按字符串读 */
+    var gestureEdgeWidthDp: Int
+        get() = prefs.getString(KEY_GESTURE_EDGE_WIDTH, null)?.toIntOrNull() ?: 22
+        set(value) = prefs.edit().putString(KEY_GESTURE_EDGE_WIDTH, value.toString()).apply()
+
+    /** 横向滑出距离（dp） */
+    var gestureDistanceDp: Int
+        get() = prefs.getString(KEY_GESTURE_DISTANCE, null)?.toIntOrNull() ?: 72
+        set(value) = prefs.edit().putString(KEY_GESTURE_DISTANCE, value.toString()).apply()
+
     fun applyTheme() {
         AppCompatDelegate.setDefaultNightMode(
             when (theme) {
@@ -54,5 +85,11 @@ class SettingsRepository(context: Context) {
         private const val KEY_TPC = "third_party_cookies"
         private const val KEY_DESKTOP_UA = "desktop_ua"
         private const val KEY_THEME = "theme"
+        private const val KEY_GESTURE_ENABLED = "gesture_enabled"
+        private const val KEY_GESTURE_LEFT = "gesture_left_edge"
+        private const val KEY_GESTURE_RIGHT = "gesture_right_edge"
+        private const val KEY_GESTURE_DOUBLE = "gesture_double_tap"
+        private const val KEY_GESTURE_EDGE_WIDTH = "gesture_edge_width"
+        private const val KEY_GESTURE_DISTANCE = "gesture_distance"
     }
 }

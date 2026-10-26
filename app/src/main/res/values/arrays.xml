@@ -23,4 +23,68 @@
         <item>light</item>
         <item>dark</item>
     </string-array>
+
+    <string-array name="gesture_action_entries">
+        <item>后退</item>
+        <item>前进</item>
+        <item>刷新</item>
+        <item>回到主页</item>
+        <item>新建标签页</item>
+        <item>关闭当前标签</item>
+        <item>回到页面顶部</item>
+        <item>滚动到页面底部</item>
+        <item>无动作</item>
+    </string-array>
+
+    <string-array name="gesture_action_values">
+        <item>back</item>
+        <item>forward</item>
+        <item>reload</item>
+        <item>home</item>
+        <item>new_tab</item>
+        <item>close_tab</item>
+        <item>scroll_top</item>
+        <item>scroll_bottom</item>
+        <item>none</item>
+    </string-array>
+
+    <string-array name="gesture_edge_entries">
+        <item>窄（16dp）</item>
+        <item>标准（22dp）</item>
+        <item>宽（32dp）</item>
+        <item>很宽（44dp）</item>
+    </string-array>
+
+    <string-array name="gesture_edge_values">
+        <item>16</item>
+        <item>22</item>
+        <item>32</item>
+        <item>44</item>
+    </string-array>
+
+    <string-array name="gesture_distance_entries">
+        <item>短（50dp）</item>
+        <item>标准（72dp）</item>
+        <item>长（100dp）</item>
+    </string-array>
+
+    <string-array name="gesture_distance_values">
+        <item>50</item>
+        <item>72</item>
+        <item>100</item>
+    </string-array>
+
+    <string-array name="gesture_double_tap_entries">
+        <item>无动作</item>
+        <item>回到页面顶部</item>
+        <item>新建标签页</item>
+        <item>刷新</item>
+    </string-array>
+
+    <string-array name="gesture_double_tap_values">
+        <item>none</item>
+        <item>scroll_top</item>
+        <item>new_tab</item>
+        <item>reload</item>
+    </string-array>
 </resources>

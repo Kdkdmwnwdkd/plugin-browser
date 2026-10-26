@@ -310,6 +310,39 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         }
     }
 
+    /* ---------------- 长截图 ---------------- */
+
+    private fun captureLongScreenshot() {
+        val webView = currentWebView() ?: return
+        val content = layoutInflater.inflate(R.layout.dialog_capture_progress, null)
+        val status = content.findViewById<TextView>(R.id.capture_status)
+        val bar = content.findViewById<ProgressBar>(R.id.capture_progress)
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.screenshot_title)
+            .setView(content)
+            .setCancelable(false)
+            .create()
+        dialog.show()
+
+        lifecycleScope.launch {
+            val result = LongScreenshot.capture(webView) { done, total ->
+                bar.progress = if (total == 0) 0 else done * 100 / total
+                status.text = getString(R.string.screenshot_progress, done, total)
+            }
+            dialog.dismiss()
+            result.onSuccess { bitmap ->
+                val uri = LongScreenshot.saveToGallery(requireContext(), bitmap)
+                bitmap.recycle()
+                toast(
+                    if (uri != null) getString(R.string.screenshot_saved)
+                    else getString(R.string.screenshot_failed),
+                )
+            }.onFailure {
+                toast(getString(R.string.screenshot_failed))
+            }
+        }
+    }
+
     /* ---------------- 页内查找 ---------------- */
 
     private fun setupFindBar() {
@@ -454,6 +487,59 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         return tab.failedUrl ?: tab.url
     }
 
+    /**
+     * 手势动作入口（MainActivity 调用）。
+     * 返回 false 表示这个动作当前做不了（比如没有可后退的历史），
+     * 调用方会把事件继续交给页面，避免"划了没反应还吃掉手势"。
+     */
+    fun performGestureAction(action: String): Boolean {
+        val webView = currentWebView()
+        return when (action) {
+            "back" -> if (webView != null && webView.canGoBack()) {
+                webView.goBack()
+                true
+            } else {
+                false
+            }
+            "forward" -> if (webView != null && webView.canGoForward()) {
+                webView.goForward()
+                true
+            } else {
+                false
+            }
+            "reload" -> {
+                reload()
+                true
+            }
+            "home" -> {
+                navigateTo(settings.homeUrl)
+                true
+            }
+            "new_tab" -> {
+                openUrl(settings.homeUrl)
+                true
+            }
+            "close_tab" -> {
+                val index = tabManager.currentIndex
+                if (index in tabManager.tabs.indices) {
+                    tabManager.closeTab(index)
+                    true
+                } else {
+                    false
+                }
+            }
+            "scroll_top" -> {
+                webView?.scrollTo(0, 0)
+                webView != null
+            }
+            "scroll_bottom" -> {
+                webView?.scrollTo(0, webView.contentHeight)
+                webView != null
+            }
+            else -> false
+        }
+    }
+
     private fun currentWebView(): WebView? {
         val tab = tabManager.currentTab() ?: return null
         return if (tab.isCreated) tab.webView else null
@@ -513,6 +599,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                     openScreen(BookmarksFragment.newInstance(BookmarksFragment.MODE_HISTORY))
                     true
                 }
+                R.id.action_screenshot -> { captureLongScreenshot(); true }
                 R.id.action_sniffer -> {
                     if (requireActivity().supportFragmentManager.findFragmentByTag(TAG_SNIFFER) == null) {
                         ResourceSnifferFragment().show(requireActivity().supportFragmentManager, TAG_SNIFFER)

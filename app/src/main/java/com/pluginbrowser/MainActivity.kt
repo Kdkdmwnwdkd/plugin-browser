@@ -30,12 +30,11 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
 
     private lateinit var settings: SettingsRepository
 
-    /* 边缘滑动返回：轻量浏览器的核心手感之一 */
-    private var edgeTracking = false
+    /* 手势：边缘滑动与双击。动作本身由 BrowserFragment 执行 */
+    private var edgeSide = SIDE_NONE
     private var edgeStartX = 0f
     private var edgeStartY = 0f
-    private val edgeSlop by lazy { 22 * resources.displayMetrics.density }
-    private val swipeDistance by lazy { 72 * resources.displayMetrics.density }
+    private var lastTapAt = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         settings = SettingsRepository(this)
@@ -78,39 +77,71 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
     }
 
     /**
-     * 从屏幕左/右 22dp 内水平滑出 72dp 触发前进/后退。
-     * 放在 dispatch 层拦截，WebView 自身收不到这段手势，不影响页面滚动。
+     * 手势分发：从左右边缘朝内滑出设定距离，执行用户配置的动作。
+     * 在 dispatch 层拦截，页面内部横向滚动不受影响；纵向意图明显时主动让行。
      */
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (!::settings.isInitialized || !settings.gestureEnabled) {
+            return super.dispatchTouchEvent(ev)
+        }
+
+        val density = resources.displayMetrics.density
+        val edgeWidth = settings.gestureEdgeWidthDp * density
+        val needDistance = settings.gestureDistanceDp * density
+
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                val now = android.os.SystemClock.uptimeMillis()
+                val doubleTapAction = settings.gestureDoubleTap
+                if (doubleTapAction != ACTION_NONE && now - lastTapAt in 40..320) {
+                    lastTapAt = 0
+                    if (performGesture(doubleTapAction)) return true
+                }
+                lastTapAt = now
+
                 val screenWidth = resources.displayMetrics.widthPixels
-                edgeTracking = ev.x <= edgeSlop || ev.x >= screenWidth - edgeSlop
+                edgeSide = when {
+                    ev.x <= edgeWidth -> SIDE_LEFT
+                    ev.x >= screenWidth - edgeWidth -> SIDE_RIGHT
+                    else -> SIDE_NONE
+                }
                 edgeStartX = ev.x
                 edgeStartY = ev.y
             }
-            MotionEvent.ACTION_UP -> {
-                if (edgeTracking) {
-                    edgeTracking = false
-                    val dx = ev.x - edgeStartX
-                    val dy = abs(ev.y - edgeStartY)
-                    if (abs(dx) >= swipeDistance && abs(dx) > dy * 1.5f) {
-                        val webView = tabManager.currentWebViewOrNull()
-                        if (dx > 0 && webView?.canGoBack() == true) {
-                            webView.goBack()
-                            return true
-                        }
-                        if (dx < 0 && webView?.canGoForward() == true) {
-                            webView.goForward()
-                            return true
-                        }
-                    }
+
+            MotionEvent.ACTION_MOVE -> {
+                if (edgeSide != SIDE_NONE &&
+                    abs(ev.y - edgeStartY) > abs(ev.x - edgeStartX) * 1.2f
+                ) {
+                    // 明显在上下滑，交还给页面滚动
+                    edgeSide = SIDE_NONE
                 }
             }
-            MotionEvent.ACTION_CANCEL -> edgeTracking = false
+
+            MotionEvent.ACTION_UP -> {
+                val side = edgeSide
+                edgeSide = SIDE_NONE
+                if (side == SIDE_NONE) return super.dispatchTouchEvent(ev)
+
+                val dx = ev.x - edgeStartX
+                val dy = abs(ev.y - edgeStartY)
+                if (abs(dx) < needDistance || abs(dx) < dy * 1.5f) {
+                    return super.dispatchTouchEvent(ev)
+                }
+                val action = when (side) {
+                    SIDE_LEFT -> if (dx > 0) settings.gestureLeftEdge else ACTION_NONE
+                    else -> if (dx < 0) settings.gestureRightEdge else ACTION_NONE
+                }
+                if (action != ACTION_NONE && performGesture(action)) return true
+            }
+
+            MotionEvent.ACTION_CANCEL -> edgeSide = SIDE_NONE
         }
         return super.dispatchTouchEvent(ev)
     }
+
+    private fun performGesture(action: String): Boolean =
+        browserFragment()?.performGestureAction(action) == true
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -200,5 +231,12 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
     fun dispatchPluginMenuItem(item: PluginMenuItem): Boolean {
         val pm: PluginManager = PluginBrowserApp.from(this).pluginManager
         return pm.enabledNativePlugins().any { it.onMenuItemClicked(item) }
+    }
+
+    companion object {
+        private const val SIDE_NONE = 0
+        private const val SIDE_LEFT = 1
+        private const val SIDE_RIGHT = 2
+        private const val ACTION_NONE = "none"
     }
 }

@@ -11,6 +11,10 @@
     <cache-path
         name="update_cache"
         path="." />
+    <!-- 长截图（API 28 及以下存在应用外部 Pictures） -->
+    <external-files-path
+        name="screenshots"
+        path="Pictures/" />
     <!-- API 28 及以下的公共下载目录（旧版存储） -->
     <external-path
         name="public_downloads"

@@ -60,14 +60,12 @@ class DownloadTracker private constructor(private val context: Context) {
                 ?.let { addRequestHeader("Cookie", it) }
             setMimeType(mimeType ?: "application/octet-stream")
             setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            if (Build.VERSION.SDK_INT <= 28) {
-                setDestinationInExternalPublicDir(
-                    Environment.DIRECTORY_DOWNLOADS,
-                    "PluginBrowser/$fileName",
-                )
-            } else {
-                setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName)
-            }
+            // 统一落到系统「下载/PluginBrowser」：文件管理器、其他 App 都能看到。
+            // DownloadManager 以系统身份写入，不受应用分区存储限制。
+            setDestinationInExternalPublicDir(
+                Environment.DIRECTORY_DOWNLOADS,
+                "PluginBrowser/$fileName",
+            )
         }
         val dmId = try {
             dm.enqueue(request)
@@ -100,16 +98,11 @@ class DownloadTracker private constructor(private val context: Context) {
         }
     }
 
-    /** 文件最终路径（用于打开文件） */
-    fun localPath(fileName: String): String =
-        if (Build.VERSION.SDK_INT <= 28) {
-            File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "PluginBrowser/$fileName",
-            ).absolutePath
-        } else {
-            File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName).absolutePath
-        }
+    /** 文件最终路径（系统下载目录）。API 29+ 应用无权限直接读，打开请用 DownloadManager 的 URI */
+    fun localPath(fileName: String): String = File(
+        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+        "PluginBrowser/$fileName",
+    ).absolutePath
 
     companion object {
         @Volatile

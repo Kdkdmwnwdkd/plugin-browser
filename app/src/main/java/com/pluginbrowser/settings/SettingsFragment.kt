@@ -96,6 +96,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
+        findPreference<Preference>("gesture_settings")?.setOnPreferenceClickListener {
+            requireActivity().supportFragmentManager.beginTransaction()
+                .replace(R.id.main_container, GestureSettingsFragment())
+                .addToBackStack(null)
+                .commit()
+            true
+        }
+
         findPreference<Preference>("translate_service")?.apply {
             summary = TranslateSettings(requireContext()).provider.label
             setOnPreferenceClickListener {

@@ -78,6 +78,18 @@ class DownloadsFragment : Fragment(R.layout.fragment_downloads) {
     }
 
     private fun open(item: DownloadItem) {
+        // 文件已落在系统下载目录，API 29+ 应用不能直接读该路径，
+        // 优先用 DownloadManager 授权过的 content:// URI
+        val dmUri = runCatching {
+            val dm = requireContext()
+                .getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+            dm.getUriForDownloadedFile(item.dmId)
+        }.getOrNull()
+        if (dmUri != null) {
+            launchView(dmUri, item.mime)
+            return
+        }
+
         val file = File(item.path)
         if (!file.exists()) {
             toast(getString(R.string.downloads_open_failed))
@@ -88,8 +100,12 @@ class DownloadsFragment : Fragment(R.layout.fragment_downloads) {
             requireContext().packageName + ".fileprovider",
             file,
         )
+        launchView(uri, item.mime)
+    }
+
+    private fun launchView(uri: android.net.Uri, mime: String) {
         val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, item.mime.ifBlank { "*/*" })
+            setDataAndType(uri, mime.ifBlank { "*/*" })
             addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         try {
