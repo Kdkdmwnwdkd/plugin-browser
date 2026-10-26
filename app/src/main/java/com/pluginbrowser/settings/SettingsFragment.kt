@@ -139,13 +139,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
             }
         }
 
-        findPreference<Preference>("about")?.setOnPreferenceClickListener {
-            Toast.makeText(
-                requireContext(),
-                getString(R.string.settings_about_summary),
-                Toast.LENGTH_LONG,
-            ).show()
-            true
+        // 版本号从安装包读，发版不用再回来改文案
+        findPreference<Preference>("about")?.apply {
+            val version = UpdateManager.currentVersionName(requireContext())
+            summary = getString(R.string.settings_about_summary, version)
+            setOnPreferenceClickListener {
+                Toast.makeText(requireContext(), summary, Toast.LENGTH_LONG).show()
+                true
+            }
         }
     }
 
