@@ -11,6 +11,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
@@ -134,17 +135,41 @@ class TranslateSettingsFragment : Fragment(R.layout.fragment_translate_settings)
             result.onSuccess { texts ->
                 toast(getString(R.string.translate_test_ok, texts.firstOrNull().orEmpty()))
             }.onFailure { error ->
-                // 签名类错误从文案上看不出问题，把字段位数一并显示，便于核对是否填全
-                val diag = if (provider == TranslateProvider.BAIDU) {
+                if (!isAdded) return@onFailure
+                // 签名类错误光看文案定位不了，把位数和指纹一并显示：
+                // 指纹是密钥前 8 位 md5，用来核对字符是否与官方完全一致（不泄露密钥本身）
+                val detail = StringBuilder(error.message ?: "unknown")
+                if (provider == TranslateProvider.BAIDU) {
                     val appId = settings.value(provider, TranslateProvider.BAIDU.fields[0])
                     val secret = settings.value(provider, TranslateProvider.BAIDU.fields[1])
-                    "（APPID ${appId.length} 位，密钥 ${secret.length} 位）"
-                } else {
-                    ""
+                    detail.append("\n\nAPPID：${appId.length} 位")
+                    detail.append("\n密钥：${secret.length} 位，指纹 ${md5Prefix(secret)}")
+                    detail.append(
+                        "\n\n对照官方：密钥应为 20 位、指纹 aba50e2c。" +
+                            "\n指纹不同说明字符有差异——常见是输入法把字母打成了全角，" +
+                            "或 0 与 O、l 与 1 混淆。建议长按输入框直接粘贴。",
+                    )
                 }
-                toast(getString(R.string.translate_test_fail, (error.message ?: "unknown") + diag))
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.translate_test_fail_title)
+                    .setMessage(detail.toString())
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show()
             }
         }
+    }
+
+    /** 密钥前 4 字节的 md5，用于核对字符是否一致，又不必把密钥明文显示出来 */
+    private fun md5Prefix(text: String): String {
+        val bytes = java.security.MessageDigest.getInstance("MD5")
+            .digest(text.toByteArray(Charsets.UTF_8))
+        val hex = "0123456789abcdef"
+        val sb = StringBuilder(8)
+        for (i in 0 until 4) {
+            val v = bytes[i].toInt() and 0xFF
+            sb.append(hex[v ushr 4]).append(hex[v and 0x0F])
+        }
+        return sb.toString()
     }
 
     private fun dp(value: Int): Int =

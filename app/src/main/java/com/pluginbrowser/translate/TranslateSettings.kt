@@ -15,7 +15,7 @@ enum class TranslateProvider(
 ) {
     BAIDU("baidu", "百度大模型翻译", listOf(
         Field("appid", "APPID", "控制台 → 开发者信息，17 位数字"),
-        Field("secret", "密钥", "同页的「密钥」，不是 API Key", secret = true),
+        Field("secret", "密钥", "同页的「密钥」，不是 API Key。建议长按粘贴而不是手打", secret = true),
     ), "用 APPID + 密钥签名调用。大模型翻译每月 100 万字符免费，QPS 较低，整页翻译会限速。"),
 
     CAIYUN("caiyun", "彩云小译", listOf(
@@ -80,15 +80,27 @@ class TranslateSettings(context: Context) {
     }
 
     /**
-     * 去掉不可见字符：空白、NBSP、零宽、BOM。
-     * 从网页/聊天窗口复制密钥时经常带这些，肉眼看不出来，
-     * 但会让签名对不上（百度会直接报 54001 invalid sign）。
+     * 规范化用户输入的密钥/ID：
+     * 1) 全角转半角 —— 中文输入法下 "Ｄ" 与 "D" 字形几乎一样，但字节完全不同，
+     *    服务端会直接判签名不匹配（54001 invalid sign）；
+     * 2) 去掉不可见字符 —— 空白、NBSP、零宽、BOM，肉眼看不出来但同样让签名对不上。
      */
-    private fun sanitize(raw: String): String = raw.filterNot { ch ->
-        ch.isWhitespace() ||
-            ch == '\u00A0' || ch == '\u2007' || ch == '\u202F' ||   // 各类不换行空格
-            ch == '\u200B' || ch == '\u200C' || ch == '\u200D' ||   // 零宽字符
-            ch == '\uFEFF' || ch == '\u2060'                         // BOM / word joiner
+    private fun sanitize(raw: String): String = buildString {
+        for (raw2 in raw) {
+            val ch = when {
+                raw2.code in 0xFF01..0xFF5E -> (raw2.code - 0xFEE0).toChar()   // 全角 ASCII
+                raw2 == '\u3000' -> ' '                                        // 全角空格
+                else -> raw2
+            }
+            if (ch.isWhitespace() ||
+                ch == '\u00A0' || ch == '\u2007' || ch == '\u202F' ||
+                ch == '\u200B' || ch == '\u200C' || ch == '\u200D' ||
+                ch == '\uFEFF' || ch == '\u2060'
+            ) {
+                continue
+            }
+            append(ch)
+        }
     }
 
     /** 当前供应商是否已配置齐全 */
