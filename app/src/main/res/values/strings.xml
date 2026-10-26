@@ -211,4 +211,23 @@
     <string name="update_download_failed">下载失败：%1$s</string>
     <string name="update_install_hint">已下载完成，请在系统安装界面确认安装</string>
     <string name="update_permission_hint">请允许「安装未知应用」后再回到这里，安装包已下载完成</string>
+
+    <!-- 浏览器功能面板 -->
+    <string name="menu_group_page">页面</string>
+    <string name="menu_group_tabs">标签</string>
+    <string name="menu_group_tools">工具</string>
+    <string name="menu_group_plugins">插件</string>
+    <string name="menu_translate_short">翻译</string>
+    <string name="menu_find_short">查找</string>
+    <string name="menu_share_short">分享</string>
+    <string name="menu_new_tab_short">新建</string>
+    <string name="menu_new_incognito_short">无痕</string>
+    <string name="menu_bookmark_short">书签</string>
+    <string name="menu_history_short">历史</string>
+    <string name="menu_downloads_short">下载</string>
+    <string name="menu_sniffer_short">嗅探</string>
+    <string name="menu_screenshot_short">截图</string>
+    <string name="menu_plugins_short">插件</string>
+    <string name="menu_desktop_on">已开启</string>
+    <string name="menu_desktop_off">已关闭</string>
 </resources>

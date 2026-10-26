@@ -47,4 +47,15 @@
     <!-- 动态生成的输入框用：Material3 描边风格 -->
     <style name="Widget.PluginBrowser.TextField" parent="Widget.Material3.TextInputLayout.OutlinedBox" />
 
+
+    <!-- 功能面板里的小号分组标题 -->
+    <style name="TextAppearance.PluginBrowser.GroupLabel" parent="TextAppearance.Material3.LabelMedium">
+        <item name="android:textSize">11.5sp</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:paddingStart">20dp</item>
+        <item name="android:paddingEnd">20dp</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingBottom">2dp</item>
+    </style>
 </resources>

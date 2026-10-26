@@ -103,6 +103,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private var pendingImageUrl: String? = null
     private var pendingLinkUrl: String? = null
     private var pendingDownload: PendingDownload? = null
+    private var pluginActionMap = mutableMapOf<String, PluginMenuItem>()
     private val suggestionHandler = Handler(Looper.getMainLooper())
     private var suggestionRunnable: Runnable? = null
 
@@ -434,7 +435,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         btnForward.setOnClickListener { currentWebView()?.goForward() }
         btnHome.setOnClickListener { currentWebView()?.loadUrl(settings.homeUrl) }
         btnTabs.setOnClickListener { openTabSwitcher() }
-        btnMenu.setOnClickListener { anchor -> showOverflowMenu(anchor) }
+        btnMenu.setOnClickListener { showMenu() }
     }
 
     /* ---------------- 地址栏与导航 ---------------- */
@@ -565,72 +566,64 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
     /* ---------------- 溢出菜单 ---------------- */
 
-    private fun showOverflowMenu(anchor: View) {
-        val popup = PopupMenu(requireContext(), anchor)
-        popup.menuInflater.inflate(R.menu.menu_browser, popup.menu)
-
-        val desktopItem = popup.menu.findItem(R.id.action_desktop_ua)
-        desktopItem.isCheckable = true
-        desktopItem.isChecked = settings.desktopUa
-
-        popup.menu.findItem(R.id.action_translate)?.title = getString(
-            if (tabManager.currentTab()?.translated == true) R.string.menu_restore_translate
-            else R.string.menu_translate,
-        )
-
-        // 原生插件贡献的菜单项
-        val pluginMenuMap = mutableMapOf<Int, PluginMenuItem>()
-        var nextId = MENU_PLUGIN_ID_BASE
-        (requireActivity() as MainActivity).pluginMenuItems().forEach { (item, _) ->
-            pluginMenuMap[nextId] = item
-            popup.menu.add(MENU_GROUP_PLUGIN, nextId, item.order, item.title)
-            nextId++
-        }
-
-        popup.setOnMenuItemClickListener { menuItem ->
-            val pluginItem = pluginMenuMap[menuItem.itemId]
-            if (pluginItem != null) {
-                (requireActivity() as MainActivity).dispatchPluginMenuItem(pluginItem)
-                return@setOnMenuItemClickListener true
+    /** 功能面板：底部升起的四列图标网格，替代原来的长条 PopupMenu */
+    private fun showMenu() {
+        pluginActionMap = mutableMapOf()
+        val pluginActions = (requireActivity() as MainActivity).pluginMenuItems()
+            .mapIndexed { index, (item, _) ->
+                val id = "plugin:$index"
+                pluginActionMap[id] = item
+                BrowserMenuSheet.Action(id, R.drawable.ic_widget, item.title)
             }
-            when (menuItem.itemId) {
-                R.id.action_refresh -> { reload(); true }
-                R.id.action_find -> { showFindBar(); true }
-                R.id.action_translate -> { toggleTranslate(); true }
-                R.id.action_add_bookmark -> { showAddBookmarkDialog(); true }
-                R.id.action_share -> { shareCurrentUrl(); true }
-                R.id.action_desktop_ua -> { toggleDesktopUa(); true }
-                R.id.action_new_tab -> {
-                    tabManager.newTab(url = settings.homeUrl)
-                    true
-                }
-                R.id.action_new_incognito_tab -> {
-                    tabManager.incognitoMode = true
-                    tabManager.newTab(url = settings.homeUrl)
-                    true
-                }
-                R.id.action_bookmarks -> {
-                    openScreen(BookmarksFragment.newInstance(BookmarksFragment.MODE_BOOKMARKS))
-                    true
-                }
-                R.id.action_history -> {
-                    openScreen(BookmarksFragment.newInstance(BookmarksFragment.MODE_HISTORY))
-                    true
-                }
-                R.id.action_screenshot -> { captureLongScreenshot(); true }
-                R.id.action_sniffer -> {
-                    if (requireActivity().supportFragmentManager.findFragmentByTag(TAG_SNIFFER) == null) {
-                        ResourceSnifferFragment().show(requireActivity().supportFragmentManager, TAG_SNIFFER)
-                    }
-                    true
-                }
-                R.id.action_downloads -> { openScreen(DownloadsFragment()); true }
-                R.id.action_plugins -> { openScreen(PluginStoreFragment()); true }
-                R.id.action_settings -> { openScreen(SettingsFragment()); true }
-                else -> false
+
+        BrowserMenuSheet().apply {
+            state = BrowserMenuSheet.State(
+                translated = tabManager.currentTab()?.translated == true,
+                desktopUa = settings.desktopUa,
+                plugins = pluginActions,
+            )
+            onAction = { id -> handleMenuAction(id) }
+        }.show(requireActivity().supportFragmentManager, TAG_MENU)
+    }
+
+    private fun handleMenuAction(action: String) {
+        if (action.startsWith("plugin:")) {
+            pluginActionMap[action]?.let {
+                (requireActivity() as MainActivity).dispatchPluginMenuItem(it)
             }
+            return
         }
-        popup.show()
+        when (action) {
+            "refresh" -> reload()
+            "translate" -> toggleTranslate()
+            "find" -> showFindBar()
+            "share" -> shareCurrentUrl()
+            "add_bookmark" -> showAddBookmarkDialog()
+            "desktop" -> toggleDesktopUa()
+            "new_tab" -> tabManager.newTab(url = settings.homeUrl)
+            "new_incognito" -> {
+                tabManager.incognitoMode = true
+                tabManager.newTab(url = settings.homeUrl)
+            }
+            "bookmarks" -> openScreen(
+                BookmarksFragment.newInstance(BookmarksFragment.MODE_BOOKMARKS),
+            )
+            "history" -> openScreen(
+                BookmarksFragment.newInstance(BookmarksFragment.MODE_HISTORY),
+            )
+            "screenshot" -> captureLongScreenshot()
+            "sniffer" -> {
+                if (requireActivity().supportFragmentManager.findFragmentByTag(TAG_SNIFFER) == null) {
+                    ResourceSnifferFragment().show(
+                        requireActivity().supportFragmentManager,
+                        TAG_SNIFFER,
+                    )
+                }
+            }
+            "downloads" -> openScreen(DownloadsFragment())
+            "plugins" -> openScreen(PluginStoreFragment())
+            "settings" -> openScreen(SettingsFragment())
+        }
     }
 
     private fun openScreen(fragment: Fragment) {
@@ -1171,6 +1164,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     companion object {
         private const val TAG_TABS = "tab_switcher"
         private const val TAG_SNIFFER = "resource_sniffer"
+        private const val TAG_MENU = "browser_menu"
         private const val PROGRESS_ANIM_MS = 160L
         private const val MENU_GROUP_PLUGIN = 1
         private const val MENU_PLUGIN_ID_BASE = 10000

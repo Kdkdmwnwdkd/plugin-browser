@@ -1,13 +1,13 @@
 {
-  "versionCode": 17,
-  "versionName": "1.6.3",
-  "size": 6527384,
-  "sha256": "5edd1e0aa715bda6c7be711f6ad7640b5cb3e665b1c478938b130aab66a287d1",
-  "notes": "修复三处体验问题：\n· 深色模式矛盾：网页配色现在跟随 App 主题，不再「App 浅色 + 页面深色」\n· 页面打不开卡死：20 秒未加载完自动给错误页；渲染进程崩溃自动重建标签；首页/错误页按返回直接退出\n· 下载：深度链接参数里带的下载地址会被解出来；新增「浏览器标识」可切换夸克/百度，部分站点切换后才会给直链",
+  "versionCode": 18,
+  "versionName": "1.7.0",
+  "size": 6543149,
+  "sha256": "6329a11c0e5754c65f33807c8b53d626934b397b03fa07dd39f7feac9706714c",
+  "notes": "功能菜单改版：\n· 底部三项菜单从一长条文字列表，改为从底部升起的图标面板\n· 按「页面 / 标签 / 工具」分三组，每组四列方格，图标在上文字在下\n· 低频项（桌面版网站、添加书签、设置）收在底部列表，桌面版直接显示开/关状态\n· 原生插件贡献的菜单项单独成组",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.3/PluginBrowser-1.6.3-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.3/PluginBrowser-1.6.3-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.6.3/PluginBrowser-1.6.3-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.7.0/PluginBrowser-1.7.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.7.0/PluginBrowser-1.7.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.7.0/PluginBrowser-1.7.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
