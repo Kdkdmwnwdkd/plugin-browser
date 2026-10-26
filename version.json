@@ -1,13 +1,13 @@
 {
-  "versionCode": 19,
-  "versionName": "1.7.1",
-  "size": 6543809,
-  "sha256": "fa77ff2ff8805be360172be6ec10c9ac61536bc7aaba08d2972545f6f5185e87",
-  "notes": "修复 1.7.0 点击 ⋮ 无反应：面板布局里分组标题漏写宽高，导致创建面板时直接异常。\n现在已补全，并加了失败提示，不会再有「点了没反应」。",
+  "versionCode": 20,
+  "versionName": "1.8.0",
+  "size": 6544397,
+  "sha256": "cae5ad255d48931dc360a64b248ebe02aeed50ba9e7f86839da6a9cf5fcb5116",
+  "notes": "界面视觉重做：\n· 强调色换成冷调蓝紫（浅色 #3D5BD9 / 深色 #6E8BFF），比原来的正蓝更收敛\n· 背景压深到 #0C0C0E，卡片 #17171A，边框透明度降到 5.5%，层次靠细线而不是阴影\n· 地址栏域名压灰、路径加粗，一眼看出在哪个站\n· 底栏图标缩到 21dp，不可用态用灰而不是整体透明\n· 标签卡片圆角 16dp、缩略图 104dp，当前页 2px 强调色描边\n· 首页配色同步新色板",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.7.1/PluginBrowser-1.7.1-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.7.1/PluginBrowser-1.7.1-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.7.1/PluginBrowser-1.7.1-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.8.0/PluginBrowser-1.8.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.8.0/PluginBrowser-1.8.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.8.0/PluginBrowser-1.8.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

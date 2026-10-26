@@ -4,6 +4,12 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.res.ColorStateList
+import android.text.style.StyleSpan
+import android.text.style.ForegroundColorSpan
+import android.text.Spanned
+import android.text.SpannableString
+import android.graphics.Typeface
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -34,6 +40,7 @@ import androidx.core.view.isVisible
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.pluginbrowser.MainActivity
@@ -428,6 +435,41 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         findCount.text = ""
         findQuery = ""
         hideKeyboard()
+    }
+
+    /** 地址栏里域名压成灰、路径加粗：一眼能看出当前在哪个站 */
+    private fun styledUrl(url: String): CharSequence {
+        if (url.isBlank()) return ""
+        val host = runCatching { Uri.parse(url).host }.getOrNull()
+        if (host.isNullOrBlank()) return url
+        val start = url.indexOf(host)
+        if (start < 0) return url
+        val sp = SpannableString(url)
+        val onSurface = MaterialColors.getColor(
+            addressInput,
+            com.google.android.material.R.attr.colorOnSurface,
+        )
+        val onVariant = MaterialColors.getColor(
+            addressInput,
+            com.google.android.material.R.attr.colorOnSurfaceVariant,
+        )
+        sp.setSpan(
+            ForegroundColorSpan(onVariant),
+            start,
+            start + host.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+        )
+        val rest = start + host.length
+        if (rest < url.length) {
+            sp.setSpan(
+                ForegroundColorSpan(onSurface),
+                rest,
+                url.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+            sp.setSpan(StyleSpan(Typeface.BOLD), rest, url.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        return sp
     }
 
     private fun setupBottomBar() {
@@ -1052,8 +1094,12 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
         btnBack.isEnabled = wv?.canGoBack() == true
         btnForward.isEnabled = wv?.canGoForward() == true
-        btnBack.alpha = if (btnBack.isEnabled) 1f else 0.35f
-        btnForward.alpha = if (btnForward.isEnabled) 1f else 0.35f
+        val active = MaterialColors.getColor(btnBack, com.google.android.material.R.attr.colorOnSurface)
+        val disabled = ContextCompat.getColor(requireContext(), R.color.pb_icon_disabled)
+        btnBack.imageTintList = ColorStateList.valueOf(if (btnBack.isEnabled) active else disabled)
+        btnForward.imageTintList = ColorStateList.valueOf(if (btnForward.isEnabled) active else disabled)
+        btnBack.alpha = 1f
+        btnForward.alpha = 1f
 
         tabCountBadge.text = tabManager.tabs.size.toString()
 
@@ -1061,7 +1107,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         // 首页不暴露 file:///android_asset/... 这种内部地址，直接留空显示提示语
         val isHome = tabManager.isHomeUrl(displayUrl)
         if (!addressInput.hasFocus()) {
-            addressInput.setText(if (isHome) "" else displayUrl)
+            addressInput.setText(if (isHome) "" else styledUrl(displayUrl))
             addressInput.setSelection(addressInput.text?.length ?: 0)
         }
 

@@ -7,7 +7,7 @@
     android:layout_height="wrap_content"
     android:layout_margin="7dp"
     app:cardBackgroundColor="?attr/colorSurface"
-    app:cardCornerRadius="18dp"
+    app:cardCornerRadius="16dp"
     app:cardElevation="0dp"
     app:strokeColor="?attr/colorOutlineVariant"
     app:strokeWidth="1dp">
@@ -19,7 +19,7 @@
 
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="96dp"
+            android:layout_height="104dp"
             android:background="@color/pb_thumbnail_bg">
 
             <ImageView

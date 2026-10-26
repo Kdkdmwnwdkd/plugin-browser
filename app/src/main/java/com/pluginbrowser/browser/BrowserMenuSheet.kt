@@ -112,7 +112,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         val icon = ImageView(ctx).apply {
             setImageResource(action.icon)
             imageTintList = ColorStateList.valueOf(onSurface)
-            layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
+            layoutParams = LinearLayout.LayoutParams(dp(23), dp(23))
         }
         val label = TextView(ctx).apply {
             text = action.label
