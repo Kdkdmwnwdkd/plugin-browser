@@ -597,6 +597,19 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         tab.webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
     }
 
+    override fun onInternalScheme(url: String): Boolean {
+        if (url.startsWith("pb://focus-address")) {
+            addressInput.requestFocus()
+            addressInput.setSelection(0, addressInput.text?.length ?: 0)
+            addressInput.postDelayed({
+                if (!isAdded) return@postDelayed
+                val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.showSoftInput(addressInput, InputMethodManager.SHOW_IMPLICIT)
+            }, 120)
+        }
+        return true
+    }
+
     override fun openExternally(url: String): Boolean {
         return try {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -642,18 +655,17 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         tabCountBadge.text = tabManager.tabs.size.toString()
 
         val displayUrl = tab?.let { it.failedUrl ?: it.url } ?: ""
+        // 首页不暴露 file:///android_asset/... 这种内部地址，直接留空显示提示语
+        val isHome = tabManager.isHomeUrl(displayUrl)
         if (!addressInput.hasFocus()) {
-            addressInput.setText(displayUrl)
+            addressInput.setText(if (isHome) "" else displayUrl)
             addressInput.setSelection(addressInput.text?.length ?: 0)
         }
 
+        securityIcon.isVisible = !isHome
         val secure = UrlUtils.isSecure(displayUrl)
         securityIcon.setImageResource(
-            if (displayUrl.startsWith("http")) {
-                if (secure) R.drawable.ic_lock else R.drawable.ic_lock_open
-            } else {
-                R.drawable.ic_lock
-            },
+            if (secure) R.drawable.ic_lock else R.drawable.ic_lock_open,
         )
 
         incognitoBadge.isVisible = tab?.incognito == true

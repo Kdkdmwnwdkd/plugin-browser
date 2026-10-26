@@ -25,6 +25,9 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         fun onPageFinished(tab: Tab)
         fun onErrorPageNeeded(tab: Tab, errorCode: Int)
         fun openExternally(url: String): Boolean
+
+        /** 处理 pb:// 内部指令（如 pb://focus-address），返回 true 表示已消费 */
+        fun onInternalScheme(url: String): Boolean
         fun onDownloadRequested(
             url: String,
             userAgent: String,
@@ -39,6 +42,8 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
 
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         val url = request.url.toString()
+        // 首页用 pb:// 把「点空白处聚焦地址栏」的意图交给原生
+        if (url.startsWith("pb://")) return owner.onInternalScheme(url)
         if (url.startsWith("http://") || url.startsWith("https://") ||
             url.startsWith("file://") || url.startsWith("about:")
         ) {

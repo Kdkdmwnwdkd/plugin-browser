@@ -5,54 +5,90 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>插件浏览器</title>
 <style>
-  :root { --bg:#f5f7fb; --card:#ffffff; --text:#1b1b1f; --sub:#5f6368; --accent:#0b57d0; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#111318; --card:#1f2128; --text:#e3e3e9; --sub:#9aa0a6; --accent:#a8c7fa; }
+  :root{
+    --bg:#ffffff; --card:#f0f0f3; --line:rgba(14,14,16,.09);
+    --text:#0e0e10; --muted:#6c6c74; --faint:#9c9ca4; --accent:#0b57d0;
   }
-  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  body { margin:0; background:var(--bg); color:var(--text);
-         font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
-         min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:0 20px 40px; }
-  .logo { margin-top:11vh; font-size:32px; font-weight:700; display:flex; align-items:center; gap:10px; }
-  .logo svg { width:36px; height:36px; color:var(--accent); }
-  form { margin-top:26px; width:100%; max-width:560px; display:flex; background:var(--card);
-         border-radius:26px; box-shadow:0 2px 12px rgba(0,0,0,.08); padding:4px; }
-  input { flex:1; border:none; outline:none; background:transparent; color:var(--text);
-          font-size:16px; padding:12px 18px; min-width:0; }
-  button { border:none; background:var(--accent); color:#fff; border-radius:22px;
-           padding:12px 22px; font-size:15px; white-space:nowrap; }
-  .grid { margin-top:36px; width:100%; max-width:560px; display:grid;
-          grid-template-columns:repeat(4,1fr); gap:16px 12px; }
-  a { text-decoration:none; color:var(--text); display:flex; flex-direction:column;
-      align-items:center; gap:8px; font-size:13px; }
-  .tile { width:52px; height:52px; border-radius:16px; background:var(--card);
-          display:flex; align-items:center; justify-content:center; font-size:22px;
-          font-weight:600; box-shadow:0 1px 4px rgba(0,0,0,.06); }
-  .tip { margin-top:34px; color:var(--sub); font-size:12px; text-align:center; }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#111113; --card:#1b1b1f; --line:rgba(255,255,255,.08);
+      --text:#f3f3f5; --muted:#9a9aa2; --faint:#6b6b73; --accent:#8fb4ff;
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,"PingFang SC","HarmonyOS Sans","Microsoft YaHei",sans-serif;
+    display:flex;flex-direction:column;padding:0 24px 18px;
+    -webkit-user-select:none;user-select:none;
+  }
+
+  /* 品牌：全页唯一重心，其余元素都让位 */
+  .brand{
+    margin-top:9vh;display:flex;align-items:center;gap:9px;
+    font-size:25px;font-weight:650;letter-spacing:-.02em;
+  }
+  .brand svg{width:25px;height:25px;color:var(--accent);flex:0 0 25px}
+
+  /* 快捷入口：4×2，统一 56dp，字母与标签同一套字号 */
+  .grid{
+    margin-top:36px;display:grid;grid-template-columns:repeat(4,1fr);
+    gap:24px 10px;
+  }
+  a{
+    text-decoration:none;color:var(--text);
+    display:flex;flex-direction:column;align-items:center;gap:9px;
+  }
+  .tile{
+    width:60px;height:60px;border-radius:19px;
+    background:var(--card);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    font-size:21px;font-weight:600;letter-spacing:-.01em;color:var(--muted);
+    transition:transform .18s ease,border-color .18s ease;
+  }
+  a:active .tile{transform:scale(.95)}
+  a span.label{font-size:12px;color:var(--muted);letter-spacing:.01em}
+
+  /* 提示：一行，把用户引导到唯一的输入口 */
+  .hint{
+    margin-top:52px;text-align:center;
+    font-size:11.5px;line-height:1.7;color:var(--faint);
+  }
+  .hint b{color:var(--muted);font-weight:600}
 </style>
 </head>
 <body>
-  <div class="logo">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
       <circle cx="12" cy="12" r="9"/>
       <path d="M3 12h18M12 3c2.6 2.6 2.6 15.4 0 18M12 3c-2.6 2.6-2.6 15.4 0 18"/>
     </svg>
     插件浏览器
   </div>
-  <form action="https://www.baidu.com/s" method="get">
-    <input name="word" placeholder="搜索或输入网址" autocomplete="off" enterkeyhint="search">
-    <button type="submit">搜索</button>
-  </form>
+
   <div class="grid">
-    <a href="https://www.baidu.com"><span class="tile">百</span>百度</a>
-    <a href="https://www.bilibili.com"><span class="tile">B</span>哔哩哔哩</a>
-    <a href="https://www.zhihu.com"><span class="tile">知</span>知乎</a>
-    <a href="https://www.taobao.com"><span class="tile">淘</span>淘宝</a>
-    <a href="https://weibo.com"><span class="tile">博</span>微博</a>
-    <a href="https://github.com"><span class="tile">G</span>GitHub</a>
-    <a href="https://www.douyin.com"><span class="tile">抖</span>抖音</a>
-    <a href="https://map.baidu.com"><span class="tile">图</span>地图</a>
+    <a href="https://www.baidu.com"><span class="tile">百</span><span class="label">百度</span></a>
+    <a href="https://www.bilibili.com"><span class="tile">B</span><span class="label">哔哩哔哩</span></a>
+    <a href="https://www.zhihu.com"><span class="tile">知</span><span class="label">知乎</span></a>
+    <a href="https://www.taobao.com"><span class="tile">淘</span><span class="label">淘宝</span></a>
+    <a href="https://weibo.com"><span class="tile">博</span><span class="label">微博</span></a>
+    <a href="https://github.com"><span class="tile">G</span><span class="label">GitHub</span></a>
+    <a href="https://www.douyin.com"><span class="tile">抖</span><span class="label">抖音</span></a>
+    <a href="https://map.baidu.com"><span class="tile">图</span><span class="label">地图</span></a>
   </div>
-  <div class="tip">点击底部菜单 → 插件管理，安装你的第一个插件<br>本页可在 设置 → 主页地址 中自定义</div>
+
+  <div class="hint">
+    点上方 <b>地址栏</b> 输入网址或搜索词
+  </div>
+
+<script>
+  // 点空白处直接聚焦顶部地址栏：全页只有一个输入口，这里只负责把手指引过去
+  document.body.addEventListener('click', function (e) {
+    if (e.target.closest('a')) return;
+    location.href = 'pb://focus-address';
+  });
+</script>
 </body>
 </html>

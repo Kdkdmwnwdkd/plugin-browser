@@ -1,10 +1,14 @@
 package com.pluginbrowser
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
+import android.util.TypedValue
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import com.pluginbrowser.browser.BrowserFragment
 import com.pluginbrowser.browser.Tab
 import com.pluginbrowser.browser.TabManager
@@ -29,6 +33,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
         settings.applyTheme()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        applySystemBars()
 
         tabManager = TabManager(this, this)
 
@@ -42,6 +47,25 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
         }
 
         handleIntent(intent)
+    }
+
+    /** 状态栏/导航栏跟随页面底色，避免首页深色、状态栏浅色那种断层 */
+    private fun applySystemBars() {
+        val night = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+        val value = TypedValue()
+        theme.resolveAttribute(com.google.android.material.R.attr.colorSurface, value, true)
+        val surface = if (value.resourceId != 0) {
+            ContextCompat.getColor(this, value.resourceId)
+        } else {
+            value.data
+        }
+        @Suppress("DEPRECATION")
+        window.statusBarColor = surface
+        @Suppress("DEPRECATION")
+        window.navigationBarColor = surface
+        WindowCompat.getInsetsController(window, window.decorView)
+            .isAppearanceLightStatusBars = !night
     }
 
     override fun onNewIntent(intent: Intent) {
