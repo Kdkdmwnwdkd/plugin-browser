@@ -1,13 +1,13 @@
 {
-  "versionCode": 18,
-  "versionName": "1.7.0",
-  "size": 6543149,
-  "sha256": "6329a11c0e5754c65f33807c8b53d626934b397b03fa07dd39f7feac9706714c",
-  "notes": "功能菜单改版：\n· 底部三项菜单从一长条文字列表，改为从底部升起的图标面板\n· 按「页面 / 标签 / 工具」分三组，每组四列方格，图标在上文字在下\n· 低频项（桌面版网站、添加书签、设置）收在底部列表，桌面版直接显示开/关状态\n· 原生插件贡献的菜单项单独成组",
+  "versionCode": 19,
+  "versionName": "1.7.1",
+  "size": 6543809,
+  "sha256": "fa77ff2ff8805be360172be6ec10c9ac61536bc7aaba08d2972545f6f5185e87",
+  "notes": "修复 1.7.0 点击 ⋮ 无反应：面板布局里分组标题漏写宽高，导致创建面板时直接异常。\n现在已补全，并加了失败提示，不会再有「点了没反应」。",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.7.0/PluginBrowser-1.7.0-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.7.0/PluginBrowser-1.7.0-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.7.0/PluginBrowser-1.7.0-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.7.1/PluginBrowser-1.7.1-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.7.1/PluginBrowser-1.7.1-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.7.1/PluginBrowser-1.7.1-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

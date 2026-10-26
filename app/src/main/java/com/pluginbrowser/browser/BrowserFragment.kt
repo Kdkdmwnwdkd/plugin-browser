@@ -576,14 +576,19 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                 BrowserMenuSheet.Action(id, R.drawable.ic_widget, item.title)
             }
 
-        BrowserMenuSheet().apply {
-            state = BrowserMenuSheet.State(
-                translated = tabManager.currentTab()?.translated == true,
-                desktopUa = settings.desktopUa,
-                plugins = pluginActions,
-            )
-            onAction = { id -> handleMenuAction(id) }
-        }.show(requireActivity().supportFragmentManager, TAG_MENU)
+        if (requireActivity().supportFragmentManager.findFragmentByTag(TAG_MENU) != null) return
+        runCatching {
+            BrowserMenuSheet().apply {
+                state = BrowserMenuSheet.State(
+                    translated = tabManager.currentTab()?.translated == true,
+                    desktopUa = settings.desktopUa,
+                    plugins = pluginActions,
+                )
+                onAction = { id -> handleMenuAction(id) }
+            }.show(requireActivity().supportFragmentManager, TAG_MENU)
+        }.onFailure {
+            toast(getString(R.string.menu_open_failed))
+        }
     }
 
     private fun handleMenuAction(action: String) {

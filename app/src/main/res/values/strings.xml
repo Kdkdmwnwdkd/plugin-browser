@@ -213,6 +213,7 @@
     <string name="update_permission_hint">请允许「安装未知应用」后再回到这里，安装包已下载完成</string>
 
     <!-- 浏览器功能面板 -->
+    <string name="menu_open_failed">菜单打开失败，请重试</string>
     <string name="menu_group_page">页面</string>
     <string name="menu_group_tabs">标签</string>
     <string name="menu_group_tools">工具</string>
