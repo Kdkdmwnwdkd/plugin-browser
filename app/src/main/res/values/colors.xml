@@ -1,26 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Material3 颜色角色（浅色） -->
+    <!-- Material3 颜色角色（浅色）—— 与设计稿一致：中性分层 + 单一强调色 -->
     <color name="colorPrimary">#0B57D0</color>
     <color name="colorOnPrimary">#FFFFFF</color>
-    <color name="colorPrimaryContainer">#D3E3FD</color>
-    <color name="colorOnPrimaryContainer">#041E49</color>
+    <color name="colorPrimaryContainer">#DCE9FF</color>
+    <color name="colorOnPrimaryContainer">#05224F</color>
     <color name="colorSecondary">#565E71</color>
     <color name="colorOnSecondary">#FFFFFF</color>
-    <color name="colorSecondaryContainer">#DAE2F9</color>
-    <color name="colorOnSecondaryContainer">#131C2B</color>
+    <color name="colorSecondaryContainer">#E8EAF1</color>
+    <color name="colorOnSecondaryContainer">#1A1E28</color>
     <color name="colorSurface">#FFFFFF</color>
-    <color name="colorOnSurface">#1B1B1F</color>
-    <color name="colorSurfaceVariant">#E3E2EC</color>
-    <color name="colorOnSurfaceVariant">#45464F</color>
-    <color name="colorOutline">#767680</color>
-    <color name="colorOutlineVariant">#C6C6D0</color>
+    <color name="colorOnSurface">#0E0E10</color>
+    <color name="colorSurfaceVariant">#F4F4F6</color>
+    <color name="colorOnSurfaceVariant">#6C6C74</color>
+    <color name="colorOutline">#B9B9C2</color>
+    <color name="colorOutlineVariant">#E6E6EA</color>
     <color name="colorError">#BA1A1A</color>
     <color name="colorOnError">#FFFFFF</color>
 
     <!-- 浏览器 UI 专用 -->
     <color name="pb_progress">#0B57D0</color>
     <color name="pb_incognito">#5F4B8B</color>
-    <color name="pb_thumbnail_bg">#E3E2EC</color>
+    <color name="pb_thumbnail_bg">#F1F1F4</color>
     <color name="pb_scrim">#99000000</color>
+    <!-- 强调色的低透明度填充（导入按钮、选中背景） -->
+    <color name="pb_accent_soft">#0F0B57D0</color>
+    <!-- 小徽标描边 -->
+    <color name="pb_tag_border">#330E0E10</color>
+    <!-- 列表行分隔线，比 outlineVariant 更淡 -->
+    <color name="pb_divider">#120E0E10</color>
 </resources>

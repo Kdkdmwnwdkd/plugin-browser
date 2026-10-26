@@ -21,4 +21,27 @@
         <item name="android:windowBackground">@color/colorSurface</item>
     </style>
 
+    <!-- 标签页面板：顶部圆角、贴合主题的浅色底，不铺满全屏 -->
+    <style name="Theme.PluginBrowser.BottomSheet" parent="Theme.Material3.DayNight.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/Widget.PluginBrowser.BottomSheet</item>
+        <item name="colorSurface">@color/colorSurface</item>
+        <item name="colorOnSurface">@color/colorOnSurface</item>
+        <item name="colorOnSurfaceVariant">@color/colorOnSurfaceVariant</item>
+        <item name="colorOutlineVariant">@color/colorOutlineVariant</item>
+        <item name="colorPrimary">@color/colorPrimary</item>
+    </style>
+
+    <style name="Widget.PluginBrowser.BottomSheet" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="backgroundTint">?attr/colorSurface</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.PluginBrowser.Sheet</item>
+    </style>
+
+    <style name="ShapeAppearance.PluginBrowser.Sheet" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopLeft">28dp</item>
+        <item name="cornerSizeTopRight">28dp</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
+    </style>
+
 </resources>

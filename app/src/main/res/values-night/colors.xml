@@ -1,25 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Material3 颜色角色（深色） -->
-    <color name="colorPrimary">#A8C7FA</color>
-    <color name="colorOnPrimary">#062E6F</color>
-    <color name="colorPrimaryContainer">#0842A0</color>
-    <color name="colorOnPrimaryContainer">#D3E3FD</color>
-    <color name="colorSecondary">#BFC6DC</color>
-    <color name="colorOnSecondary">#293042</color>
-    <color name="colorSecondaryContainer">#3F4759</color>
-    <color name="colorOnSecondaryContainer">#DAE2F9</color>
-    <color name="colorSurface">#111318</color>
-    <color name="colorOnSurface">#E3E3E9</color>
-    <color name="colorSurfaceVariant">#45464F</color>
-    <color name="colorOnSurfaceVariant">#C6C6D0</color>
-    <color name="colorOutline">#90909A</color>
-    <color name="colorOutlineVariant">#45464F</color>
+    <!-- Material3 颜色角色（深色）—— 接近纯黑的分层，避免发灰 -->
+    <color name="colorPrimary">#8FB4FF</color>
+    <color name="colorOnPrimary">#06173A</color>
+    <color name="colorPrimaryContainer">#14315C</color>
+    <color name="colorOnPrimaryContainer">#D9E5FF</color>
+    <color name="colorSecondary">#BFC6D8</color>
+    <color name="colorOnSecondary">#20252E</color>
+    <color name="colorSecondaryContainer">#2A303C</color>
+    <color name="colorOnSecondaryContainer">#DDE2EE</color>
+    <color name="colorSurface">#111113</color>
+    <color name="colorOnSurface">#F3F3F5</color>
+    <color name="colorSurfaceVariant">#1B1B1F</color>
+    <color name="colorOnSurfaceVariant">#9A9AA2</color>
+    <color name="colorOutline">#565660</color>
+    <color name="colorOutlineVariant">#2B2B31</color>
     <color name="colorError">#FFB4AB</color>
     <color name="colorOnError">#690005</color>
 
-    <color name="pb_progress">#A8C7FA</color>
+    <color name="pb_progress">#8FB4FF</color>
     <color name="pb_incognito">#B69DF8</color>
-    <color name="pb_thumbnail_bg">#2A2B33</color>
+    <color name="pb_thumbnail_bg">#1E1E23</color>
     <color name="pb_scrim">#99000000</color>
+    <color name="pb_accent_soft">#1F8FB4FF</color>
+    <color name="pb_tag_border">#33FFFFFF</color>
+    <color name="pb_divider">#14FFFFFF</color>
 </resources>

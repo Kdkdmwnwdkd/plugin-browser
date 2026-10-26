@@ -82,7 +82,6 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private lateinit var btnBack: ImageButton
     private lateinit var btnForward: ImageButton
     private lateinit var btnReload: ImageButton
-    private lateinit var btnAddressMenu: ImageButton
     private lateinit var btnHome: ImageButton
     private lateinit var btnTabs: View
     private lateinit var btnMenu: ImageButton
@@ -169,7 +168,6 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         btnBack = view.findViewById(R.id.btn_back)
         btnForward = view.findViewById(R.id.btn_forward)
         btnReload = view.findViewById(R.id.btn_reload)
-        btnAddressMenu = view.findViewById(R.id.btn_address_menu)
         btnHome = view.findViewById(R.id.btn_home)
         btnTabs = view.findViewById(R.id.btn_tabs)
         btnMenu = view.findViewById(R.id.btn_menu)
@@ -248,7 +246,6 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             }
         }
         btnReload.setOnClickListener { onReloadClicked() }
-        btnAddressMenu.setOnClickListener { anchor -> showOverflowMenu(anchor) }
     }
 
     private fun setupBottomBar() {
@@ -396,10 +393,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     private fun openTabSwitcher() {
-        requireActivity().supportFragmentManager.beginTransaction()
-            .replace(R.id.main_container, TabSwitcherFragment())
-            .addToBackStack(null)
-            .commit()
+        if (requireActivity().supportFragmentManager.findFragmentByTag(TAG_TABS) != null) return
+        TabSwitcherFragment().show(requireActivity().supportFragmentManager, TAG_TABS)
     }
 
     private fun toggleDesktopUa() {
@@ -663,9 +658,12 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
         incognitoBadge.isVisible = tab?.incognito == true
 
-        val progress = tab?.progress ?: 0
-        progressBar.scaleX = (progress.coerceIn(0, 100)) / 100f
+        val progress = (tab?.progress ?: 0).coerceIn(0, 100)
         progressBar.isVisible = progress in 1..99
+        progressBar.animate()
+            .scaleX(progress / 100f)
+            .setDuration(PROGRESS_ANIM_MS)
+            .start()
 
         // 加载中显示停止图标
         val loading = progress in 1..99
@@ -754,6 +752,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private fun toast(resId: Int) = Toast.makeText(requireContext(), resId, Toast.LENGTH_SHORT).show()
 
     companion object {
+        private const val TAG_TABS = "tab_switcher"
+        private const val PROGRESS_ANIM_MS = 160L
         private const val MENU_GROUP_PLUGIN = 1
         private const val MENU_PLUGIN_ID_BASE = 10000
         private const val MENU_SAVE_IMAGE = 2001

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 标签数方框：Chrome 式圆角方框，仅描边不填充 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@android:color/transparent" />
+    <stroke
+        android:width="1.6dp"
+        android:color="?attr/colorOnSurface" />
+    <corners android:radius="7dp" />
+</shape>

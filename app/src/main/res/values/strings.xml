@@ -27,6 +27,10 @@
     <!-- 标签页切换器 -->
     <string name="tabs_title">标签页</string>
     <string name="tabs_new">新建标签页</string>
+    <string name="tabs_done">完成</string>
+    <string name="tabs_filter_all">全部</string>
+    <string name="tabs_filter_incognito">无痕</string>
+    <string name="tabs_hint">左滑关闭 · 长按可多选</string>
     <string name="tabs_close_all">关闭全部</string>
     <string name="tabs_incognito_on">无痕模式：开</string>
     <string name="tabs_incognito_off">无痕模式：关</string>
@@ -35,10 +39,12 @@
     <!-- 插件 -->
     <string name="plugins_title">插件管理</string>
     <string name="plugins_import">导入插件</string>
-    <string name="plugins_section_installed">脚本插件（JS）</string>
-    <string name="plugins_section_native">原生插件（内置）</string>
-    <string name="plugins_section_external">外部原生插件</string>
-    <string name="plugins_empty">还没有安装插件，点击右下角导入 .pbp 插件包</string>
+    <string name="plugins_import_pbp">导入 .pbp 插件包</string>
+    <string name="plugins_footer_note">停用后刷新页面生效 · 内置插件不可卸载</string>
+    <string name="plugins_section_installed">已安装</string>
+    <string name="plugins_section_native">原生</string>
+    <string name="plugins_section_external">外部</string>
+    <string name="plugins_empty">还没有安装插件，点击下方按钮导入 .pbp 插件包</string>
     <string name="plugins_enabled">已启用</string>
     <string name="plugins_disabled">已禁用</string>
     <string name="plugins_uninstall">卸载</string>

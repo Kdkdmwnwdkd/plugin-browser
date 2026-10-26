@@ -5,16 +5,15 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
-import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.widget.SwitchCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
-import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.materialswitch.MaterialSwitch
 import com.pluginbrowser.PluginBrowserApp
 import com.pluginbrowser.R
 import com.pluginbrowser.plugin.PluginInfo
@@ -78,7 +77,7 @@ class PluginStoreFragment : Fragment(R.layout.fragment_plugin_store) {
         )
         recycler.adapter = adapter
 
-        view.findViewById<FloatingActionButton>(R.id.fab_import).setOnClickListener {
+        view.findViewById<MaterialButton>(R.id.btn_import).setOnClickListener {
             importLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
         }
     }
@@ -142,12 +141,13 @@ class PluginListAdapter(
     }
 
     class PluginVH(view: View) : RecyclerView.ViewHolder(view) {
-        val icon: ImageView = view.findViewById(R.id.plugin_icon)
+        val icon: TextView = view.findViewById(R.id.plugin_icon)
         val name: TextView = view.findViewById(R.id.plugin_name)
         val tag: TextView = view.findViewById(R.id.plugin_type_tag)
         val author: TextView = view.findViewById(R.id.plugin_author)
         val desc: TextView = view.findViewById(R.id.plugin_desc)
-        val switch: SwitchCompat = view.findViewById(R.id.plugin_switch)
+        val switch: MaterialSwitch = view.findViewById(R.id.plugin_switch)
+        val divider: View = view.findViewById(R.id.row_divider)
     }
 
     override fun getItemViewType(position: Int): Int = when (rows[position]) {
@@ -169,26 +169,19 @@ class PluginListAdapter(
                 val info = row.info
                 holder as PluginVH
                 val ctx = holder.itemView.context
-                holder.icon.setImageResource(
-                    if (info.manifest.type == PluginType.JS) R.drawable.ic_extension else R.drawable.ic_widget,
-                )
-                holder.icon.alpha = if (info.enabled) 1f else 0.4f
+                // 用名称首字做标识，比通用图标更容易区分
+                holder.icon.text = info.name.take(1)
+                holder.icon.alpha = if (info.enabled) 1f else 0.45f
+                holder.divider.isVisible = position < rows.size - 1 && rows[position + 1] is Row.Plugin
                 holder.name.text = info.name
                 holder.name.alpha = if (info.enabled) 1f else 0.5f
                 holder.tag.isVisible = info.manifest.builtin
                 holder.tag.text = ctx.getString(R.string.plugins_builtin_tag)
                 holder.author.text = buildString {
-                    append(info.manifest.author)
-                    append(" · v")
+                    append("v")
                     append(info.manifest.version)
                     append(" · ")
-                    append(
-                        if (info.manifest.type == PluginType.JS) {
-                            ctx.getString(R.string.plugins_type_js)
-                        } else {
-                            ctx.getString(R.string.plugins_type_native)
-                        },
-                    )
+                    append(info.manifest.author)
                 }
                 holder.desc.text = info.manifest.description
                 holder.desc.alpha = if (info.enabled) 1f else 0.5f
