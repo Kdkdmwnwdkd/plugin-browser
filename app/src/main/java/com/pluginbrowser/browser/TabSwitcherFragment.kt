@@ -76,6 +76,11 @@ class TabSwitcherFragment : BottomSheetDialogFragment() {
         filterAll.setOnClickListener { setFilter(false) }
         filterIncognito.setOnClickListener { setFilter(true) }
 
+        view.findViewById<TextView>(R.id.btn_close_all).setOnClickListener {
+            tabManager.closeAll()
+            refresh()
+        }
+
         view.findViewById<MaterialButton>(R.id.btn_new_tab).setOnClickListener {
             tabManager.newTab(
                 url = SettingsRepository(requireContext()).homeUrl,

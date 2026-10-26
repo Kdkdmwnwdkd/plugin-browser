@@ -90,6 +90,22 @@
             android:text="@string/tabs_filter_incognito"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="13sp" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/btn_close_all"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:paddingTop="4dp"
+            android:paddingBottom="6dp"
+            android:text="@string/tabs_close_all"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="12.5sp" />
     </LinearLayout>
 
     <View
