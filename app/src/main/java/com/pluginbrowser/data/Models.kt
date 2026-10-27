@@ -27,7 +27,12 @@ data class DownloadItem(
     val status: Int,
     val dmId: Long,
     val created: Long,
+    /** 已下载字节（自研引擎实时更新，用于断点续传和进度显示） */
+    val downloaded: Long = 0,
 ) {
+    val percent: Int
+        get() = if (size > 0) ((downloaded * 100) / size).toInt().coerceIn(0, 100) else 0
+
     companion object {
         const val STATUS_PENDING = 0
         const val STATUS_RUNNING = 1

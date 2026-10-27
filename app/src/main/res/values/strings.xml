@@ -87,6 +87,15 @@
     <string name="downloads_cancelled">已取消下载</string>
     <string name="downloads_cancel_title">取消这个下载？</string>
     <string name="downloads_cancel_action">取消下载</string>
+    <string name="download_notification_channel">下载</string>
+    <string name="download_notification_channel_desc">下载进度与完成提醒</string>
+    <string name="download_notification_preparing">准备下载…</string>
+    <string name="download_notification_done">下载完成</string>
+    <string name="download_notification_done_many">%1$d 个文件已下载完成</string>
+    <string name="download_retry">重新下载</string>
+    <string name="downloads_tap_retry">失败，点一下重试</string>
+    <string name="download_failed_reason">失败：%1$s</string>
+    <string name="download_notification_denied">没有通知权限，下载会在后台继续，但通知栏看不到进度</string>
     <string name="download_confirm_title">下载文件</string>
     <string name="download_confirm_start">下载</string>
     <string name="download_started">已加入下载：%1$s</string>

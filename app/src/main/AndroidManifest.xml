@@ -7,10 +7,13 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 应用内更新：下载完成后拉起系统安装器 -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- 仅传统存储需要；API 29+ 使用分区存储，下载走 DownloadManager -->
+    <!-- 仅传统存储需要；API 29+ 使用分区存储，下载走 MediaStore -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!-- 自研下载器：前台服务保活，否则退到后台就被系统掐掉 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <!-- API 30+ 软件包可见性：发现外部原生插件 APK、跳转三方应用 -->
     <queries>
@@ -81,5 +84,10 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <service
+            android:name=".download.DownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 </manifest>

@@ -48,8 +48,9 @@ import com.pluginbrowser.PluginBrowserApp
 import com.pluginbrowser.R
 import com.pluginbrowser.data.BrowserStore
 import com.pluginbrowser.data.SettingsRepository
+import com.pluginbrowser.download.DownloadEngine
 import com.pluginbrowser.download.DownloadPrompt
-import com.pluginbrowser.download.DownloadTracker
+import com.pluginbrowser.download.DownloadService
 import com.pluginbrowser.download.DownloadsFragment
 import com.pluginbrowser.plugin.PluginManager
 import com.pluginbrowser.plugin.api.PluginMenuItem
@@ -154,6 +155,13 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         } else {
             toast(getString(R.string.downloads_permission_needed))
         }
+    }
+
+    /** 只影响通知栏进度是否可见，拒绝了也照常下载 */
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (!granted) toast(getString(R.string.download_notification_denied))
     }
 
     /* ---------------- 返回键 ---------------- */
@@ -789,24 +797,26 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             toast("暂不支持保存该类型的下载")
             return true
         }
-        val tracker = DownloadTracker.get(requireContext())
-        if (tracker.isDownloading(url)) {
-            toast(getString(R.string.download_duplicate))
-            return true
-        }
+        val engine = DownloadEngine.get(requireContext())
         val fileName = UrlUtils.guessFileName(url, contentDisposition, mimeType)
         val referer = tabManager.currentTab()?.url
-        downloadPrompt.show(
-            url = url,
-            fileName = fileName,
-            userAgent = userAgent,
-            knownSize = contentLength,
-            mime = mimeType,
-            referer = referer,
-        ) { name, size ->
-            beginDownload(
-                PendingDownload(url, userAgent, contentDisposition, mimeType, name, size),
-            )
+        lifecycleScope.launch {
+            if (engine.isDownloading(url)) {
+                toast(getString(R.string.download_duplicate))
+                return@launch
+            }
+            downloadPrompt.show(
+                url = url,
+                fileName = fileName,
+                userAgent = userAgent,
+                knownSize = contentLength,
+                mime = mimeType,
+                referer = referer,
+            ) { name, size ->
+                beginDownload(
+                    PendingDownload(url, userAgent, contentDisposition, mimeType, name, size),
+                )
+            }
         }
         return true
     }
@@ -827,40 +837,56 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     private fun startDownload(pending: PendingDownload) {
-        val tracker = DownloadTracker.get(requireContext())
-        val dmId = tracker.enqueue(
-            pending.url,
-            pending.userAgent,
-            pending.contentDisposition,
-            pending.mimeType,
-            pending.size,
-            pending.fileName,
-        )
-        if (dmId == null) {
-            toast(
-                getString(
-                    if (tracker.isDownloading(pending.url)) R.string.download_duplicate
-                    else R.string.sniffer_download_failed,
-                ),
-            )
-        } else {
-            // 顺手给个「查看」入口，不然用户不知道进度去哪儿看
-            val name = pending.fileName.ifBlank { UrlUtils.hostOf(pending.url) }
-            val root = view
-            if (root == null) {
-                toast(getString(R.string.download_started, name))
-            } else {
-                com.google.android.material.snackbar.Snackbar
-                    .make(
-                        root,
-                        getString(R.string.download_started, name),
-                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG,
-                    )
-                    .setAnchorView(R.id.bottom_bar)
-                    .setAction(R.string.downloads_title) { openScreen(DownloadsFragment()) }
-                    .show()
-            }
+        val engine = DownloadEngine.get(requireContext())
+        val name = pending.fileName.ifBlank {
+            UrlUtils.guessFileName(pending.url, pending.contentDisposition, pending.mimeType)
         }
+        requestNotificationPermissionIfNeeded()
+        lifecycleScope.launch {
+            runCatching {
+                engine.enqueue(
+                    name = name,
+                    url = pending.url,
+                    mime = pending.mimeType ?: "",
+                    size = pending.size,
+                )
+                // 前台服务负责后台续跑；没有它，切走 App 下载就会被系统掐断
+                DownloadService.start(requireContext())
+            }.onFailure {
+                toast(getString(R.string.sniffer_download_failed))
+                return@launch
+            }
+            notifyDownloadStarted(name)
+        }
+    }
+
+    private fun notifyDownloadStarted(name: String) {
+        // 顺手给个「查看」入口，不然用户不知道进度去哪儿看
+        val root = view
+        if (root == null) {
+            toast(getString(R.string.download_started, name))
+            return
+        }
+        com.google.android.material.snackbar.Snackbar
+            .make(
+                root,
+                getString(R.string.download_started, name),
+                com.google.android.material.snackbar.Snackbar.LENGTH_LONG,
+            )
+            .setAnchorView(R.id.bottom_bar)
+            .setAction(R.string.downloads_title) { openScreen(DownloadsFragment()) }
+            .show()
+    }
+
+    /** API 33+ 没有通知权限的话，前台服务的进度条看不见，但下载照常 */
+    private fun requestNotificationPermissionIfNeeded() {
+        if (android.os.Build.VERSION.SDK_INT < 33) return
+        val granted = ContextCompat.checkSelfPermission(
+            requireContext(),
+            android.Manifest.permission.POST_NOTIFICATIONS,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (granted) return
+        notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
     }
 
     /* ---------------- 文件选择（Web 表单上传） ---------------- */

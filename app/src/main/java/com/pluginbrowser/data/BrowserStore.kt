@@ -112,12 +112,63 @@ class BrowserStore(context: Context) {
                 "path" to path,
                 "mime" to mime,
                 "size" to size,
-                "status" to DownloadItem.STATUS_RUNNING,
+                "downloaded" to 0L,
+                "status" to DownloadItem.STATUS_PENDING,
                 "dm_id" to dmId,
                 "created" to System.currentTimeMillis(),
             ),
         )
         db.insert("downloads", null, cv)
+    }
+
+    /** 进度落库（节流后调用，别每读一块就写一次） */
+    suspend fun updateDownloadProgress(id: Long, downloaded: Long, total: Long) =
+        withContext(Dispatchers.IO) {
+            val cv = ContentValues().apply {
+                put("downloaded", downloaded)
+                if (total > 0) put("size", total)
+            }
+            db.update("downloads", cv, "_id = ?", arrayOf(id.toString()))
+        }
+
+    suspend fun updateDownloadStatus(id: Long, status: Int, size: Long = -1) =
+        withContext(Dispatchers.IO) {
+            val cv = ContentValues().apply {
+                put("status", status)
+                if (size >= 0) put("size", size)
+            }
+            db.update("downloads", cv, "_id = ?", arrayOf(id.toString()))
+        }
+
+    suspend fun updateDownloadPath(id: Long, path: String) = withContext(Dispatchers.IO) {
+        db.update(
+            "downloads",
+            ContentValues().apply { put("path", path) },
+            "_id = ?",
+            arrayOf(id.toString()),
+        )
+    }
+
+    suspend fun hasActiveDownload(url: String): Boolean = withContext(Dispatchers.IO) {
+        db.rawQuery(
+            "SELECT 1 FROM downloads WHERE url = ? AND status IN (0, 1) LIMIT 1",
+            arrayOf(url),
+        ).use { it.moveToFirst() }
+    }
+
+    suspend fun downloadById(id: Long): DownloadItem? = withContext(Dispatchers.IO) {
+        queryList(
+            "SELECT _id, name, url, path, mime, size, status, dm_id, created, downloaded FROM downloads WHERE _id = ?",
+            arrayOf(id.toString()),
+        ) { c -> readDownload(c) }.firstOrNull()
+    }
+
+    /** 有待继续的任务（App 被杀后重进、点「重试」） */
+    suspend fun unfinishedDownloads(): List<DownloadItem> = withContext(Dispatchers.IO) {
+        queryList(
+            "SELECT _id, name, url, path, mime, size, status, dm_id, created, downloaded FROM downloads " +
+                "WHERE status IN (0, 1) AND dm_id = 0 ORDER BY created ASC",
+        ) { c -> readDownload(c) }
     }
 
     suspend fun updateDownload(id: Long, status: Int, size: Long) = withContext(Dispatchers.IO) {
@@ -132,14 +183,22 @@ class BrowserStore(context: Context) {
 
     suspend fun downloads(): List<DownloadItem> = withContext(Dispatchers.IO) {
         queryList(
-            "SELECT _id, name, url, path, mime, size, status, dm_id, created FROM downloads ORDER BY created DESC",
-        ) { c ->
-            DownloadItem(
-                c.getLong(0), c.getString(1), c.getString(2), c.getString(3),
-                c.getString(4), c.getLong(5), c.getInt(6), c.getLong(7), c.getLong(8),
-            )
-        }
+            "SELECT _id, name, url, path, mime, size, status, dm_id, created, downloaded FROM downloads ORDER BY created DESC",
+        ) { c -> readDownload(c) }
     }
+
+    private fun readDownload(c: android.database.Cursor) = DownloadItem(
+        id = c.getLong(0),
+        name = c.getString(1),
+        url = c.getString(2),
+        path = c.getString(3),
+        mime = c.getString(4),
+        size = c.getLong(5),
+        status = c.getInt(6),
+        dmId = c.getLong(7),
+        created = c.getLong(8),
+        downloaded = c.getLong(9),
+    )
 
     suspend fun deleteDownload(id: Long) = withContext(Dispatchers.IO) {
         db.delete("downloads", "_id = ?", arrayOf(id.toString()))

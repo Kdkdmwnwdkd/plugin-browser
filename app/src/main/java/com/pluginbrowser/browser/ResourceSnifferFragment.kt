@@ -7,18 +7,20 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.webkit.WebSettings
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.pluginbrowser.R
-import com.pluginbrowser.download.DownloadTracker
+import com.pluginbrowser.download.DownloadEngine
+import com.pluginbrowser.download.DownloadService
+import kotlinx.coroutines.launch
 
 /**
  * 资源嗅探面板：列出当前浏览过程中捕获到的媒体文件，点右侧按钮直接下载。
@@ -94,18 +96,22 @@ class ResourceSnifferFragment : BottomSheetDialogFragment() {
             .setMessage(fileNameOf(item))
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.sniffer_download) { _, _ ->
-                val ua = WebSettings.getDefaultUserAgent(requireContext())
-                val dmId = DownloadTracker.get(requireContext()).enqueue(
-                    item.url,
-                    ua,
-                    null,
-                    ResourceSniffer.mimeOf(item),
-                )
-                Toast.makeText(
-                    requireContext(),
-                    if (dmId != null) R.string.sniffer_download_started else R.string.sniffer_download_failed,
-                    Toast.LENGTH_SHORT,
-                ).show()
+                lifecycleScope.launch {
+                    val ok = runCatching {
+                        DownloadEngine.get(requireContext()).enqueue(
+                            name = fileNameOf(item),
+                            url = item.url,
+                            mime = ResourceSniffer.mimeOf(item).orEmpty(),
+                            size = -1,
+                        )
+                        DownloadService.start(requireContext())
+                    }.isSuccess
+                    Toast.makeText(
+                        requireContext(),
+                        if (ok) R.string.sniffer_download_started else R.string.sniffer_download_failed,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
             }
             .show()
     }

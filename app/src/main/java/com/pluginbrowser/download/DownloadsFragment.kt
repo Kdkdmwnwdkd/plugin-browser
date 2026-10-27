@@ -1,9 +1,7 @@
 package com.pluginbrowser.download
 
-import android.app.DownloadManager
 import android.content.Context
 import android.os.Bundle
-import android.os.SystemClock
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -34,14 +32,11 @@ import java.io.File
 class DownloadsFragment : Fragment(R.layout.fragment_downloads) {
 
     private val store by lazy { BrowserStore(requireContext()) }
-    private val tracker by lazy { DownloadTracker.get(requireContext()) }
+    private val engine by lazy { DownloadEngine.get(requireContext()) }
     private lateinit var adapter: DownloadAdapter
     private var items: List<DownloadItem> = emptyList()
 
     private var ticker: Job? = null
-    private val lastSample = HashMap<Long, Sample>()
-
-    private data class Sample(val bytes: Long, val at: Long)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val toolbar = view.findViewById<MaterialToolbar>(R.id.toolbar)
@@ -89,6 +84,11 @@ class DownloadsFragment : Fragment(R.layout.fragment_downloads) {
             items = withContext(Dispatchers.IO) { store.downloads() }
             adapter.submit(items)
             rebindRows()
+            // 有没下完的就把引擎和服务叫起来（App 被杀过、或者服务被系统回收）
+            if (items.any { it.status == DownloadItem.STATUS_RUNNING || it.status == DownloadItem.STATUS_PENDING }) {
+                engine.resumeUnfinished()
+                DownloadService.start(requireContext())
+            }
         }
     }
 
@@ -99,85 +99,40 @@ class DownloadsFragment : Fragment(R.layout.fragment_downloads) {
         ticker = lifecycleScope.launch {
             while (isActive) {
                 tick()
-                delay(600)
+                delay(500)
             }
         }
     }
 
-    /**
-     * 系统 DownloadManager 里有完整进度（已下载字节 / 总量 / 状态），
-     * 以前列表只显示一句「下载中」，用户根本看不出下到哪了。
-     */
+    /** 进度直接读引擎内存，比每 500ms 查一次数据库靠谱得多 */
     private suspend fun tick() {
         val pending = items.filter {
             it.status == DownloadItem.STATUS_RUNNING || it.status == DownloadItem.STATUS_PENDING
         }
-        if (pending.isEmpty()) {
-            lastSample.clear()
-            syncRows(emptyMap())
-            // 刚入队的任务可能还没写进数据库，等它一下，别让列表看起来什么都没发生
-            if (tracker.hasActive()) load()
-            return
-        }
+        if (pending.isEmpty()) return
 
-        val ids = pending.mapNotNull { it.dmId.takeIf { id -> id > 0 } }
-        if (ids.isEmpty()) return
-        val snapshot = withContext(Dispatchers.IO) { tracker.progressOf(ids) }
-        val now = SystemClock.elapsedRealtime()
-        val views = HashMap<Long, DownloadAdapter.ViewProgress>(ids.size)
+        val snapshot = engine.snapshot()
+        val views = HashMap<Long, DownloadAdapter.ViewProgress>(pending.size)
         var needReload = false
 
         for (item in pending) {
-            val p = snapshot[item.dmId]
-            if (p == null) {
-                // 系统里已经没有这条任务：可能被通知栏取消或清理，下一轮列表刷新会跟上
-                continue
-            }
-            when (p.status) {
-                DownloadManager.STATUS_SUCCESSFUL -> {
-                    withContext(Dispatchers.IO) {
-                        store.updateDownloadByDmId(item.dmId, DownloadItem.STATUS_DONE, p.total)
-                    }
-                    tracker.markFinished(item.dmId)
-                    lastSample.remove(item.dmId)
-                    needReload = true
-                }
-                DownloadManager.STATUS_FAILED -> {
-                    withContext(Dispatchers.IO) {
-                        store.updateDownloadByDmId(item.dmId, DownloadItem.STATUS_FAILED, p.total)
-                    }
-                    tracker.markFinished(item.dmId)
-                    lastSample.remove(item.dmId)
-                    needReload = true
-                }
-                else -> {
-                    val prev = lastSample[item.dmId]
-                    lastSample[item.dmId] = Sample(p.downloaded, now)
-                    val speed = if (prev != null && now > prev.at && p.downloaded >= prev.bytes) {
-                        (p.downloaded - prev.bytes) * 1000 / (now - prev.at)
-                    } else {
-                        0L
-                    }
-                    views[item.dmId] = DownloadAdapter.ViewProgress(
-                        percent = p.percent,
-                        indeterminate = p.indeterminate,
-                        downloaded = p.downloaded,
-                        total = p.total,
-                        speed = speed,
-                    )
-                }
+            val state = snapshot[item.id] ?: continue
+            when (state.status) {
+                DownloadItem.STATUS_DONE, DownloadItem.STATUS_FAILED -> needReload = true
+                else -> views[item.id] = DownloadAdapter.ViewProgress(
+                    percent = state.percent,
+                    indeterminate = state.total <= 0,
+                    downloaded = state.downloaded,
+                    total = state.total,
+                    speed = state.speed,
+                )
             }
         }
 
-        if (needReload) {
-            lastSample.clear()
-            load()
-        } else {
-            syncRows(views)
-        }
+        if (needReload) load() else syncRows(views)
     }
 
-    /** 把进度写进已经渲染出来的行，避免每 600ms 整表重绘 */
+    /** 把进度写进已经渲染出来的行，避免每 500ms 整表重绘 */
     private fun syncRows(views: Map<Long, DownloadAdapter.ViewProgress>) {
         adapter.submitProgress(views)
         rebindRows()
@@ -209,7 +164,7 @@ class DownloadsFragment : Fragment(R.layout.fragment_downloads) {
             .setMessage(item.name)
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.downloads_cancel_action) { _, _ ->
-                tracker.cancel(item.dmId)
+                engine.cancel(item.id)
                 lifecycleScope.launch {
                     store.deleteDownload(item.id)
                     load()
@@ -220,29 +175,55 @@ class DownloadsFragment : Fragment(R.layout.fragment_downloads) {
     }
 
     private fun open(item: DownloadItem) {
-        // 文件已落在系统下载目录，API 29+ 应用不能直接读该路径，
-        // 优先用 DownloadManager 授权过的 content:// URI
-        val dmUri = runCatching {
-            val dm = requireContext()
-                .getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            dm.getUriForDownloadedFile(item.dmId)
-        }.getOrNull()
-        if (dmUri != null) {
-            launchView(dmUri, item.mime)
+        if (item.status == DownloadItem.STATUS_FAILED) {
+            retry(item)
             return
         }
+        if (item.status != DownloadItem.STATUS_DONE) return
 
-        val file = File(item.path)
-        if (!file.exists()) {
+        val uri = resolveUri(item)
+        if (uri == null) {
             toast(getString(R.string.downloads_open_failed))
             return
         }
-        val uri = FileProvider.getUriForFile(
-            requireContext(),
-            requireContext().packageName + ".fileprovider",
-            file,
-        )
         launchView(uri, item.mime)
+    }
+
+    /** 新下载是 content://（MediaStore）或绝对路径，旧记录还在系统下载管理器里 */
+    private fun resolveUri(item: DownloadItem): android.net.Uri? {
+        if (item.dmId > 0) {
+            val dmUri = runCatching {
+                val dm = requireContext()
+                    .getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+                dm.getUriForDownloadedFile(item.dmId)
+            }.getOrNull()
+            if (dmUri != null) return dmUri
+        }
+        if (item.path.startsWith("content://") || item.path.startsWith("file://")) {
+            return runCatching { android.net.Uri.parse(item.path) }.getOrNull()
+        }
+        val file = File(item.path)
+        if (!file.exists()) {
+            // 文件被用户在文件管理器里删了
+            return null
+        }
+        return runCatching {
+            FileProvider.getUriForFile(
+                requireContext(),
+                requireContext().packageName + ".fileprovider",
+                file,
+            )
+        }.getOrNull()
+    }
+
+    private fun retry(item: DownloadItem) {
+        lifecycleScope.launch {
+            store.updateDownloadStatus(item.id, DownloadItem.STATUS_PENDING)
+            engine.retry(item.id, item)
+            DownloadService.start(requireContext())
+            load()
+            toast(getString(R.string.download_started, item.name))
+        }
     }
 
     private fun launchView(uri: android.net.Uri, mime: String) {
@@ -279,7 +260,7 @@ class DownloadsFragment : Fragment(R.layout.fragment_downloads) {
         fun submit(list: List<DownloadItem>) {
             data.clear()
             data.addAll(list)
-            progress.keys.retainAll(data.map { it.dmId }.toSet())
+            progress.keys.retainAll(data.map { it.id }.toSet())
             notifyDataSetChanged()
             onCountChanged?.invoke(data.size)
         }
@@ -316,7 +297,7 @@ class DownloadsFragment : Fragment(R.layout.fragment_downloads) {
             val ctx: Context = holder.itemView.context
             val active = item.status == DownloadItem.STATUS_RUNNING ||
                 item.status == DownloadItem.STATUS_PENDING
-            val p = progress[item.dmId]
+            val p = progress[item.id]
 
             holder.progressBar.isVisible = active
             if (active) {
@@ -329,14 +310,21 @@ class DownloadsFragment : Fragment(R.layout.fragment_downloads) {
                 DownloadItem.STATUS_DONE ->
                     ctx.getString(R.string.downloads_status_done) +
                         if (item.size > 0) " · ${formatBytes(item.size)}" else ""
-                DownloadItem.STATUS_FAILED -> ctx.getString(R.string.downloads_status_failed)
-                DownloadItem.STATUS_RUNNING -> runningText(ctx, p)
+                DownloadItem.STATUS_FAILED -> ctx.getString(R.string.downloads_tap_retry)
+                DownloadItem.STATUS_RUNNING -> runningText(ctx, p, item)
                 else -> ctx.getString(R.string.downloads_status_pending)
             }
         }
 
-        private fun runningText(ctx: Context, p: ViewProgress?): String {
-            if (p == null) return ctx.getString(R.string.downloads_status_running)
+        private fun runningText(ctx: Context, p: ViewProgress?, item: DownloadItem): String {
+            if (p == null) {
+                // 引擎还没接手，先按数据库里的进度画
+                return if (item.downloaded > 0) {
+                    "${formatBytes(item.downloaded)}  ·  " + ctx.getString(R.string.downloads_status_running)
+                } else {
+                    ctx.getString(R.string.downloads_status_running)
+                }
+            }
             val sb = StringBuilder()
             if (p.indeterminate) {
                 sb.append(formatBytes(p.downloaded))

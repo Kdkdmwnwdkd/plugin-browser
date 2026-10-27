@@ -1,13 +1,13 @@
 {
-  "versionCode": 27,
-  "versionName": "2.3.0",
-  "size": 8564315,
-  "sha256": "fe4e81be9195d04159e5ca18ede78ed0748336d1ad6269f0441ce3442be932dc",
-  "notes": "2.3.0 下载前先问一句，下载中能看见进度\n· 点下载链接不再直接往下载目录里存，先弹确认框：文件名、来源站点、文件大小、保存位置\n· 大小是点开后才去问服务器的，1~3 秒填上；服务器不给大小就写「未知大小」，不卡住你\n· 勾「对此网站不再询问」后，同一站点以后直接下；设置里也有总开关\n· 下载管理页现在实时显示百分比、已下载/总大小、当前速度，每 0.6 秒刷新\n· 下载中点垃圾桶是「取消下载」而不是删记录，会真的把系统任务停掉\n· 连点同一下载链接不会再多出第二个重复任务\n· 开始下载后底部会出一条提示，带「下载管理」直达入口\n· GitHub 的直链探测走加速通道，配了代理或 DoH 时大小也能更快拿到",
+  "versionCode": 28,
+  "versionName": "2.4.0",
+  "size": 8653309,
+  "sha256": "3cc2db3a2725eadef2fbb2e9b329970805fcb403c529194f5ee94e5dcebb8285",
+  "notes": "2.4.0 换成自己的下载器，不再借系统那个\n· 下载走 App 自己的网络栈：GitHub 域名复用「设置 → 网络」里配的代理和 DoH，不再直连\n· 浏览器可以关掉，前台服务在后台继续下；锁屏、切到别的 App 都不中断\n· 支持断点续传：中途失败或进程被杀，下次从断点接着下，不用从头再来\n· 通知栏实时显示百分比、已下载/总大小、速度，带「取消」按钮\n· 下载管理页同步显示同样的进度，失败的点一下就能重试\n· 文件仍然落在「下载/PluginBrowser」，走 MediaStore，不需要存储权限\n· 2.3.0 之前用系统下载器留下的未完成任务会自动标记失败，点一下即可重下",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.3.0/Kite-2.3.0-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.3.0/Kite-2.3.0-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.3.0/Kite-2.3.0-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.0/Kite-2.4.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.0/Kite-2.4.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.0/Kite-2.4.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
