@@ -34,6 +34,19 @@ class AdBlockPlugin(private val context: Context) : NativePlugin {
 
     val engine = AdBlockEngine(context)
 
+    /**
+     * 当前页面的地址。
+     * [shouldInterceptRequest] 跑在 WebView 的网络线程上，那里调 `view.url` 会直接抛
+     * "WebView method was called on thread xxx" —— 拿不到值，还要为每个请求构造一次异常。
+     * 所以改由主线程的 onPageStarted 送进来。
+     */
+    @Volatile
+    private var currentPageUrl: String? = null
+
+    fun onPageStarted(url: String) {
+        currentPageUrl = url
+    }
+
     /** 异步加载规则，不占启动主线程 */
     fun loadAsync(scope: CoroutineScope) {
         scope.launch(Dispatchers.IO) { engine.load() }
@@ -47,7 +60,9 @@ class AdBlockPlugin(private val context: Context) : NativePlugin {
         request: WebResourceRequest,
     ): WebResourceResponse? {
         if (request.isForMainFrame) return null
-        val pageUrl = runCatching { view.url }.getOrNull()
+        // Referer 更准（多标签同时加载时不会串），拿不到再退回本标签最后一次导航的地址
+        val pageUrl = request.requestHeaders?.get("Referer")?.takeIf { it.isNotEmpty() }
+            ?: currentPageUrl
         if (!engine.shouldBlock(request.url.toString(), pageUrl)) return null
         // 空响应替代广告请求；补 CORS 头，避免页面脚本读响应时抛错
         return WebResourceResponse(

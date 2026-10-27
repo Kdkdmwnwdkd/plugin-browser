@@ -9,5 +9,6 @@
   "matches": ["*://*/*"],
   "runAt": "document_end",
   "permissions": ["storage"],
-  "builtin": true
+  "builtin": true,
+  "defaultEnabled": false
 }

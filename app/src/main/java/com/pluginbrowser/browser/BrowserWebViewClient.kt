@@ -32,6 +32,8 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
 
         fun onPageStarted(tab: Tab)
         fun onPageFinished(tab: Tab)
+        /** 进度被这里改写时（例如首帧可见后推高进度）需要刷新一次界面 */
+        fun onProgressChanged(tab: Tab, progress: Int)
         fun onErrorPageNeeded(tab: Tab, errorCode: Int)
         fun openExternally(url: String): Boolean
 
@@ -94,10 +96,15 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
             tab.url = url
             tab.failedUrl = null
             tab.translated = false
+            tab.committed = false
+            tab.adCssInjected = false
         }
         tab.progress = 5
         // 记录来源页面 & 让嗅探器知道当前在哪个站
         if (url.startsWith("http")) ResourceSniffer.currentPageUrl = url
+        // 拦截插件在后台线程拿不到 view.url（跨线程访问会直接抛异常），
+        // 这里在主线程把当前页面告诉它，供第三方资源判定使用
+        if (url.startsWith("http")) owner.browserPluginManager.enabledAdBlocker()?.onPageStarted(url)
         owner.browserPluginManager.enabledNativePlugins().forEach { it.onPageStarted(view, url) }
         // 提前注入声明 document_start 的 JS 插件（尽力而为：晚于页面脚本执行时仍会在加载完成后生效）
         if (url.startsWith("http")) {
@@ -135,13 +142,25 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
     /** 首帧可见前就把元素隐藏样式塞进去，避免广告闪一下再消失 */
     override fun onPageCommitVisible(view: WebView, url: String) {
         super.onPageCommitVisible(view, url)
+        val tab = owner.browserTabManager.findTab(view)
+        if (tab != null && !tab.committed) {
+            tab.committed = true
+            // 内容已经画出来了，进度条别还卡在 5% 让人以为没动静
+            if (tab.progress < COMMIT_PROGRESS) {
+                tab.progress = COMMIT_PROGRESS
+                owner.onProgressChanged(tab, COMMIT_PROGRESS)
+            }
+        }
         injectAdBlockCss(view, url)
     }
 
     private fun injectAdBlockCss(view: WebView, url: String) {
         if (!url.startsWith("http")) return
+        val tab = owner.browserTabManager.findTab(view)
+        if (tab?.adCssInjected == true) return
         val plugin = owner.browserPluginManager.enabledAdBlocker() ?: return
         val js = runCatching { plugin.cosmeticScript(url) }.getOrNull() ?: return
+        tab?.adCssInjected = true
         runCatching { view.evaluateJavascript(js, null) }
     }
 
@@ -152,8 +171,9 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         // 嗅探媒体资源（内部只做后缀判断，开销很小）
         ResourceSniffer.record(request.url.toString())
 
-        for (plugin in owner.browserPluginManager.enabledNativePlugins()) {
-            val resp = plugin.shouldInterceptRequest(view, request)
+        val plugins = owner.browserPluginManager.enabledNativePlugins()
+        for (i in plugins.indices) {
+            val resp = plugins[i].shouldInterceptRequest(view, request)
             if (resp != null) return resp
         }
         return null
@@ -178,5 +198,10 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         if (!request.isForMainFrame) return
         val tab = owner.browserTabManager.findTab(view) ?: return
         owner.onErrorPageNeeded(tab, error.errorCode)
+    }
+
+    private companion object {
+        /** 首帧可见时进度条的最低位置：内容都出来了，不该还停在「刚开始」 */
+        const val COMMIT_PROGRESS = 60
     }
 }

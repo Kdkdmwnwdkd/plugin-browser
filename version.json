@@ -1,13 +1,13 @@
 {
-  "versionCode": 24,
-  "versionName": "2.0.1",
-  "size": 7950209,
-  "sha256": "b441d4389963cf5fde99e4a5992458e05046f9f31ffe91eb08e0f1d98992ed73",
-  "notes": "固定签名。\n· 签名密钥固化进仓库（keystore/kite.jks），以后任何环境打包都是同一把钥匙\n· 证书指纹没变，可以直接覆盖安装\n· 其余同 2.0.0：EasyList 广告拦截、数据备份、崩溃日志",
+  "versionCode": 25,
+  "versionName": "2.1.0",
+  "size": 7952253,
+  "sha256": "93c8380ebd1854862cef46720c644b5ff27a2e302e55a900f914834f496d4819",
+  "notes": "2.1.0 加载提速\n· 修掉一个把「慢」放大成「打不开」的问题：以前整页 20 秒没到 100% 就换成错误页，现在首帧出来之后不再中止，弱网下能加载多少看多少\n· 三个演示插件（夜间模式 / 网页净化 / 阅读模式）改为默认关闭。它们匹配所有站点、每页都注入：净化的全文档选择器扫描在 GitHub 这类大页面上单次就要几百毫秒，夜间模式的整页 filter 还会让滚动掉帧。需要时在插件页开启\n· 广告拦截：不再在后台线程读 WebView 地址（那里会直接抛异常，导致第三方规则全部失效），改由主线程传入并用 Referer 兜底\n· 请求拦截路径去掉每请求一次的插件表重建、加锁和临时字符串\n· 元素隐藏样式每页只注入一次；WebView 配置上下文复用；渲染进程优先级固定为 IMPORTANT",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.0.1/Kite-2.0.1-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.0.1/Kite-2.0.1-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.0.1/Kite-2.0.1-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.1.0/Kite-2.1.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.1.0/Kite-2.1.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.1.0/Kite-2.1.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

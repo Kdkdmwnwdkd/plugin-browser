@@ -177,13 +177,49 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         }
     }
 
-    /** 页面 20 秒还没加载完就当作失败，避免一直白屏、退不出去 */
-    private val loadTimeout = Runnable {
-        val tab = tabManager.currentTab() ?: return@Runnable
-        if (tab.progress < 100 && tab.failedUrl == null && tab.url.isNotBlank()) {
-            tab.webView.stopLoading()
-            onErrorPageNeeded(tab, android.webkit.WebViewClient.ERROR_TIMEOUT)
+    /**
+     * 两级超时。
+     *
+     * 以前是「20 秒还没到 100% 就当失败」——但 GitHub 这类站点会把几十个请求打到
+     * 境外 CDN，弱网下一个资源挂住，页面其实早就画出来了，却被换成错误页。
+     * 现在拆开：
+     *  - 首帧 12 秒还不出现，说明 DNS / TLS / 握手真的卡住了，才报错；
+     *  - 已经可见的话只等资源，60 秒后收掉进度条，内容留给用户看。
+     */
+    private var firstPaintTimeout: Runnable? = null
+    private var settleTimeout: Runnable? = null
+
+    private fun scheduleLoadTimeouts(tab: Tab) {
+        val host = view ?: return
+        clearLoadTimeouts()
+
+        val firstPaint = Runnable {
+            if (tab.failedUrl == null && tab.url.isNotBlank() &&
+                !tab.committed && tab.progress <= 10
+            ) {
+                tab.webView.stopLoading()
+                onErrorPageNeeded(tab, android.webkit.WebViewClient.ERROR_TIMEOUT)
+            }
         }
+        val settle = Runnable {
+            if (tab.failedUrl == null && tab.progress < 100) {
+                tab.webView.stopLoading()
+                tab.progress = 100
+                if (tab === tabManager.currentTab()) refreshUi()
+            }
+        }
+        firstPaintTimeout = firstPaint
+        settleTimeout = settle
+        host.postDelayed(firstPaint, FIRST_PAINT_TIMEOUT_MS)
+        host.postDelayed(settle, SETTLE_TIMEOUT_MS)
+    }
+
+    private fun clearLoadTimeouts() {
+        val host = view ?: return
+        firstPaintTimeout?.let { host.removeCallbacks(it) }
+        settleTimeout?.let { host.removeCallbacks(it) }
+        firstPaintTimeout = null
+        settleTimeout = null
     }
 
     /* ---------------- 生命周期 ---------------- */
@@ -250,6 +286,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
     override fun onDestroyView() {
         tabManager.pauseAll()
+        clearLoadTimeouts()
         suggestionRunnable?.let { suggestionHandler.removeCallbacks(it) }
         super.onDestroyView()
     }
@@ -864,13 +901,14 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
     override fun onPageStarted(tab: Tab) {
         refreshUi()
-        view?.removeCallbacks(loadTimeout)
-        view?.postDelayed(loadTimeout, 20_000)
+        scheduleLoadTimeouts(tab)
     }
 
     override fun onPageFinished(tab: Tab) {
-        view?.removeCallbacks(loadTimeout)
-        refreshUi()
+        clearLoadTimeouts()
+        // 页面主体已经结束，剩下的零散资源不该再让进度条吊着
+        if (tab.progress < 100) tab.progress = 100
+        if (tab === tabManager.currentTab()) refreshUi()
         // 跳转后旧的高亮会失效，若查找栏还开着就重新搜一次
         if (::findBar.isInitialized && findBar.isVisible && findQuery.isNotBlank()) {
             startFind(findQuery)
@@ -1217,6 +1255,10 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         private const val TAG_SNIFFER = "resource_sniffer"
         private const val TAG_MENU = "browser_menu"
         private const val PROGRESS_ANIM_MS = 160L
+        /** 首帧迟迟不出现才判定打不开 */
+        private const val FIRST_PAINT_TIMEOUT_MS = 12_000L
+        /** 首帧已出现后的兜底时长：只收进度条，不报错 */
+        private const val SETTLE_TIMEOUT_MS = 60_000L
         private const val MENU_GROUP_PLUGIN = 1
         private const val MENU_PLUGIN_ID_BASE = 10000
         private const val MENU_SAVE_IMAGE = 2001

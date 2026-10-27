@@ -44,6 +44,13 @@ class PluginManager(
     private val externalIds = mutableSetOf<String>()
     private val loadedNativeIds = mutableSetOf<String>()
 
+    /**
+     * 已启用原生插件的快照。
+     * shouldInterceptRequest 每个请求都会问一次，不能每次都 filter + 读 SharedPreferences。
+     */
+    @Volatile
+    private var enabledNativeCache: List<NativePlugin>? = null
+
     private var bridgeScriptCache: String? = null
     private val scriptCache = mutableMapOf<String, String>()
 
@@ -70,6 +77,7 @@ class PluginManager(
             nativePlugins.add(p)
             if (p is AdBlockPlugin) p.loadAsync(scope)
         }
+        enabledNativeCache = null
     }
 
     /* ---------------- 扫描与加载 ---------------- */
@@ -122,7 +130,10 @@ class PluginManager(
                 .onFailure { Log.w(TAG, "onLoad failed: ${p.metadata.id}", it) }
             changed = true
         }
-        if (changed) notifyPluginsChanged()
+        if (changed) {
+            enabledNativeCache = null
+            notifyPluginsChanged()
+        }
     }
 
     /* ---------------- 安装 / 卸载 ---------------- */
@@ -224,6 +235,7 @@ class PluginManager(
 
     fun setEnabled(id: String, enabled: Boolean) {
         prefs.edit().putBoolean(id, enabled).apply()
+        enabledNativeCache = null
         notifyPluginsChanged()
     }
 
@@ -259,8 +271,12 @@ class PluginManager(
 
     fun plugin(id: String): PluginInfo? = allPlugins().find { it.id == id }
 
-    fun enabledNativePlugins(): List<NativePlugin> =
-        nativePlugins.filter { isEnabled(it.metadata.id) }
+    fun enabledNativePlugins(): List<NativePlugin> {
+        enabledNativeCache?.let { return it }
+        val list = nativePlugins.filter { isEnabled(it.metadata.id) }
+        enabledNativeCache = list
+        return list
+    }
 
     /** 广告拦截插件实例（只取启用的）；供 WebView 注入元素隐藏样式 */
     fun enabledAdBlocker(): AdBlockPlugin? {

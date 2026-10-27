@@ -3,6 +3,7 @@ package com.pluginbrowser.browser
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
+import android.os.Build
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebSettings
@@ -53,6 +54,10 @@ class TabManager(
         }
         val tab = Tab(url = url ?: "", incognito = incognito)
         val wv = WebView(webViewContext())
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // 当前标签的渲染进程保持 IMPORTANT：被降级后切回来要整页重新布局，观感就是"卡一下"
+            wv.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+        }
         with(wv.settings) {
             javaScriptEnabled = settings.javascriptEnabled
             domStorageEnabled = true
@@ -155,14 +160,19 @@ class TabManager(
      * WebView 的 prefers-color-scheme 只认自己的 Configuration，不跟随 AppCompatDelegate。
      * App 强制浅色、系统却是深色时，会出现「浏览器 UI 浅色、页面深色」的矛盾，
      * 所以手动给它一个与 App 主题一致的 context。
+     *
+     * createConfigurationContext 会复制一整套 Resources，开销不小，按主题缓存一份复用。
      */
+    private var themeContext: Pair<String, Context>? = null
+
     private fun webViewContext(): Context {
         val mode = settings.theme
         if (mode != "light" && mode != "dark") return activity
+        themeContext?.let { if (it.first == mode) return it.second }
         val config = Configuration(activity.resources.configuration)
         config.uiMode = (config.uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or
             if (mode == "dark") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
-        return activity.createConfigurationContext(config)
+        return activity.createConfigurationContext(config).also { themeContext = mode to it }
     }
 
     fun pauseAll() {
