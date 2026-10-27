@@ -1,13 +1,13 @@
 {
-  "versionCode": 20,
-  "versionName": "1.8.0",
-  "size": 6544397,
-  "sha256": "cae5ad255d48931dc360a64b248ebe02aeed50ba9e7f86839da6a9cf5fcb5116",
-  "notes": "界面视觉重做：\n· 强调色换成冷调蓝紫（浅色 #3D5BD9 / 深色 #6E8BFF），比原来的正蓝更收敛\n· 背景压深到 #0C0C0E，卡片 #17171A，边框透明度降到 5.5%，层次靠细线而不是阴影\n· 地址栏域名压灰、路径加粗，一眼看出在哪个站\n· 底栏图标缩到 21dp，不可用态用灰而不是整体透明\n· 标签卡片圆角 16dp、缩略图 104dp，当前页 2px 强调色描边\n· 首页配色同步新色板",
+  "versionCode": 23,
+  "versionName": "2.0.0",
+  "size": 7950209,
+  "sha256": "5a3eb2dac4b3fcdd5dc64f69889101d090caaf224a4e70b55bdf8b029ee527a5",
+  "notes": "广告拦截换成 EasyList 规则引擎。\n· 8.7 万条域名规则 + 1.4 万条路径规则，覆盖 EasyList、EasyList China、EasyPrivacy\n· 三层索引，判定很快；例外规则优先，不误伤正常资源\n· 广告位在首帧前就隐藏，不会闪一下再消失\n· 新增「设置 → 数据」：导出备份 / 从备份恢复（书签、历史、设置）\n· 新增崩溃日志落盘",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.8.0/PluginBrowser-1.8.0-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.8.0/PluginBrowser-1.8.0-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.8.0/PluginBrowser-1.8.0-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.0.0/Kite-2.0.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.0.0/Kite-2.0.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.0.0/Kite-2.0.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
