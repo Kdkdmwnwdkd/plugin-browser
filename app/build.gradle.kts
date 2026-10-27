@@ -11,12 +11,27 @@ android {
         applicationId = "com.pluginbrowser"
         minSdk = 24
         targetSdk = 34
-        versionCode = 23
-        versionName = "2.0.0"
+        versionCode = 24
+        versionName = "2.0.1"
+    }
+
+    signingConfigs {
+        // 固定签名：keystore/kite.jks 就是历史上一直在用的那把调试钥匙，
+        // 目的是让以后任何环境下打出来的包都能覆盖安装，不会因为签名变了丢数据。
+        create("kite") {
+            storeFile = rootProject.file("keystore/kite.jks")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("kite")
+        }
         release {
+            signingConfig = signingConfigs.getByName("kite")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
