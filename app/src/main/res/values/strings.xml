@@ -84,6 +84,13 @@
     <string name="downloads_status_failed">失败</string>
     <string name="downloads_permission_needed">需要存储权限才能保存文件</string>
     <string name="downloads_open_failed">没有可用于打开该文件的应用</string>
+    <string name="downloads_cancelled">已取消下载</string>
+    <string name="downloads_cancel_title">取消这个下载？</string>
+    <string name="downloads_cancel_action">取消下载</string>
+    <string name="download_confirm_title">下载文件</string>
+    <string name="download_confirm_start">下载</string>
+    <string name="download_started">已加入下载：%1$s</string>
+    <string name="download_duplicate">该文件正在下载中</string>
 
     <!-- 设置 -->
     <string name="settings_title">设置</string>

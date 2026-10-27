@@ -121,6 +121,13 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
+        findPreference<SwitchPreferenceCompat>("ask_before_download")?.setOnPreferenceChangeListener { _, newValue ->
+            settings.askBeforeDownload = newValue as Boolean
+            // 重新打开开关时，把「不再询问」的站点也一并清掉，否则设了跟没设一样
+            if (newValue as Boolean) settings.forgetDownloadTrust()
+            true
+        }
+
         findPreference<SwitchPreferenceCompat>("github_accel")?.setOnPreferenceChangeListener { _, newValue ->
             settings.githubAccel = newValue as Boolean
             channel.reset()
@@ -263,6 +270,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         findPreference<SwitchPreferenceCompat>("block_ads")?.isChecked =
             pluginManager.isEnabled(PluginManager.ADBLOCK_PLUGIN_ID, true)
         findPreference<SwitchPreferenceCompat>("desktop_ua")?.isChecked = settings.desktopUa
+        findPreference<SwitchPreferenceCompat>("ask_before_download")?.isChecked = settings.askBeforeDownload
         findPreference<ListPreference>("theme")?.value = settings.theme
     }
 

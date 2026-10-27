@@ -48,6 +48,7 @@ import com.pluginbrowser.PluginBrowserApp
 import com.pluginbrowser.R
 import com.pluginbrowser.data.BrowserStore
 import com.pluginbrowser.data.SettingsRepository
+import com.pluginbrowser.download.DownloadPrompt
 import com.pluginbrowser.download.DownloadTracker
 import com.pluginbrowser.download.DownloadsFragment
 import com.pluginbrowser.plugin.PluginManager
@@ -110,6 +111,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private var pendingImageUrl: String? = null
     private var pendingLinkUrl: String? = null
     private var pendingDownload: PendingDownload? = null
+    private lateinit var downloadPrompt: DownloadPrompt
     private var pluginActionMap = mutableMapOf<String, PluginMenuItem>()
     private val suggestionHandler = Handler(Looper.getMainLooper())
     private var suggestionRunnable: Runnable? = null
@@ -119,6 +121,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         val userAgent: String,
         val contentDisposition: String?,
         val mimeType: String?,
+        val fileName: String = "",
+        val size: Long = -1,
     )
 
     /* ---------------- 结果回调 ---------------- */
@@ -228,6 +232,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         webViewClient = BrowserWebViewClient(this)
         webChromeClient = BrowserWebChromeClient(this)
         suggestionAdapter = SuggestionAdapter(requireContext())
+        downloadPrompt = DownloadPrompt(this, settings)
 
         progressBar = view.findViewById(R.id.progress_bar)
         addressBarRow = view.findViewById(R.id.address_bar_row)
@@ -287,6 +292,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     override fun onDestroyView() {
         tabManager.pauseAll()
         clearLoadTimeouts()
+        if (::downloadPrompt.isInitialized) downloadPrompt.dismiss()
         suggestionRunnable?.let { suggestionHandler.removeCallbacks(it) }
         super.onDestroyView()
     }
@@ -783,7 +789,30 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             toast("暂不支持保存该类型的下载")
             return true
         }
-        val pending = PendingDownload(url, userAgent, contentDisposition, mimeType)
+        val tracker = DownloadTracker.get(requireContext())
+        if (tracker.isDownloading(url)) {
+            toast(getString(R.string.download_duplicate))
+            return true
+        }
+        val fileName = UrlUtils.guessFileName(url, contentDisposition, mimeType)
+        val referer = tabManager.currentTab()?.url
+        downloadPrompt.show(
+            url = url,
+            fileName = fileName,
+            userAgent = userAgent,
+            knownSize = contentLength,
+            mime = mimeType,
+            referer = referer,
+        ) { name, size ->
+            beginDownload(
+                PendingDownload(url, userAgent, contentDisposition, mimeType, name, size),
+            )
+        }
+        return true
+    }
+
+    /** 用户确认后（或站点已信任时）才真正入队 */
+    private fun beginDownload(pending: PendingDownload) {
         val needPermission = android.os.Build.VERSION.SDK_INT <= 28 &&
             ContextCompat.checkSelfPermission(
                 requireContext(),
@@ -792,19 +821,45 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         if (needPermission) {
             pendingDownload = pending
             storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            return true
+            return
         }
         startDownload(pending)
-        return true
     }
 
     private fun startDownload(pending: PendingDownload) {
-        val started = DownloadTracker.get(requireContext())
-            .enqueue(pending.url, pending.userAgent, pending.contentDisposition, pending.mimeType)
-        if (!started) {
-            toast("下载启动失败")
+        val tracker = DownloadTracker.get(requireContext())
+        val dmId = tracker.enqueue(
+            pending.url,
+            pending.userAgent,
+            pending.contentDisposition,
+            pending.mimeType,
+            pending.size,
+            pending.fileName,
+        )
+        if (dmId == null) {
+            toast(
+                getString(
+                    if (tracker.isDownloading(pending.url)) R.string.download_duplicate
+                    else R.string.sniffer_download_failed,
+                ),
+            )
         } else {
-            toast(getString(R.string.downloads_status_running))
+            // 顺手给个「查看」入口，不然用户不知道进度去哪儿看
+            val name = pending.fileName.ifBlank { UrlUtils.hostOf(pending.url) }
+            val root = view
+            if (root == null) {
+                toast(getString(R.string.download_started, name))
+            } else {
+                com.google.android.material.snackbar.Snackbar
+                    .make(
+                        root,
+                        getString(R.string.download_started, name),
+                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG,
+                    )
+                    .setAnchorView(R.id.bottom_bar)
+                    .setAction(R.string.downloads_title) { openScreen(DownloadsFragment()) }
+                    .show()
+            }
         }
     }
 

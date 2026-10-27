@@ -46,6 +46,12 @@
             android:title="@string/settings_block_ads" />
 
         <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="ask_before_download"
+            android:summary="点下载链接先显示文件名、来源和大小，确认后再下"
+            android:title="下载前确认" />
+
+        <SwitchPreferenceCompat
             android:defaultValue="false"
             android:key="desktop_ua"
             android:title="@string/settings_desktop_ua" />

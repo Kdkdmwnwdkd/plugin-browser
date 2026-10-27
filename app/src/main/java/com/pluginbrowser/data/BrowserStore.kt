@@ -103,6 +103,7 @@ class BrowserStore(context: Context) {
         path: String,
         mime: String,
         dmId: Long,
+        size: Long = 0L,
     ): Long = withContext(Dispatchers.IO) {
         val cv = ContentValues().putAll(
             mapOf(
@@ -110,7 +111,7 @@ class BrowserStore(context: Context) {
                 "url" to url,
                 "path" to path,
                 "mime" to mime,
-                "size" to 0L,
+                "size" to size,
                 "status" to DownloadItem.STATUS_RUNNING,
                 "dm_id" to dmId,
                 "created" to System.currentTimeMillis(),

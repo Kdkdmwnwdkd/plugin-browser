@@ -73,6 +73,16 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
 
     fun handles(host: String?): Boolean = isGitHubHost(host)
 
+    /**
+     * 下载探测复用同一条通道：GitHub 的 release 直链常被卡住，
+     * 配了代理或 DoH 的话探测大小也能跟着受益。非 GitHub 域名返回 null。
+     */
+    fun clientFor(url: String): OkHttpClient? {
+        if (!settings.githubAccel) return null
+        val host = runCatching { android.net.Uri.parse(url).host }.getOrNull()
+        return if (isGitHubHost(host)) client() else null
+    }
+
     /** 设置改动后调用：丢掉旧的客户端，让新的代理 / DNS 配置生效 */
     @Synchronized
     fun reset() {

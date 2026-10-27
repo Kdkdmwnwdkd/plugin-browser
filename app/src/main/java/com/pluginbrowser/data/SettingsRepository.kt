@@ -57,6 +57,28 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_DOH, true)
         set(value) = prefs.edit().putBoolean(KEY_DOH, value).apply()
 
+    /* ---------------- 下载 ---------------- */
+
+    /** 点下载链接时先弹确认框，避免一碰就直接存到下载目录 */
+    var askBeforeDownload: Boolean
+        get() = prefs.getBoolean(KEY_ASK_DOWNLOAD, true)
+        set(value) = prefs.edit().putBoolean(KEY_ASK_DOWNLOAD, value).apply()
+
+    /** 用户勾过「此网站以后不再询问」的域名 */
+    fun downloadTrustedHosts(): Set<String> =
+        prefs.getStringSet(KEY_DL_TRUST, emptySet())?.toHashSet() ?: HashSet()
+
+    fun trustDownloadHost(host: String) {
+        if (host.isBlank()) return
+        val next = downloadTrustedHosts().toMutableSet()
+        next.add(host)
+        prefs.edit().putStringSet(KEY_DL_TRUST, next).apply()
+    }
+
+    fun forgetDownloadTrust() {
+        prefs.edit().remove(KEY_DL_TRUST).apply()
+    }
+
     /* ---------------- 手势 ---------------- */
 
     var gestureEnabled: Boolean
@@ -121,6 +143,8 @@ class SettingsRepository(context: Context) {
         private const val KEY_GITHUB_ACCEL = "github_accel"
         private const val KEY_PROXY_URL = "proxy_url"
         private const val KEY_DOH = "doh_enabled"
+        private const val KEY_ASK_DOWNLOAD = "ask_before_download"
+        private const val KEY_DL_TRUST = "download_trusted_hosts"
         private const val KEY_GESTURE_ENABLED = "gesture_enabled"
         private const val KEY_GESTURE_LEFT = "gesture_left_edge"
         private const val KEY_GESTURE_RIGHT = "gesture_right_edge"

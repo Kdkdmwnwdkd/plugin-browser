@@ -95,7 +95,7 @@ class ResourceSnifferFragment : BottomSheetDialogFragment() {
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.sniffer_download) { _, _ ->
                 val ua = WebSettings.getDefaultUserAgent(requireContext())
-                val started = DownloadTracker.get(requireContext()).enqueue(
+                val dmId = DownloadTracker.get(requireContext()).enqueue(
                     item.url,
                     ua,
                     null,
@@ -103,7 +103,7 @@ class ResourceSnifferFragment : BottomSheetDialogFragment() {
                 )
                 Toast.makeText(
                     requireContext(),
-                    if (started) R.string.sniffer_download_started else R.string.sniffer_download_failed,
+                    if (dmId != null) R.string.sniffer_download_started else R.string.sniffer_download_failed,
                     Toast.LENGTH_SHORT,
                 ).show()
             }
