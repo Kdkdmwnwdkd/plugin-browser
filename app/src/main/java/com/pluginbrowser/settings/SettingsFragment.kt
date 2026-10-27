@@ -1,10 +1,12 @@
 package com.pluginbrowser.settings
 
+import android.net.Uri
 import android.os.Bundle
 import android.webkit.CookieManager
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
@@ -15,12 +17,15 @@ import com.google.android.material.appbar.MaterialToolbar
 import com.pluginbrowser.PluginBrowserApp
 import com.pluginbrowser.R
 import com.pluginbrowser.data.BrowserStore
+import com.pluginbrowser.data.DataBackup
 import com.pluginbrowser.data.SettingsRepository
 import com.pluginbrowser.plugin.PluginManager
 import com.pluginbrowser.translate.TranslateSettings
 import com.pluginbrowser.translate.TranslateSettingsFragment
 import com.pluginbrowser.update.UpdateManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** 设置页（Preference 框架） */
 class SettingsFragment : PreferenceFragmentCompat() {
@@ -29,6 +34,15 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private val store by lazy { BrowserStore(requireContext()) }
     private val pluginManager: PluginManager
         get() = PluginBrowserApp.from(requireContext()).pluginManager
+
+    /** 备份导出/恢复走系统文件选择器，不需要存储权限 */
+    private val exportBackup = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri -> uri?.let { doExport(it) } }
+
+    private val importBackup = registerForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let { doImport(it) } }
 
     override fun onCreateView(
         inflater: android.view.LayoutInflater,
@@ -140,6 +154,18 @@ class SettingsFragment : PreferenceFragmentCompat() {
             }
         }
 
+        findPreference<Preference>("backup_export")?.setOnPreferenceClickListener {
+            val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US)
+                .format(java.util.Date())
+            exportBackup.launch("kite-backup-$stamp.json")
+            true
+        }
+
+        findPreference<Preference>("backup_import")?.setOnPreferenceClickListener {
+            runCatching { importBackup.launch(arrayOf("application/json", "text/plain", "*/*")) }
+            true
+        }
+
         // 版本号从安装包读，发版不用再回来改文案
         findPreference<Preference>("about")?.apply {
             val version = UpdateManager.currentVersionName(requireContext())
@@ -148,6 +174,30 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 Toast.makeText(requireContext(), summary, Toast.LENGTH_LONG).show()
                 true
             }
+        }
+    }
+
+    private fun doExport(uri: Uri) {
+        val ctx = requireContext()
+        lifecycleScope.launch {
+            val result = runCatching { withContext(Dispatchers.IO) { DataBackup.export(ctx, uri) } }
+            val msg = result.fold(
+                { getString(R.string.backup_exported, it.bookmarks, it.history) },
+                { getString(R.string.backup_failed, it.message ?: "未知错误") },
+            )
+            Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun doImport(uri: Uri) {
+        val ctx = requireContext()
+        lifecycleScope.launch {
+            val result = runCatching { withContext(Dispatchers.IO) { DataBackup.import(ctx, uri) } }
+            val msg = result.fold(
+                { getString(R.string.backup_imported, it.bookmarks, it.history) },
+                { getString(R.string.backup_failed, it.message ?: "未知错误") },
+            )
+            Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
         }
     }
 

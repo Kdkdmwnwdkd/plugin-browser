@@ -11,8 +11,8 @@ android {
         applicationId = "com.pluginbrowser"
         minSdk = 24
         targetSdk = 34
-        versionCode = 22
-        versionName = "1.9.1"
+        versionCode = 23
+        versionName = "2.0.0"
     }
 
     buildTypes {
@@ -35,6 +35,7 @@ android {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation(project(":plugin-api"))
 
     implementation("androidx.core:core-ktx:1.13.1")

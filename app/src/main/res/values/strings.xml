@@ -104,6 +104,18 @@
     <string name="settings_clear_confirm">确定要清除浏览数据吗？此操作不可恢复。</string>
     <string name="settings_search_hint">输入搜索关键词</string>
 
+
+    <!-- 数据备份 -->
+    <string name="backup_title">数据</string>
+    <string name="backup_export">导出备份</string>
+    <string name="backup_export_summary">书签、历史、设置存成一个 JSON 文件</string>
+    <string name="backup_import">从备份恢复</string>
+    <string name="backup_import_summary">会覆盖当前的书签与历史</string>
+    <string name="backup_exported">已导出 %1$d 条书签、%2$d 条历史</string>
+    <string name="backup_imported">已恢复 %1$d 条书签、%2$d 条历史，重启后完全生效</string>
+    <string name="backup_failed">失败：%1$s</string>
+    <string name="backup_file_name">kite-backup.json</string>
+
     <!-- 通用 -->
     <string name="clear">清空</string>
     <string name="cancel">取消</string>

@@ -92,6 +92,20 @@
             android:title="@string/update_check_title"
             android:summary="@string/update_check_summary" />
 
+    <PreferenceCategory android:title="@string/backup_title">
+
+        <Preference
+            android:key="backup_export"
+            android:summary="@string/backup_export_summary"
+            android:title="@string/backup_export" />
+
+        <Preference
+            android:key="backup_import"
+            android:summary="@string/backup_import_summary"
+            android:title="@string/backup_import" />
+
+    </PreferenceCategory>
+
         <Preference
             android:key="about"
             android:summary="@string/settings_about_summary"

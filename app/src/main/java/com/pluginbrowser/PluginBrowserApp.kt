@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.pluginbrowser.download.DownloadTracker
 import com.pluginbrowser.plugin.PluginManager
+import com.pluginbrowser.util.CrashLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,6 +21,7 @@ class PluginBrowserApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        CrashLogger.install(this)
         pluginManager = PluginManager(this, appScope)
         // 发现已安装的外部原生插件 APK
         pluginManager.loadExternalNativePlugins()

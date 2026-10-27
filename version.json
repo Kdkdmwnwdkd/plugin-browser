@@ -1,13 +1,13 @@
 {
-  "versionCode": 22,
-  "versionName": "1.9.1",
-  "size": 6613024,
-  "sha256": "08dd6e8b4b8666195ae80b197ffdf9679bb442427775e9db6a2dffc888365756",
-  "notes": "设置页排版修正。\n· 每行左侧原本空着 72dp，是 Material 给图标预留的位置，这页没有图标，白留一条\n· 现在从 16dp 起，标题和说明铺满整行，长说明少换一行\n· 手势设置页同样处理\n· 顺带：应用名改为「青鸢」，新图标，关于页版本号自动读取",
+  "versionCode": 20,
+  "versionName": "1.8.0",
+  "size": 6544397,
+  "sha256": "cae5ad255d48931dc360a64b248ebe02aeed50ba9e7f86839da6a9cf5fcb5116",
+  "notes": "界面视觉重做：\n· 强调色换成冷调蓝紫（浅色 #3D5BD9 / 深色 #6E8BFF），比原来的正蓝更收敛\n· 背景压深到 #0C0C0E，卡片 #17171A，边框透明度降到 5.5%，层次靠细线而不是阴影\n· 地址栏域名压灰、路径加粗，一眼看出在哪个站\n· 底栏图标缩到 21dp，不可用态用灰而不是整体透明\n· 标签卡片圆角 16dp、缩略图 104dp，当前页 2px 强调色描边\n· 首页配色同步新色板",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.9.1/Kite-1.9.1-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.9.1/Kite-1.9.1-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.9.1/Kite-1.9.1-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.8.0/PluginBrowser-1.8.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.8.0/PluginBrowser-1.8.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v1.8.0/PluginBrowser-1.8.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

@@ -127,7 +127,22 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         }
 
         owner.browserPluginManager.enabledNativePlugins().forEach { it.onPageFinished(view, url) }
+        // 二次注入：首帧时样式可能被页面脚本清掉，加载完再补一次
+        injectAdBlockCss(view, url)
         owner.onPageFinished(tab)
+    }
+
+    /** 首帧可见前就把元素隐藏样式塞进去，避免广告闪一下再消失 */
+    override fun onPageCommitVisible(view: WebView, url: String) {
+        super.onPageCommitVisible(view, url)
+        injectAdBlockCss(view, url)
+    }
+
+    private fun injectAdBlockCss(view: WebView, url: String) {
+        if (!url.startsWith("http")) return
+        val plugin = owner.browserPluginManager.enabledAdBlocker() ?: return
+        val js = runCatching { plugin.cosmeticScript(url) }.getOrNull() ?: return
+        runCatching { view.evaluateJavascript(js, null) }
     }
 
     override fun shouldInterceptRequest(

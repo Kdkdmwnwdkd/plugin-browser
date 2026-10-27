@@ -262,6 +262,12 @@ class PluginManager(
     fun enabledNativePlugins(): List<NativePlugin> =
         nativePlugins.filter { isEnabled(it.metadata.id) }
 
+    /** 广告拦截插件实例（只取启用的）；供 WebView 注入元素隐藏样式 */
+    fun enabledAdBlocker(): AdBlockPlugin? {
+        if (!isEnabled(ADBLOCK_PLUGIN_ID)) return null
+        return nativePlugins.firstOrNull { it is AdBlockPlugin } as? AdBlockPlugin
+    }
+
     /* ---------------- JS 脚本组装与注入 ---------------- */
 
     /** require 库会泄漏到页面的全局变量（加载后捕获给用户脚本、再还原页面原值） */
