@@ -1,13 +1,13 @@
 {
-  "versionCode": 28,
-  "versionName": "2.4.0",
-  "size": 8653309,
-  "sha256": "3cc2db3a2725eadef2fbb2e9b329970805fcb403c529194f5ee94e5dcebb8285",
-  "notes": "2.4.0 换成自己的下载器，不再借系统那个\n· 下载走 App 自己的网络栈：GitHub 域名复用「设置 → 网络」里配的代理和 DoH，不再直连\n· 浏览器可以关掉，前台服务在后台继续下；锁屏、切到别的 App 都不中断\n· 支持断点续传：中途失败或进程被杀，下次从断点接着下，不用从头再来\n· 通知栏实时显示百分比、已下载/总大小、速度，带「取消」按钮\n· 下载管理页同步显示同样的进度，失败的点一下就能重试\n· 文件仍然落在「下载/PluginBrowser」，走 MediaStore，不需要存储权限\n· 2.3.0 之前用系统下载器留下的未完成任务会自动标记失败，点一下即可重下",
+  "versionCode": 29,
+  "versionName": "2.4.1",
+  "size": 8616259,
+  "sha256": "b9052d99b92207f4408683290c95283d456fe57981d873587c5a1731b5bfae6e",
+  "notes": "2.4.1 修 GitHub 登录报错、下载列表一直转圈\n· GitHub 加速默认只接管静态资源（raw、头像、release 直链、CSS/JS），网页、登录、页面内动态加载的片段全部交回系统内核\n· 设置 → 网络新增「网页也走独立通道（高级）」，默认关闭；确实需要连网页一起代理时才打开\n· 重定向响应里的 Set-Cookie 现在会先落盘再转交，登录态不再因为丢 Cookie 而失效\n· 同时占用通道的请求限制为 3 个，卡住的连接不会再拖住整页资源加载\n· 错误页保留真实网址（不再变成 about:blank），并加了「重新加载」按钮，提示文案也改成说人话",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.0/Kite-2.4.0-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.0/Kite-2.4.0-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.0/Kite-2.4.0-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.1/Kite-2.4.1-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.1/Kite-2.4.1-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.1/Kite-2.4.1-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

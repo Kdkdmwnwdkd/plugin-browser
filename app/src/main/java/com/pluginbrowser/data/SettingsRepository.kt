@@ -47,6 +47,17 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_GITHUB_ACCEL, true)
         set(value) = prefs.edit().putBoolean(KEY_GITHUB_ACCEL, value).apply()
 
+    /**
+     * 连 github.com 的网页本身也走独立通道。
+     *
+     * 默认关闭：网页、登录表单、页面里动态拉取的片段都依赖 Cookie 轮换、
+     * CSRF 令牌和重定向链，用 WebView 自己的网络栈处理才稳；
+     * 静态资源（raw / avatars / camo / assets）没有这些，才交给我们接管。
+     */
+    var githubCatchPages: Boolean
+        get() = prefs.getBoolean(KEY_GITHUB_CATCH_PAGES, false)
+        set(value) = prefs.edit().putBoolean(KEY_GITHUB_CATCH_PAGES, value).apply()
+
     /** 代理地址，如 127.0.0.1:7890 / socks5://127.0.0.1:1080；留空表示直连 */
     var proxyUrl: String
         get() = prefs.getString(KEY_PROXY_URL, "").orEmpty()
@@ -141,6 +152,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_THEME = "theme"
         private const val KEY_UA_PRESET = "ua_preset"
         private const val KEY_GITHUB_ACCEL = "github_accel"
+        private const val KEY_GITHUB_CATCH_PAGES = "github_catch_pages"
         private const val KEY_PROXY_URL = "proxy_url"
         private const val KEY_DOH = "doh_enabled"
         private const val KEY_ASK_DOWNLOAD = "ask_before_download"

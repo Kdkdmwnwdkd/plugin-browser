@@ -35,6 +35,39 @@ class GitHubChannelTest {
     }
 
     @Test
+    fun `默认只接管静态资源域名`() {
+        // 网页、登录、接口一律不接：这些请求依赖 Cookie 轮换与重定向链
+        assertFalse(GitHubChannel.shouldHandle("github.com", catchPages = false))
+        assertFalse(GitHubChannel.shouldHandle("api.github.com", catchPages = false))
+        assertFalse(GitHubChannel.shouldHandle("gist.github.com", catchPages = false))
+        assertFalse(GitHubChannel.shouldHandle("codeload.github.com", catchPages = false))
+
+        // 静态资源域才接管，缓存与自定义 DNS 在这里才有意义
+        assertTrue(GitHubChannel.shouldHandle("raw.githubusercontent.com", catchPages = false))
+        assertTrue(GitHubChannel.shouldHandle("avatars.githubusercontent.com", catchPages = false))
+        assertTrue(GitHubChannel.shouldHandle("camo.githubusercontent.com", catchPages = false))
+        assertTrue(GitHubChannel.shouldHandle("objects.githubusercontent.com", catchPages = false))
+        assertTrue(GitHubChannel.shouldHandle("github.githubassets.com", catchPages = false))
+
+        // 高级开关打开后回到旧行为，但仍不碰非 GitHub 域名
+        assertTrue(GitHubChannel.shouldHandle("github.com", catchPages = true))
+        assertTrue(GitHubChannel.shouldHandle("api.github.com", catchPages = true))
+        assertFalse(GitHubChannel.shouldHandle("example.com", catchPages = true))
+        assertFalse(GitHubChannel.shouldHandle(null, catchPages = true))
+        assertFalse(GitHubChannel.shouldHandle("", catchPages = true))
+    }
+
+    @Test
+    fun `静态资源域判定不能误伤`() {
+        assertTrue(GitHubChannel.isAssetHost("raw.githubusercontent.com"))
+        assertTrue(GitHubChannel.isAssetHost("github.githubassets.com"))
+        assertFalse(GitHubChannel.isAssetHost("github.com"))
+        assertFalse(GitHubChannel.isAssetHost("githubusercontent.com"))
+        assertFalse(GitHubChannel.isAssetHost("evil-githubassets.com"))
+        assertFalse(GitHubChannel.isAssetHost(null))
+    }
+
+    @Test
     fun `代理串解析`() {
         assertNull(GitHubChannel.proxyOf(""))
         assertNull(GitHubChannel.proxyOf("   "))

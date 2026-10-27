@@ -77,8 +77,14 @@
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="github_accel"
-            android:summary="GitHub 相关域名走独立通道：自定义 DNS、可选代理、磁盘缓存。页面和图片都覆盖，出问题可以关掉"
+            android:summary="raw、头像、release 直链这些静态资源走独立通道：自定义 DNS、可选代理、磁盘缓存"
             android:title="GitHub 加速" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="github_catch_pages"
+            android:summary="默认不接管。github.com 的网页与登录交给系统内核，才不会出现登录后报错、下载列表一直转圈"
+            android:title="网页也走独立通道（高级）" />
 
         <EditTextPreference
             android:key="proxy_url"

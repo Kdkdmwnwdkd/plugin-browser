@@ -1008,11 +1008,18 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     override fun onErrorPageNeeded(tab: Tab, errorCode: Int) {
-        val failed = tab.url.ifBlank { "about:blank" }
+        val current = tab.url
+        // tab.url 有可能已经被错误页自己的 about:blank 覆盖过，优先用记下来的失败地址
+        val failed = if (current.isBlank() || current == "about:blank") {
+            tab.failedUrl ?: "about:blank"
+        } else {
+            current
+        }
         tab.failedUrl = failed
         tab.webView.stopLoading()
         val html = ErrorPages.html(errorCode, failed)
         tab.webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
+        if (tab === tabManager.currentTab()) refreshUi()
     }
 
     override fun onRenderProcessGone(tab: Tab) {
@@ -1026,6 +1033,10 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     override fun onInternalScheme(url: String): Boolean {
+        if (url.startsWith(ErrorPages.RETRY_SCHEME)) {
+            reload()
+            return true
+        }
         if (url.startsWith("pb://focus-address")) {
             addressInput.requestFocus()
             addressInput.setSelection(0, addressInput.text?.length ?: 0)

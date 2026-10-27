@@ -96,7 +96,9 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
         val tab = owner.browserTabManager.findTab(view) ?: return
-        if (!url.startsWith("data:")) {
+        // 错误页是用 loadDataWithBaseURL 加载的，WebView 会额外报一次 about:blank。
+        // 如果连它一起写进 tab.url，地址栏就变成 about:blank，重试也会去重试空白页。
+        if (!url.startsWith("data:") && url != "about:blank") {
             tab.url = url
             tab.failedUrl = null
             tab.translated = false

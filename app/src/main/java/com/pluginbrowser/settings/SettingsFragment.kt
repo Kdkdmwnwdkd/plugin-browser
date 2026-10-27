@@ -134,6 +134,12 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
+        findPreference<SwitchPreferenceCompat>("github_catch_pages")?.setOnPreferenceChangeListener { _, newValue ->
+            settings.githubCatchPages = newValue as Boolean
+            channel.reset()
+            true
+        }
+
         findPreference<EditTextPreference>("proxy_url")?.apply {
             summary = proxySummary(settings.proxyUrl)
             setOnPreferenceChangeListener { pref, newValue ->

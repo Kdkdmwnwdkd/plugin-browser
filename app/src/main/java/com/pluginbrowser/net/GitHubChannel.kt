@@ -44,6 +44,9 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
     /** 熔断：连续失败这么多次就歇一会儿，别让每个请求都卡在 connectTimeout 上 */
     private val failures = AtomicInteger()
 
+    /** 正在等响应头的请求数（见 intercept 里的说明） */
+    private val inFlight = AtomicInteger()
+
     @Volatile
     private var blockedUntil = 0L
 
@@ -123,15 +126,26 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
         // 这里是全站每个请求的必经之路，域名判定放最前面：
         // 非 GitHub 的请求在一次 endsWith 之后就返回了，不碰任何配置和请求头
         val uri = request.url
-        if (!handles(uri.host)) return null
+        val host = uri.host
+        if (!handles(host)) return null
 
         if (!settings.githubAccel) return null
+        // 默认只接静态资源域。github.com 的网页、登录表单、页面里动态拉取的片段
+        // 一律交回 WebView 自己的网络栈——它们依赖 Cookie 轮换、CSRF 令牌和重定向链，
+        // 经手中转一次就足以让「登录后跳转」和「下载列表懒加载」卡死。
+        if (!shouldHandle(host, settings.githubCatchPages)) return null
         if (!request.method.equals("GET", ignoreCase = true)) return null
         // 分段请求（视频、大文件续传）不接手：206 + Content-Range 交给原生栈更稳
         if (request.requestHeaders.keys.any { it.equals("Range", ignoreCase = true) }) return null
         if (System.currentTimeMillis() < blockedUntil) return null
 
         val url = uri.toString()
+        // shouldInterceptRequest 跑在 Chromium 的拦截线程池上，而这里是一次同步请求：
+        // 线程被占住期间，这个线程什么都干不了。代理抖动时若十几个资源同时卡住，
+        // 线程池会被吃光，连网页自身的请求也只能排队——表现就是「首屏秒开，
+        // 往下翻永远转圈」。所以只允许少量请求同时走我们这条通道，其余直接回落原生栈。
+        if (inFlight.get() >= MAX_IN_FLIGHT) return null
+
         val builder = Request.Builder().url(url)
         request.requestHeaders.forEach { (rawKey, value) ->
             if (rawKey.lowercase() in DROP_REQUEST_HEADERS) return@forEach
@@ -143,13 +157,22 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
             ?.takeIf { it.isNotEmpty() }
             ?.let { builder.header("Cookie", it) }
 
+        inFlight.incrementAndGet()
         val response = try {
             client().newCall(builder.build()).execute()
         } catch (e: Exception) {
             noteFailure()
             return null
+        } finally {
+            // 槽位只覆盖「拿到响应头」这一段；响应体由 WebView 边读边消费，不再占用线程
+            inFlight.decrementAndGet()
         }
         noteSuccess()
+
+        // 先把 Set-Cookie 落地，再决定要不要交回原生栈。
+        // 3xx 的响应头里常常就是新的会话 ID，丢掉它再让 WebView 重发一次，
+        // 服务端看到的是过期令牌——登录失败多半就出在这里。
+        persistCookies(url, response)
 
         // 3xx / 304：WebResourceResponse 表达不了，交回原生栈让 WebView 自己跟。
         // 多一跳，但地址栏、前进后退、缓存校验都还对得上。
@@ -181,23 +204,22 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
             headers[rawKey] = if (prev.isNullOrEmpty()) value else "$prev, $value"
         }
 
-        // Set-Cookie 必须单独回写：多值拼成一行会解析失败，登录态就丢了
-        val setCookies = response.headers("Set-Cookie")
-        if (setCookies.isNotEmpty()) {
-            val cm = CookieManager.getInstance()
-            setCookies.forEach { runCatching { cm.setCookie(url, it) } }
-            runCatching { cm.flush() }
-        }
-
         val stream = ClosingStream(body.byteStream()) { response.close() }
-        return WebResourceResponse(
-            mime,
-            charset,
-            response.code,
-            reasonOf(response.code),
-            headers,
-            stream,
-        )
+        // 响应头里只要有一个 WebView 不认的值，构造就会抛异常；
+        // 在拦截线程上抛出等于把一个资源变成页面级故障，所以兜住直接回落原生栈
+        return runCatching {
+            WebResourceResponse(
+                mime,
+                charset,
+                response.code,
+                reasonOf(response.code),
+                headers,
+                stream,
+            )
+        }.getOrElse {
+            runCatching { response.close() }
+            null
+        }
     }
 
     /* ---------------- DNS ---------------- */
@@ -285,6 +307,20 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
 
     /* ---------------- 内部 ---------------- */
 
+    /**
+     * 把响应里的 Set-Cookie 逐条写进 WebView 的 CookieManager。
+     *
+     * 必须一条一条写：多个 Set-Cookie 拼成一行会解析失败，登录态直接丢。
+     * 3xx 的响应在交回原生栈之前也要先调用它——重定向往往就是换会话 ID 的地方。
+     */
+    private fun persistCookies(url: String, response: okhttp3.Response) {
+        val setCookies = response.headers("Set-Cookie")
+        if (setCookies.isEmpty()) return
+        val cm = CookieManager.getInstance()
+        setCookies.forEach { runCatching { cm.setCookie(url, it) } }
+        runCatching { cm.flush() }
+    }
+
     /** 缓存命中后这条路径每个请求都会走，所以先无锁查，只有配置变了才重建 */
     private fun client(): OkHttpClient {
         val key = "${settings.proxyUrl.trim()}|${settings.dohEnabled}"
@@ -300,7 +336,9 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
             .dns(dns)
             .cache(runCatching { Cache(File(cacheDir, "cache"), CACHE_BYTES) }.getOrNull())
             .connectTimeout(8, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
+            // 单次读超时，不是总时长。卡住的连接要尽快让出拦截线程，
+            // 否则它会拖住同一页面的其他请求
+            .readTimeout(10, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             // 重定向自己跟会打乱地址栏和历史记录，交回 WebView
             .followRedirects(false)
@@ -386,6 +424,9 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
         private const val BLOCK_MS = 60_000L
         private const val DNS_TTL_MS = 5 * 60_000L
 
+        /** 同时占用拦截线程的上限，超出的请求直接交回原生栈 */
+        private const val MAX_IN_FLIGHT = 3
+
         /**
          * 这几个域名在国内基本都被污染，系统解析会返回假地址且不会报错，
          * 所以必须主动先问 DoH。
@@ -450,5 +491,24 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
                 // CSS/JS 走的是 github.githubassets.com，域名根其实叫 githubassets.com
                 host.endsWith(".githubassets.com", ignoreCase = true)
         }
+
+        /**
+         * 纯粹的静态资源域：只吐文件，没有登录表单、没有 CSRF、没有动态片段。
+         * 这些才是「自定义 DNS + 代理 + 磁盘缓存」真正能救的地方。
+         */
+        fun isAssetHost(host: String?): Boolean {
+            if (host.isNullOrEmpty()) return false
+            return host.endsWith(".githubusercontent.com", ignoreCase = true) ||
+                host.endsWith(".githubassets.com", ignoreCase = true)
+        }
+
+        /**
+         * 这个请求该不该由我们自己发。
+         *
+         * `catchPages = false`（默认）时只接静态资源域：
+         * github.com 的网页、api、登录、`expanded_assets` 这类 fragment 全部交回原生栈。
+         */
+        fun shouldHandle(host: String?, catchPages: Boolean): Boolean =
+            isGitHubHost(host) && (catchPages || isAssetHost(host))
     }
 }
