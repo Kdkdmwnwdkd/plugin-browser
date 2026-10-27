@@ -1,13 +1,13 @@
 {
-  "versionCode": 23,
-  "versionName": "2.0.0",
+  "versionCode": 24,
+  "versionName": "2.0.1",
   "size": 7950209,
-  "sha256": "5a3eb2dac4b3fcdd5dc64f69889101d090caaf224a4e70b55bdf8b029ee527a5",
-  "notes": "广告拦截换成 EasyList 规则引擎。\n· 8.7 万条域名规则 + 1.4 万条路径规则，覆盖 EasyList、EasyList China、EasyPrivacy\n· 三层索引，判定很快；例外规则优先，不误伤正常资源\n· 广告位在首帧前就隐藏，不会闪一下再消失\n· 新增「设置 → 数据」：导出备份 / 从备份恢复（书签、历史、设置）\n· 新增崩溃日志落盘",
+  "sha256": "b441d4389963cf5fde99e4a5992458e05046f9f31ffe91eb08e0f1d98992ed73",
+  "notes": "固定签名。\n· 签名密钥固化进仓库（keystore/kite.jks），以后任何环境打包都是同一把钥匙\n· 证书指纹没变，可以直接覆盖安装\n· 其余同 2.0.0：EasyList 广告拦截、数据备份、崩溃日志",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.0.0/Kite-2.0.0-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.0.0/Kite-2.0.0-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.0.0/Kite-2.0.0-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.0.1/Kite-2.0.1-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.0.1/Kite-2.0.1-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.0.1/Kite-2.0.1-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
