@@ -66,6 +66,31 @@
             android:title="@string/settings_translate" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="网络">
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="github_accel"
+            android:summary="GitHub 相关域名走独立通道：自定义 DNS、可选代理、磁盘缓存。页面和图片都覆盖，出问题可以关掉"
+            android:title="GitHub 加速" />
+
+        <EditTextPreference
+            android:key="proxy_url"
+            android:title="代理服务器"
+            app:useSimpleSummaryProvider="false" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="doh_enabled"
+            android:summary="raw、camo、avatars 这些域名在国内常被 DNS 污染，改用 HTTPS 查询绕开"
+            android:title="DoH 解析" />
+
+        <Preference
+            android:key="net_probe"
+            android:summary="点一下看 GitHub 现在的连通性和耗时"
+            android:title="测试连接" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="外观">
 
         <ListPreference

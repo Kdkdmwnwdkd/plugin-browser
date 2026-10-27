@@ -1,13 +1,13 @@
 {
-  "versionCode": 25,
-  "versionName": "2.1.0",
-  "size": 7952253,
-  "sha256": "93c8380ebd1854862cef46720c644b5ff27a2e302e55a900f914834f496d4819",
-  "notes": "2.1.0 加载提速\n· 修掉一个把「慢」放大成「打不开」的问题：以前整页 20 秒没到 100% 就换成错误页，现在首帧出来之后不再中止，弱网下能加载多少看多少\n· 三个演示插件（夜间模式 / 网页净化 / 阅读模式）改为默认关闭。它们匹配所有站点、每页都注入：净化的全文档选择器扫描在 GitHub 这类大页面上单次就要几百毫秒，夜间模式的整页 filter 还会让滚动掉帧。需要时在插件页开启\n· 广告拦截：不再在后台线程读 WebView 地址（那里会直接抛异常，导致第三方规则全部失效），改由主线程传入并用 Referer 兜底\n· 请求拦截路径去掉每请求一次的插件表重建、加锁和临时字符串\n· 元素隐藏样式每页只注入一次；WebView 配置上下文复用；渲染进程优先级固定为 IMPORTANT",
+  "versionCode": 26,
+  "versionName": "2.2.0",
+  "size": 8567681,
+  "sha256": "db9b0da1ec01f5bbefb8e6569c9755dd8d88b894bd69e493b805e6350acb3483",
+  "notes": "2.2.0 给 GitHub 单独铺了一条通道\n· 设置里新增「网络」：github.com、api、raw、avatars、camo、githubassets 等域名不再走 WebView 自带的网络栈，改成自己发请求\n· 有代理的：填 127.0.0.1:7890 或 socks5://127.0.0.1:1080，GitHub 全站立刻走代理（目前只对 GitHub 生效）\n· 没代理的：raw / camo / avatars 这几个常被 DNS 污染的域名改用 DoH 解析，README 图片不会再一片碎图\n· 静态资源进 96MB 磁盘缓存，带 hash 的文件第二次打开直接命中\n· 设置里加了「测试连接」，点一下就能看到当前通道的连通性和耗时\n· 只接 GET、只对 GitHub 域名生效；任何异常都退回原生栈，连续失败自动熔断 60 秒",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.1.0/Kite-2.1.0-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.1.0/Kite-2.1.0-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.1.0/Kite-2.1.0-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.2.0/Kite-2.2.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.2.0/Kite-2.2.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.2.0/Kite-2.2.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

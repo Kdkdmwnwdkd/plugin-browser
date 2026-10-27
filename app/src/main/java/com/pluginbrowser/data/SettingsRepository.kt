@@ -40,6 +40,23 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_UA_PRESET, "default")!!
         set(value) = prefs.edit().putString(KEY_UA_PRESET, value).apply()
 
+    /* ---------------- GitHub 通道 ---------------- */
+
+    /** 让 GitHub 相关域名走自己的网络栈（可配 DNS / 代理） */
+    var githubAccel: Boolean
+        get() = prefs.getBoolean(KEY_GITHUB_ACCEL, true)
+        set(value) = prefs.edit().putBoolean(KEY_GITHUB_ACCEL, value).apply()
+
+    /** 代理地址，如 127.0.0.1:7890 / socks5://127.0.0.1:1080；留空表示直连 */
+    var proxyUrl: String
+        get() = prefs.getString(KEY_PROXY_URL, "").orEmpty()
+        set(value) = prefs.edit().putString(KEY_PROXY_URL, value.trim()).apply()
+
+    /** 用 DNS over HTTPS 解析被污染的域名（raw / camo / avatars 等） */
+    var dohEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DOH, true)
+        set(value) = prefs.edit().putBoolean(KEY_DOH, value).apply()
+
     /* ---------------- 手势 ---------------- */
 
     var gestureEnabled: Boolean
@@ -101,6 +118,9 @@ class SettingsRepository(context: Context) {
         private const val KEY_DESKTOP_UA = "desktop_ua"
         private const val KEY_THEME = "theme"
         private const val KEY_UA_PRESET = "ua_preset"
+        private const val KEY_GITHUB_ACCEL = "github_accel"
+        private const val KEY_PROXY_URL = "proxy_url"
+        private const val KEY_DOH = "doh_enabled"
         private const val KEY_GESTURE_ENABLED = "gesture_enabled"
         private const val KEY_GESTURE_LEFT = "gesture_left_edge"
         private const val KEY_GESTURE_RIGHT = "gesture_right_edge"

@@ -11,8 +11,8 @@ android {
         applicationId = "com.pluginbrowser"
         minSdk = 24
         targetSdk = 34
-        versionCode = 25
-        versionName = "2.1.0"
+        versionCode = 26
+        versionName = "2.2.0"
     }
 
     signingConfigs {
@@ -62,4 +62,6 @@ dependencies {
     implementation("androidx.preference:preference-ktx:1.2.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.5")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    // GitHub 通道要用自定义 DNS（DoH）和代理，WebView 自带的网络栈这两样都改不了
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

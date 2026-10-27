@@ -8,6 +8,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.pluginbrowser.data.BrowserStore
 import com.pluginbrowser.data.SettingsRepository
+import com.pluginbrowser.net.GitHubChannel
 import com.pluginbrowser.plugin.PluginManager
 
 /**
@@ -29,6 +30,9 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         val browserStore: BrowserStore
         val browserPluginManager: PluginManager
         val browserTabManager: TabManager
+
+        /** GitHub 专用通道（自定义 DNS / 代理），Application 级单例 */
+        val githubChannel: GitHubChannel
 
         fun onPageStarted(tab: Tab)
         fun onPageFinished(tab: Tab)
@@ -176,7 +180,9 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
             val resp = plugins[i].shouldInterceptRequest(view, request)
             if (resp != null) return resp
         }
-        return null
+
+        // 广告拦完之后再看要不要走 GitHub 通道：被拦掉的请求不该再花流量
+        return owner.githubChannel.intercept(request)
     }
 
     override fun onRenderProcessGone(

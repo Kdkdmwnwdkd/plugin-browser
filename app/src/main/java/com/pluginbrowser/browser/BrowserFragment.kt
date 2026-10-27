@@ -1114,6 +1114,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     override val browserStore: BrowserStore get() = store
     override val browserPluginManager: PluginManager get() = pluginManager
     override val browserTabManager: TabManager get() = tabManager
+    override val githubChannel
+        get() = com.pluginbrowser.PluginBrowserApp.from(requireContext()).gitHubChannel
 
     /* ---------------- 当前标签切换 ---------------- */
 

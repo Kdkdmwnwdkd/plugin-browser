@@ -44,6 +44,29 @@ class SettingsFragment : PreferenceFragmentCompat() {
         ActivityResultContracts.OpenDocument(),
     ) { uri -> uri?.let { doImport(it) } }
 
+    private val channel get() = PluginBrowserApp.from(requireContext()).gitHubChannel
+    private var probing = false
+
+    private fun proxySummary(value: String): String =
+        if (value.isBlank()) {
+            "仅对 GitHub 生效。留空直连，可填 127.0.0.1:7890 或 socks5://127.0.0.1:1080"
+        } else {
+            "仅对 GitHub 生效 · 当前：$value"
+        }
+
+    /** 走一遍和浏览时完全相同的通道，省得用户改完代理也不知道到底通没通 */
+    private fun probeConnection() {
+        if (probing) return
+        val pref = findPreference<Preference>("net_probe") ?: return
+        probing = true
+        pref.summary = "正在测试…"
+        lifecycleScope.launch {
+            val text = withContext(Dispatchers.IO) { channel.probe() }
+            pref.summary = text
+            probing = false
+        }
+    }
+
     override fun onCreateView(
         inflater: android.view.LayoutInflater,
         container: android.view.ViewGroup?,
@@ -95,6 +118,34 @@ class SettingsFragment : PreferenceFragmentCompat() {
         findPreference<SwitchPreferenceCompat>("desktop_ua")?.setOnPreferenceChangeListener { _, newValue ->
             settings.desktopUa = newValue as Boolean
             Toast.makeText(requireContext(), "新标签页生效", Toast.LENGTH_SHORT).show()
+            true
+        }
+
+        findPreference<SwitchPreferenceCompat>("github_accel")?.setOnPreferenceChangeListener { _, newValue ->
+            settings.githubAccel = newValue as Boolean
+            channel.reset()
+            true
+        }
+
+        findPreference<EditTextPreference>("proxy_url")?.apply {
+            summary = proxySummary(settings.proxyUrl)
+            setOnPreferenceChangeListener { pref, newValue ->
+                val text = (newValue as String).trim()
+                settings.proxyUrl = text
+                pref.summary = proxySummary(text)
+                channel.reset()
+                true
+            }
+        }
+
+        findPreference<SwitchPreferenceCompat>("doh_enabled")?.setOnPreferenceChangeListener { _, newValue ->
+            settings.dohEnabled = newValue as Boolean
+            channel.reset()
+            true
+        }
+
+        findPreference<Preference>("net_probe")?.setOnPreferenceClickListener {
+            probeConnection()
             true
         }
 

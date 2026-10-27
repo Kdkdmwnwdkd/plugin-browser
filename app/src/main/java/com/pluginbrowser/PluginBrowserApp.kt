@@ -2,7 +2,9 @@ package com.pluginbrowser
 
 import android.app.Application
 import android.content.Context
+import com.pluginbrowser.data.SettingsRepository
 import com.pluginbrowser.download.DownloadTracker
+import com.pluginbrowser.net.GitHubChannel
 import com.pluginbrowser.plugin.PluginManager
 import com.pluginbrowser.util.CrashLogger
 import kotlinx.coroutines.CoroutineScope
@@ -18,11 +20,16 @@ class PluginBrowserApp : Application() {
     lateinit var pluginManager: PluginManager
         private set
 
+    /** GitHub 专用通道：自定义 DNS / 代理，全局一份（连接池和缓存要复用） */
+    lateinit var gitHubChannel: GitHubChannel
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
         CrashLogger.install(this)
         pluginManager = PluginManager(this, appScope)
+        gitHubChannel = GitHubChannel(this, SettingsRepository(this))
         // 发现已安装的外部原生插件 APK
         pluginManager.loadExternalNativePlugins()
         // 注册下载完成广播跟踪
