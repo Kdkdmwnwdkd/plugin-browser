@@ -28,6 +28,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebChromeClient.FileChooserParams
 import android.webkit.WebView
 import android.widget.AutoCompleteTextView
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
@@ -60,6 +61,7 @@ import com.pluginbrowser.plugin.api.PluginMenuItem
 import com.pluginbrowser.plugin.js.JsBridge
 import com.pluginbrowser.plugin.store.PluginStoreFragment
 import com.pluginbrowser.settings.SettingsFragment
+import com.pluginbrowser.site.AppHandoff
 import com.pluginbrowser.site.ReaderMode
 import com.pluginbrowser.site.SiteAction
 import com.pluginbrowser.site.SiteRuleEngine
@@ -108,6 +110,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private lateinit var btnTabs: View
     private lateinit var btnMenu: ImageButton
     private lateinit var tabCountBadge: TextView
+    private lateinit var handoffBar: View
+    private lateinit var handoffText: TextView
     private lateinit var findBar: View
     private lateinit var findInput: EditText
     private lateinit var findCount: TextView
@@ -122,6 +126,12 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     /** 阅读模式当前文章：调字号时不用重新提取 */
     private var readerArticle: ReaderMode.Article? = null
     private var readerScale = 1f
+    /** 刚跳去过外部 App 的地址，用于「再打开」 */
+    private var handoffTarget: String? = null
+    private val handoff by lazy { AppHandoff(requireContext()) }
+    private val hideHandoffBar = Runnable {
+        if (::handoffBar.isInitialized) handoffBar.isVisible = false
+    }
     private var pendingImageUrl: String? = null
     private var pendingLinkUrl: String? = null
     private var pendingDownload: PendingDownload? = null
@@ -274,6 +284,21 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         btnTabs = view.findViewById(R.id.btn_tabs)
         btnMenu = view.findViewById(R.id.btn_menu)
         tabCountBadge = view.findViewById(R.id.tab_count_badge)
+        handoffBar = view.findViewById(R.id.handoff_bar)
+        handoffText = view.findViewById(R.id.handoff_text)
+        view.findViewById<View>(R.id.handoff_close).setOnClickListener {
+            handoffBar.removeCallbacks(hideHandoffBar)
+            handoffBar.isVisible = false
+        }
+        view.findViewById<View>(R.id.handoff_reopen).setOnClickListener {
+            val target = handoffTarget
+            handoffBar.isVisible = false
+            if (target.isNullOrBlank()) {
+                toast("那个链接已经失效了")
+            } else {
+                launchExternal(target, SiteRuleEngine.hostOf(tabManager.currentTab()?.url).orEmpty())
+            }
+        }
 
         setupAddressBar()
         setupFindBar()
@@ -312,6 +337,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         super.onResume()
         currentWebView()?.onResume()
         refreshUi()
+        showHandoffBar()
     }
 
     override fun onPause() {
@@ -510,6 +536,34 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     /* ---------------- 页内查找 ---------------- */
+
+    /* ---------------- 保存页面图片 ---------------- */
+
+    /**
+     * 保存图片：先把页面里的图收集上来，再让用户挑。
+     *
+     * 不直接「一键全部保存」：一个长文页几十张，其中一半是头像、图标和表情，
+     * 全存进相册等于制造垃圾。给个九宫格让人自己挑，比什么自动化都准。
+     */
+    private fun pickImages() {
+        val tab = tabManager.currentTab() ?: return
+        if (!tab.usable || !tab.url.startsWith("http")) {
+            toast("这个页面没有可保存的图片")
+            return
+        }
+        tab.webView.evaluateJavascript(SiteScripts.COLLECT_IMAGES) { raw ->
+            if (!isAdded) return@evaluateJavascript
+            val list = PageImages.parse(raw)
+            if (list.isEmpty()) {
+                toast("这个页面没有找到可保存的图片")
+                return@evaluateJavascript
+            }
+            PageImages.pending = list
+            if (requireActivity().supportFragmentManager.findFragmentByTag(TAG_IMAGES) == null) {
+                ImagePickerSheet().show(requireActivity().supportFragmentManager, TAG_IMAGES)
+            }
+        }
+    }
 
     /* ---------------- 阅读模式 ---------------- */
 
@@ -970,6 +1024,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                 BookmarksFragment.newInstance(BookmarksFragment.MODE_HISTORY),
             )
             "screenshot" -> captureLongScreenshot()
+            "images" -> pickImages()
             "sniffer" -> {
                 if (requireActivity().supportFragmentManager.findFragmentByTag(TAG_SNIFFER) == null) {
                     ResourceSnifferFragment().show(
@@ -1452,13 +1507,12 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             offerDirectDownload(direct)
             return true
         }
-        // intent:// 是 Android 标准的"调起别的 App"写法，自带失败回退地址，
-        // 直接 startActivity 会失败（它需要按 URI_INTENT_SCHEME 解析）
-        if (url.startsWith("intent:", ignoreCase = true)) {
-            if (openIntentUrl(url)) return true
-            offerPageDownloads()
-            return false
+        // 唤起 App 的链接不再默默交出去：先问一句，并可按站点记住。
+        // 以前是直接 startActivity，用户被拽走再回来，浏览位置和上下文全没了
+        if (url.startsWith("intent:", ignoreCase = true) || SiteRuleEngine.isAppWakeScheme(url)) {
+            return confirmAppOpen(url)
         }
+        // tel: / mailto: / 厂商深度链接这类没有「网页版」可选，保持直接交给系统
         return try {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
             true
@@ -1468,6 +1522,87 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             offerPageDownloads()
             false
         }
+    }
+
+    /**
+     * 打开 App 前的确认。
+     *
+     * 记住的选择按站点存：同一个站点的第二次跳转不再问，但不影响别的站点。
+     * 「留在网页」这一项是整件事的重点——很多站点的网页版完全能用，
+     * 用户只是被弹窗推着走。
+     */
+    private fun confirmAppOpen(url: String): Boolean {
+        val host = SiteRuleEngine.hostOf(tabManager.currentTab()?.url).orEmpty()
+        when (handoff.choice(host)) {
+            AppHandoff.Choice.WEB -> {
+                toast("已留在网页，可在 设置 → 站点适配 里改回来")
+                return true
+            }
+            AppHandoff.Choice.APP -> return launchExternal(url, host)
+            AppHandoff.Choice.ASK -> Unit
+        }
+
+        val ctx = context ?: return launchExternal(url, host)
+        val remember = CheckBox(ctx).apply {
+            text = "记住这个网站的选择"
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
+            val pad = (16 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad / 2, pad, 0)
+        }
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle("要在 App 里打开吗")
+            .setMessage(
+                if (host.isBlank()) "这个链接会唤起别的应用。"
+                else "$host 想唤起别的应用。留在网页可以继续用浏览器看。",
+            )
+            .setView(remember)
+            .setNegativeButton("留在网页") { _, _ ->
+                if (remember.isChecked && host.isNotBlank()) {
+                    handoff.setChoice(host, AppHandoff.Choice.WEB)
+                }
+            }
+            .setPositiveButton("打开 App") { _, _ ->
+                if (remember.isChecked && host.isNotBlank()) {
+                    handoff.setChoice(host, AppHandoff.Choice.APP)
+                }
+                launchExternal(url, host)
+            }
+            .show()
+        return true
+    }
+
+    /** 真正跳出去；记住这一跳，回来时好提示 */
+    private fun launchExternal(url: String, host: String): Boolean {
+        val ok = if (url.startsWith("intent:", ignoreCase = true)) {
+            openIntentUrl(url)
+        } else {
+            runCatching {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                true
+            }.getOrDefault(false)
+        }
+        if (!ok) {
+            toast("没有找到能打开这个链接的应用，已留在网页")
+            return true
+        }
+        handoffTarget = url
+        handoff.remember(url, host)
+        return true
+    }
+
+    /** 回到前台时提示「刚从 App 回来」，12 秒后自动收起 */
+    private fun showHandoffBar() {
+        if (!::handoffBar.isInitialized) return
+        val last = handoff.takeFresh()
+        if (last == null) {
+            handoffBar.isVisible = false
+            return
+        }
+        handoffTarget = last.url
+        handoffText.text = "刚从「${last.host.ifBlank { "外部 App" }}」回来"
+        handoffBar.isVisible = true
+        handoffBar.removeCallbacks(hideHandoffBar)
+        handoffBar.postDelayed(hideHandoffBar, 12_000L)
     }
 
     /** 深度链接的 query 里带 http(s) 地址时取出来（常见于导流下载页） */
@@ -1757,6 +1892,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         private const val TAG_TABS = "tab_switcher"
         private const val TAG_SNIFFER = "resource_sniffer"
         private const val TAG_DIAG = "net_diagnostics"
+        private const val TAG_IMAGES = "page_images"
         private const val TAG_MENU = "browser_menu"
         private const val PROGRESS_ANIM_MS = 160L
         /** 首帧迟迟不出现才判定打不开（跨境首连十几秒是常态，别太早翻脸） */

@@ -1,13 +1,13 @@
 {
-  "versionCode": 34,
-  "versionName": "2.5.1",
-  "size": 8684947,
-  "sha256": "0852b64ba4e7e3a4f8973f55481799d7cb135dec9d74329e1dbc19ac02f094c0",
-  "notes": "2.5.1 站点适配层：不再是「WebView 原样跑」\n\n【适配层本身】\n新增 SiteRule / SiteRuleEngine：按域名决定一个站点该怎么加载、要注什么脚本。\n规则是声明式的一张表，加站点点一下就有，不用回头改 WebViewClient 里散落的 if。\n设置 → 站点适配：总开关 + 每条规则单独开关，全部立即生效。\n\n【打开 App 拦截】知乎、百度、微博、淘宝 / 天猫、京东\nintent:// market:// 以及各家自己的 scheme 全部拦在网页里，不再被拽去应用商店再回不来。\n页面里「打开 App」的横幅、浮层、悬浮按钮一并隐藏，后插入的也会被盯上。\n\n【视频全屏】B站、YouTube、腾讯视频 / 爱奇艺 / 优酷 / 芒果\n全屏自动锁横屏，退出自动还原；顺带进了真全屏（状态栏、导航栏一起隐藏）。\nB站、YouTube 额外开启后台播放：锁屏或切走不再断音。\n\n【阅读模式】菜单 → 阅读模式\n正文提取后重新排版：居中一行、行高 1.78、图片自适应、代码块可横向滚动，\n自带走/浅色两套配色和 A- / A+ 字号。微信公众号、知乎专栏这类长文效果最明显，\n其他页面也能手动用；提不到正文会明确提示，不会给你一页空白。\n",
+  "versionCode": 35,
+  "versionName": "2.6.0",
+  "size": 8718424,
+  "sha256": "107faafc4330eea8059ce8d6b8f6aad1d5ea93081661bdca4efbf51681344d08",
+  "notes": "2.6.0 把「互补」补齐：视频能存、图片能挑、App 不再硬拽\n\n【m3u8 流媒体下载】\n以前嗅探到 m3u8 只能复制一条链接，等于没有。现在点下载就直接把整条流拉下来：\n自动读 master 列表挑码率最高的一路，按顺序拉全部分片，首尾相接成一个文件。\n支持 AES-128 加密（显式 IV 和按序号推的 IV 都认），fMP4 会把初始化段写在最前面、\n存成 .mp4。分片服务器普遍的 Referer 校验也带上了，不再一片 403。\n局限说清楚：只给音频轨的流（EXT-X-MEDIA）拼出来是无声的，那需要重新封装；\n.mp d（DASH）仍然只给复制。\n\n【保存图片】\n菜单 → 保存图片：把页面里的图排成九宫格，缩略图、尺寸、全选都在，勾完批量入队。\nsrcset 取最大一档，懒加载的 data-src 也认，背景图在图片较少时补扫，\ndata: 内联图标自动跳过。存到相册 Pictures/PluginBrowser，图库里直接能看到。\n图片下载自动带同源 Referer，防盗链的站点也能存下来。\n\n【唤起 App 不再硬拽】\n以前网页里一点 App 链接就直接 startActivity，人被拽走，回来浏览位置全丢。\n现在先问一句「在 App 里打开 / 留在网页」，可以按站点记住这次选择。\n站点适配里已经配了「拦 App 跳转」的站（知乎、百度、微博、淘宝、京东）不弹窗，直接留在网页。\n唤起失败（没装那个 App）会明确提示并留在网页，不再跳出一屏错误。\n\n【从 App 回来有迹可循】\n两分钟内从外面 App 切回来，底部会出现一条提示：「刚从某某 App 回来」，\n点「再打开」直接回去，点叉或 12 秒后自动消失。不用再自己想「我刚才点的是哪个链接」。\n\n【测试】\n新增 17 条用例（共 61 条全绿）。HLS 部分是起了本地 HTTP 服务跑完整流程的：\nmaster 选路、分片顺序拼接、AES 解密后的字节逐字节比对，不只是解析对不对。\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.5.1/Kite-2.5.1-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.5.1/Kite-2.5.1-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.5.1/Kite-2.5.1-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.6.0/Kite-2.6.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.6.0/Kite-2.6.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.6.0/Kite-2.6.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

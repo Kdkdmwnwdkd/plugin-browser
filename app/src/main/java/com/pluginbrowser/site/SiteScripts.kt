@@ -104,6 +104,63 @@ object SiteScripts {
 """.trimIndent()
 
     /**
+     * 收集页面里的图片。
+     *
+     * 只收 http(s) 的绝对地址，data: 的 base64 内联图（图标、占位图）一概跳过——
+     * 那些存下来既没意义又把列表塞满。srcset 取最大的一档，background-image
+     * 只在图片数量很少时补扫，避免大页面全量遍历样式。
+     */
+    val COLLECT_IMAGES: String = """
+(function () {
+  try {
+    var out = [], seen = {};
+    function abs(u) { try { return new URL(u, location.href).href; } catch (e) { return null; } }
+    function push(u, w, h) {
+      if (!u || /^data:/i.test(u)) return;
+      var a = abs(u);
+      if (!a || !/^https?:/i.test(a)) return;
+      if (seen[a]) return;
+      seen[a] = 1;
+      out.push({ url: a, w: w || 0, h: h || 0 });
+    }
+    var imgs = document.querySelectorAll('img');
+    for (var i = 0; i < imgs.length; i++) {
+      var el = imgs[i];
+      var src = el.currentSrc || el.getAttribute('data-src') || el.getAttribute('data-original') || el.src;
+      var ss = el.getAttribute('srcset');
+      if (ss) {
+        var best = null, bestW = -1;
+        ss.split(',').forEach(function (part) {
+          var p = part.trim().split(/\s+/);
+          var w = parseInt((p[1] || '').replace(/[^\d]/g, ''), 10) || 0;
+          if (w >= bestW) { bestW = w; best = p[0]; }
+        });
+        if (best) src = best;
+      }
+      if (el.naturalWidth && el.naturalWidth < 80 && el.naturalHeight < 80) continue;
+      push(src, el.naturalWidth, el.naturalHeight);
+    }
+    if (out.length < 40) {
+      var nodes = document.querySelectorAll('[style*="background"]');
+      for (var k = 0; k < nodes.length && k < 300; k++) {
+        var bg = nodes[k].style.backgroundImage || '';
+        var m = bg.match(/url\(["']?([^"')]+)["']?\)/);
+        if (m) push(m[1], 0, 0);
+      }
+    }
+    return JSON.stringify({
+      ok: true,
+      title: (document.title || location.hostname).slice(0, 40),
+      page: location.href,
+      items: out.slice(0, 300)
+    });
+  } catch (e) {
+    return JSON.stringify({ ok: false, reason: String(e) });
+  }
+})()
+""".trimIndent()
+
+    /**
      * 正文提取。返回值就是结果：evaluateJavascript 会把它当成字符串再编码一层，
      * 所以这里返回 JSON.stringify 的结果，原生侧解码两次拿到对象。
      *

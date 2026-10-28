@@ -259,6 +259,9 @@ class DownloadEngine private constructor(private val context: Context) {
         val part = partFile(id)
         val meta = metaFile(id)
 
+        // m3u8 是播放列表不是文件：整条流要按分片拉下来再拼，走单独的路径
+        if (Hls.isPlaylist(item.url)) return hlsDownload(id, item, part)
+
         // 1. 上次就是按分片下的：必须继续按分片走。
         //    退回单连接会把整段数据写到偏移 0，文件直接报废。
         val saved = readMeta(meta)
@@ -297,6 +300,34 @@ class DownloadEngine private constructor(private val context: Context) {
         // 3. 老版本留下的半成品没有 meta，文件长度就是「顺序下到哪」。
         //    这种不能改成分片——已有的是连续前缀，分片会从各个偏移同时写，中间就空了。
         return singleDownload(id, item, part, legacy)
+    }
+
+    /* ---------------- m3u8 / HLS ---------------- */
+
+    /**
+     * 按播放列表下整条流。
+     *
+     * 不支持断点续传：分片流没有「字节偏移」这个概念，每个分片自带边界，
+     * 拼到一半的 .ts 也没法判断拼到第几片，所以每次都从第一片重来。
+     * 换来的是这个功能真的能用——以前 m3u8 只能复制链接，等于没有。
+     */
+    private suspend fun hlsDownload(id: Long, item: DownloadItem, part: File): Saved {
+        runCatching { metaFile(id).delete() }
+        val result = Hls.download(
+            client = clientFor(item.url),
+            playlistUrl = item.url,
+            userAgent = userAgent,
+            out = part,
+            onCall = { registerCall(id, it) },
+            onProgress = { done, total, speed -> publish(id, done, total, speed) },
+        )
+        val name = if (!result.fmp4) {
+            if (item.name.contains('.')) item.name else "${item.name}.ts"
+        } else {
+            item.name.removeSuffix(".ts") + ".mp4"
+        }
+        val mime = if (result.fmp4) "video/mp4" else "video/mp2t"
+        return Saved(saveToDownloads(name, mime, part), result.bytes)
     }
 
     /* ---------------- 分片下载 ---------------- */
@@ -499,7 +530,19 @@ class DownloadEngine private constructor(private val context: Context) {
                 CookieManager.getInstance().getCookie(item.url)
                     ?.takeIf { it.isNotBlank() }
                     ?.let { header("Cookie", it) }
+                // 图片站几乎都有防盗链：不带 Referer 直接 403。
+                // 拿不到页面地址，用图片自己的源顶上，多数 CDN 认这个
+                if (item.mime.startsWith("image/")) {
+                    originOf(item.url)?.let { header("Referer", it) }
+                }
             }
+
+    private fun originOf(url: String): String? {
+        val schemeEnd = url.indexOf("://")
+        if (schemeEnd < 0) return null
+        val slash = url.indexOf('/', schemeEnd + 3)
+        return if (slash < 0) url else url.substring(0, slash)
+    }
 
     /* ---------------- 单连接（不支持分段时） ---------------- */
 
@@ -642,6 +685,12 @@ class DownloadEngine private constructor(private val context: Context) {
      * 更老的系统直接写公共目录。
      */
     private fun saveToDownloads(name: String, mime: String, part: File): String {
+        // 图片进相册：落在下载目录里图库看不见，用户会以为没保存成功。
+        // 走 MediaStore.Images 不需要存储权限，相册和文件管理器都能看到
+        if (mime.startsWith("image/")) {
+            val path = runCatching { saveImage(name, mime, part) }.getOrNull()
+            if (path != null) return path
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val resolver = context.contentResolver
             val values = ContentValues().apply {
@@ -669,6 +718,56 @@ class DownloadEngine private constructor(private val context: Context) {
 
         val dir = File(
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            "PluginBrowser",
+        ).apply { mkdirs() }
+        val target = uniqueFile(dir, name)
+        if (!part.renameTo(target)) {
+            part.inputStream().use { input ->
+                target.outputStream().use { input.copyTo(it, 64 * 1024) }
+            }
+            part.delete()
+        }
+        return target.absolutePath
+    }
+
+    /**
+     * 图片落到 Pictures/PluginBrowser。
+     *
+     * 和下载目录分开的原因是「保存图片」这个动作的心理预期是进相册；
+     * 放 Downloads 里用户要去文件管理器翻，等于白存。
+     */
+    private fun saveImage(name: String, mime: String, part: File): String {
+        val safeMime = mime.ifBlank { "image/jpeg" }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val resolver = context.contentResolver
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, name)
+                put(MediaStore.Images.Media.MIME_TYPE, safeMime)
+                put(
+                    MediaStore.Images.Media.RELATIVE_PATH,
+                    "${Environment.DIRECTORY_PICTURES}/PluginBrowser",
+                )
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            }
+            val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                ?: throw IOException("无法在相册创建文件")
+            try {
+                resolver.openOutputStream(uri)?.use { out ->
+                    part.inputStream().use { it.copyTo(out, 64 * 1024) }
+                } ?: throw IOException("无法写入相册")
+                values.clear()
+                values.put(MediaStore.Images.Media.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+            } catch (e: Exception) {
+                runCatching { resolver.delete(uri, null, null) }
+                throw e
+            }
+            part.delete()
+            return uri.toString()
+        }
+
+        val dir = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
             "PluginBrowser",
         ).apply { mkdirs() }
         val target = uniqueFile(dir, name)

@@ -20,6 +20,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.pluginbrowser.R
 import com.pluginbrowser.download.DownloadEngine
 import com.pluginbrowser.download.DownloadService
+import com.pluginbrowser.download.Hls
 import kotlinx.coroutines.launch
 
 /**
@@ -85,15 +86,24 @@ class ResourceSnifferFragment : BottomSheetDialogFragment() {
     }
 
     private fun onAction(item: ResourceSniffer.Item) {
-        if (item.kind == ResourceSniffer.Kind.STREAM) {
-            // m3u8 / mpd 是播放列表，DownloadManager 存下来也没法看
+        // m3u8 能自己拼（见 Hls），.mpd 是 XML 清单，还要解 SegmentTemplate，
+        // 暂时只给复制地址，不做半吊子的支持
+        if (item.kind == ResourceSniffer.Kind.STREAM && !Hls.isPlaylist(item.url)) {
             copyLink(item.url)
             Toast.makeText(requireContext(), R.string.sniffer_stream_copied, Toast.LENGTH_LONG).show()
             return
         }
+        val isStream = Hls.isPlaylist(item.url)
         com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.sniffer_download_title)
-            .setMessage(fileNameOf(item))
+            .setMessage(
+                if (isStream) {
+                    "m3u8 流会按分片逐段下载，最后合并成一个文件。\n" +
+                        "分段越多耗时越长，中途可以到「下载」里取消。\n\n${fileNameOf(item)}"
+                } else {
+                    fileNameOf(item)
+                },
+            )
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.sniffer_download) { _, _ ->
                 lifecycleScope.launch {
@@ -101,7 +111,7 @@ class ResourceSnifferFragment : BottomSheetDialogFragment() {
                         DownloadEngine.get(requireContext()).enqueue(
                             name = fileNameOf(item),
                             url = item.url,
-                            mime = ResourceSniffer.mimeOf(item).orEmpty(),
+                            mime = if (isStream) "video/mp2t" else ResourceSniffer.mimeOf(item).orEmpty(),
                             size = -1,
                         )
                         DownloadService.start(requireContext())
@@ -116,8 +126,21 @@ class ResourceSnifferFragment : BottomSheetDialogFragment() {
             .show()
     }
 
-    private fun fileNameOf(item: ResourceSniffer.Item): String =
-        item.url.substringBefore('?').substringAfterLast('/').ifBlank { item.url }
+    private fun fileNameOf(item: ResourceSniffer.Item): String {
+        val base = item.url.substringBefore('?').substringAfterLast('/').ifBlank { "video" }
+        if (!Hls.isPlaylist(item.url)) return base
+        val stem = base.substringBeforeLast('.', base).ifBlank { "video" }
+        // index / playlist 这类通用名存到下载目录里根本分不清是哪条流，加上域名前缀
+        val safe = if (stem.length < 5 || stem.lowercase() in GENERIC_STEMS) "${item.host}-$stem" else stem
+        return "$safe.ts"
+    }
+
+    private companion object {
+        val GENERIC_STEMS = setOf(
+            "index", "playlist", "main", "master", "video", "out", "hls",
+            "prog_index", "chunklist", "media", "stream",
+        )
+    }
 
     private fun copyLink(url: String) {
         val cm = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -167,7 +190,11 @@ class ResourceSnifferFragment : BottomSheetDialogFragment() {
             }
 
             holder.action.setImageResource(
-                if (item.kind == ResourceSniffer.Kind.STREAM) R.drawable.ic_link else R.drawable.ic_download,
+                if (item.kind == ResourceSniffer.Kind.STREAM && !Hls.isPlaylist(item.url)) {
+                    R.drawable.ic_link
+                } else {
+                    R.drawable.ic_download
+                },
             )
             holder.itemView.setOnClickListener { onAction(item) }
             holder.action.setOnClickListener { onAction(item) }

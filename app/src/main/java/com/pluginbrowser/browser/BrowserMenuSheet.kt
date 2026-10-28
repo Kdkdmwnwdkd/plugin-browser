@@ -97,6 +97,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
             if (state.readerMode) "退出阅读" else "阅读模式",
             null,
         )
+        listRow(listRow, "images", R.drawable.ic_image, "保存图片", null)
         listRow(
             listRow,
             "diag",

@@ -184,6 +184,56 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
+    <!-- 刚跳去过外部 App 又回来了：给一条能一键再打开的提示，别让人自己找 -->
+    <LinearLayout
+        android:id="@+id/handoff_bar"
+        android:layout_width="0dp"
+        android:layout_height="46dp"
+        android:background="?attr/colorSurfaceVariant"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="6dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/bottom_bar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <TextView
+            android:id="@+id/handoff_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="12.5sp" />
+
+        <TextView
+            android:id="@+id/handoff_reopen"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:paddingStart="10dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="8dp"
+            android:text="再打开"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="12.5sp"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/handoff_close"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="关闭提示"
+            android:padding="9dp"
+            android:src="@drawable/ic_close"
+            app:tint="?attr/colorOnSurfaceVariant" />
+    </LinearLayout>
+
     <!-- 底部工具栏：五个高频动作，标签数用方框计数 -->
     <LinearLayout
         android:id="@+id/bottom_bar"
