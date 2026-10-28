@@ -5,6 +5,10 @@
     <!-- 浏览器界面 -->
     <string name="address_bar_hint">搜索或输入网址</string>
     <string name="address_go">前往</string>
+    <string name="nav_back">后退</string>
+    <string name="nav_forward">前进</string>
+    <string name="url_app_link">应用链接</string>
+    <string name="url_app_link_host">%1$s · 应用链接</string>
     <string name="menu_refresh">刷新</string>
     <string name="menu_stop">停止加载</string>
     <string name="menu_home">主页</string>

@@ -1,13 +1,13 @@
 {
-  "versionCode": 36,
-  "versionName": "2.7.0",
-  "size": 8910577,
-  "sha256": "f81a834e96a20e9ed3ccb2445c1a9db5cb2f1a092ef843089c7658983f8aa4e8",
-  "notes": "2.7.0 把网页当 App 用的地方补齐：权限、站点设置、页面操作\n\n【网页权限：以前是静默拒绝】\n清单里原来连相机、麦克风、定位都没声明，WebView 的权限回调也没接——\n网页扫码登录、拍照上传、语音输入、地图定位，全是「点了没反应」。\n现在会正常问一句，允许/拒绝可以按站点记住；记住了就不再反复弹。\n\n【地址栏的锁，现在能点开】\n点一下看到：连接是否加密、证书签发给谁、签发者、有效期。\n下面就是这个站专用的设置：桌面版网页、文字大小、是否允许 JavaScript、是否加载图片。\n全部按站点存，互不影响；改完立即重载生效。\n还能一键清除这个站的 Cookie、本地存储、设置和权限记忆——不会动别的网站。\n\n【HTTP 认证与证书异常】\n路由器后台、内网服务常见的「请输入用户名密码」，以前直接白屏；\n现在弹框输入，同一会话记住凭据。证书过期或域名不匹配时，说清楚原因再让你选，不默认放行。\n\n【选中文字：搜索 / 翻译 / 分享】\n系统选择菜单只有复制和「网页搜索」（还会跳去系统浏览器）。\n现在补了三项，都在本应用内，搜索开新标签、不打断开正在读的文章。\n\n【屏蔽页面元素】\n不是猜哪块是广告，是让你点。菜单 → 屏蔽页面元素，点一下要藏的东西，\n自动算出稳定的选择器存下来，以后打开这个站也隐藏。点错了在锁面板里一键恢复。\n\n【长按菜单补齐】\n链接：后台打开、复制链接、分享链接；图片：另存、新标签打开、复制图片地址。\n\n【崩溃后能恢复标签】\n以前只弹一句「上次异常退出」，标签全没了。现在弹框里有「恢复标签」，\n点一下把上次的会话铺回来。\n\n【书签与历史】\n书签页右上角可导入其他浏览器导出的 HTML 书签（Chrome/Edge/Safari 都能导），\n重复地址自动去重。书签和历史都支持边打边搜。\n\n【测试】66 个用例全绿。新增书签解析 5 条；元素点选脚本在 jsdom 里真跑过：\n点中广告位后生成的 `#wrap > div.ad-box:nth-child(1)` 能唯一命中该节点、\n元素被隐藏、退出后普通点击不再被拦。\n",
+  "versionCode": 37,
+  "versionName": "2.7.1",
+  "size": 8915482,
+  "sha256": "9ec2ece8bf20b5b4fc9eef0029026b2ed5c4063ffac1c1a71dabfa472ac994b5",
+  "notes": "2.7.1 这次不加功能，只把「点一下就走进错误页」这类硬伤堵掉\n\n这一版是在一台 Android 11 + WebView 83 的模拟器上把 2.7.0 真跑了一遍之后的修补，\n不是靠猜。\n\n【点「用 App 打开」，整个页面没了】\n百度搜一下就会弹「用百度 App 打开」，链接是 baiduboxapp://。手机没装百度时，\n以前会把这种链接原样丢给 WebView 去加载——它当然打不开，于是当前页面被整页\n换成「无法访问此网页」，用户还得自己翻历史找回来。\n现在这类跳转直接吞掉，页面留在原地，只提示一句没有应用能打开。\n同时补了百度、微信、QQ、高德、拼多多、京东等一批唤醒协议。\n\n【错误页按返回会退出浏览器】\n失败地址有时是 about:blank，被判成「首页」，返回键直接把 App 关掉。\n现在优先回退历史，退不动才回首页。\n\n【地址栏里的乱码】\n非网页链接以前会把整串参数塞进地址栏，截断后变成\n「!C%22matrix%22%3A%22main%22%7D」这种谁也看不懂的碎片。\n现在显示「baiduboxapp · 应用链接」。\n\n【功能面板最后一行被切掉】\n菜单只升到半屏，「下载 / 嗅探 / 截图 / 插件」的文字只剩上半截。\n现在全展开，并给底部导航栏留出高度。\n\n【读屏用户听到三个「刷新」】\n后退和前进图标的无障碍描述都写成了「刷新」，已改成后退 / 前进。\n\n签名未变，可直接覆盖安装。\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.7.0/Kite-2.7.0-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.7.0/Kite-2.7.0-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.7.0/Kite-2.7.0-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.7.1/Kite-2.7.1-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.7.1/Kite-2.7.1-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.7.1/Kite-2.7.1-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

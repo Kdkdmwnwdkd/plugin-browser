@@ -10,6 +10,8 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.color.MaterialColors
 import com.pluginbrowser.R
@@ -44,10 +46,43 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         savedInstanceState: Bundle?,
     ): View = inflater.inflate(R.layout.sheet_browser_menu, container, false)
 
+    override fun onStart() {
+        super.onStart()
+        // 面板默认停在「半展开」，三组图标加下面的列表装不下，最后一行直接被裁掉。
+        // 这里强制全展开：内容有多高就升多高，不够高再由外层滚动兜底
+        val sheet = dialog?.findViewById<View>(
+            com.google.android.material.R.id.design_bottom_sheet,
+        ) ?: return
+        val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(sheet)
+        behavior.skipCollapsed = true
+        behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         onSurface = MaterialColors.getColor(view, com.google.android.material.R.attr.colorOnSurface)
         onSurfaceVariant =
             MaterialColors.getColor(view, com.google.android.material.R.attr.colorOnSurfaceVariant)
+
+        // 三键导航的机型上，最后一行「下载 / 嗅探 / 截图 / 插件」会被导航栏压掉半截，
+        // 文字只剩上半截，看着像坏了。
+        //
+        // 只挂 insets listener 不够：BottomSheet 的 window 是 layout-no-limits 的，
+        // 导航栏根本不作为 inset 派发下来（拿到的永远是 0）。所以先用系统资源算一个
+        // 保底高度，再让 listener 在有真实 insets 时覆盖它。
+        val basePad = view.paddingBottom
+        val navFromRes = resources
+            .getIdentifier("navigation_bar_height", "dimen", "android")
+            .takeIf { it > 0 }
+            ?.let { resources.getDimensionPixelSize(it) }
+            ?: 0
+        view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, basePad + navFromRes)
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            if (nav > 0) {
+                v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, basePad + nav)
+            }
+            insets
+        }
 
         val pageRow = view.findViewById<LinearLayout>(R.id.row_page)
         val tabRow = view.findViewById<LinearLayout>(R.id.row_tabs)

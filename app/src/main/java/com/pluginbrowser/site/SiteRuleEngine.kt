@@ -109,10 +109,16 @@ class SiteRuleEngine(context: Context) {
         }
 
         private val APP_SCHEMES = listOf(
-            "taobao", "tmall", "alipay", "alipays", "taobaolive",
+            "taobao", "tmall", "alipay", "alipays", "alipayqr", "taobaolive",
             "zhihu", "weibo", "sinaweibo", "bilibili", "xhsdiscover",
             "snssdk1128", "snssdk2329", "kwai", "vipshop", "pptv", "sohu",
             "iqiyi", "youku", "qqvideo", "tenvideo", "mgtv", "douyin",
+            // 百度系：搜一下就会弹「用百度 App 打开」，scheme 是 baiduboxapp，
+            // 以前不在名单里，点了会走到「交给系统」那条路，没装就直接白屏
+            "baiduboxapp", "baidumap", "baiduyun", "bdbox",
+            "weixin", "wechat", "mqq", "mqqapi", "wtloginmqq", "tim",
+            "pinduoduo", "amapuri", "androidamap", "diditaxi", "ctrip",
+            "dingtalk", "uclink", "ucbrowser", "openapp.jdmobile", "suning",
         )
     }
 }

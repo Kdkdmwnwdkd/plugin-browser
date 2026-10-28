@@ -205,13 +205,19 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             val url = tab?.let { it.failedUrl ?: it.url }.orEmpty()
             when {
                 customView != null -> exitFullscreen()
+                // 错误页优先判断。
+                // 之前这条排在「空白/首页」后面，而错误页的失败地址有可能就是
+                // about:blank（页面还没起来就挂了），isHomeUrl 一认，返回键直接把
+                // App 关掉——用户点了个打不开的链接，回头整个浏览器没了。
+                tab?.failedUrl != null -> {
+                    val wv = currentWebView()
+                    if (wv?.canGoBack() == true) wv.goBack() else navigateTo(settings.homeUrl)
+                }
                 // 首页（或空标签）按返回就退出，不要停在一片空白上
                 url.isBlank() || tabManager.isHomeUrl(url) -> {
                     isEnabled = false
                     requireActivity().finish()
                 }
-                // 加载失败的页面没有可回退的内容，直接回首页
-                tab?.failedUrl != null -> navigateTo(settings.homeUrl)
                 currentWebView()?.canGoBack() == true -> currentWebView()?.goBack()
                 else -> {
                     isEnabled = false
@@ -823,6 +829,18 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     /** 地址栏里域名压成灰、路径加粗：一眼能看出当前在哪个站 */
     private fun styledUrl(url: String): CharSequence {
         if (url.isBlank()) return ""
+        // 非网页地址（baiduboxapp://、intent://…）没有"域名 + 路径"可讲：
+        // styledUrl 会把 host 之后那一整串参数加粗，最后被地址栏截成
+        // 「!C%22matrix%22%3A%22main%22%7D」这种谁也看不懂的碎片
+        val scheme = runCatching { Uri.parse(url).scheme }.getOrNull()?.lowercase()
+        if (scheme != null && scheme !in WEB_SCHEMES) {
+            val label = runCatching { Uri.parse(url).host }.getOrNull()
+            return if (label.isNullOrBlank()) {
+                getString(R.string.url_app_link)
+            } else {
+                getString(R.string.url_app_link_host, label)
+            }
+        }
         val host = runCatching { Uri.parse(url).host }.getOrNull()
         if (host.isNullOrBlank()) return url
         val start = url.indexOf(host)
@@ -1922,10 +1940,17 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
             true
         } catch (e: Exception) {
-            // 调起失败（通常是"用我的 App 打开"这类深度链接）：
-            // 很多推广页把真正的下载地址藏在自己源码里，试着挖出来给用户
+            // 系统里没有 App 能接这个 scheme（没装百度、没装知乎，或者是个野 scheme）。
+            //
+            // 这里以前返回 false，等于把控制权交回 WebView——WebView 会真的去加载
+            // baiduboxapp:// 这种根本不存在的东西，必然失败，然后把当前页面整个换成
+            // 一屏「无法访问此网页」。用户只是点了个「用 App 打开」，原来的页面就没了，
+            // 还得自己翻历史找回来。现在吞掉这次跳转，页面留在原地。
+            //
+            // 顺手看一眼这个页面有没有藏着安装包直链：很多推广页把 apk 地址写在内联脚本里，
+            // 有就弹出来让用户选，没有就提示一句「没有应用能打开」。
             offerPageDownloads()
-            false
+            true
         }
     }
 
@@ -2320,6 +2345,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private fun toast(resId: Int) = Toast.makeText(requireContext(), resId, Toast.LENGTH_SHORT).show()
 
     companion object {
+        /** 能当「网址」看的 scheme；其余一律按「应用链接」显示，不暴露参数串 */
+        private val WEB_SCHEMES = setOf("http", "https", "file", "about", "data", "pb")
         private const val TAG_TABS = "tab_switcher"
         private const val TAG_SNIFFER = "resource_sniffer"
         private const val TAG_DIAG = "net_diagnostics"

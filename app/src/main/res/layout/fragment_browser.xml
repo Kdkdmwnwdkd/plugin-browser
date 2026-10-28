@@ -254,7 +254,7 @@
             android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="12dp"
-            android:contentDescription="@string/menu_refresh"
+            android:contentDescription="@string/nav_back"
             android:scaleType="centerInside"
             android:src="@drawable/ic_arrow_back"
             app:tint="?attr/colorOnSurface" />
@@ -266,7 +266,7 @@
             android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="12dp"
-            android:contentDescription="@string/menu_refresh"
+            android:contentDescription="@string/nav_forward"
             android:scaleType="centerInside"
             android:src="@drawable/ic_arrow_forward"
             app:tint="?attr/colorOnSurface" />
