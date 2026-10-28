@@ -317,6 +317,14 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
         // 配置 WebView 工厂（必须在创建标签之前）
         tabManager.webViewConfigurator = { tab, wv -> configureWebView(tab, wv) }
+        tabManager.selectionActionHandler = { action, text ->
+            view?.post { handleSelectionAction(action, text) }
+        }
+        tabManager.elementPickedHandler = { selector, label ->
+            view?.post {
+                if (selector.isBlank()) toast("已退出屏蔽模式") else onElementPicked(selector, label)
+            }
+        }
         tabManager.onDownloadHandler = { url, ua, cd, mime, len ->
             onDownloadRequested(url, ua, cd, mime, len)
         }
@@ -362,6 +370,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     override fun onDestroyView() {
+        tabManager.selectionActionHandler = null
+        tabManager.elementPickedHandler = null
         tabManager.pauseAll()
         clearLoadTimeouts()
         cancelNavigateWatchdog()
@@ -582,15 +592,15 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
      * 只暴露两个方法，参数都当字符串处理，不碰文件与剪贴板：
      * 任何页面都能调它，暴露面越小越好。
      */
-    private inner class ElementPickerBridge {
+    private class ElementPickerBridge(private val manager: TabManager) {
         @android.webkit.JavascriptInterface
         fun picked(selector: String, label: String) {
-            view?.post { onElementPicked(selector, label) }
+            manager.elementPickedHandler?.invoke(selector, label)
         }
 
         @android.webkit.JavascriptInterface
         fun cancelled() {
-            view?.post { toast("已退出屏蔽模式") }
+            manager.elementPickedHandler?.invoke("", "")
         }
     }
 
@@ -1746,9 +1756,10 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             grantsOf = pluginManager::grantsOf,
         )
         wv.addJavascriptInterface(bridge, JsBridge.JS_NAME)
-        wv.addJavascriptInterface(ElementPickerBridge(), "__pbPicker")
+        wv.addJavascriptInterface(ElementPickerBridge(tabManager), "__pbPicker")
+        val manager = tabManager
         (wv as? KiteWebView)?.onSelectionAction = { action, text ->
-            handleSelectionAction(action, text)
+            manager.selectionActionHandler?.invoke(action, text)
         }
         registerForContextMenu(wv)
     }

@@ -33,6 +33,16 @@ class TabManager(
     /** 由 BrowserFragment 注入：WebView 创建后配置客户端与 Bridge */
     var webViewConfigurator: ((Tab, WebView) -> Unit)? = null
 
+    /**
+     * 页面内的两个交互回调。
+     *
+     * 不直接挂在 WebView 上捕获 Fragment：WebView 活得比 Fragment 的视图久，
+     * 屏幕一转，旧闭包还指着已经销毁的 Fragment，选了字、点了元素都没反应。
+     * 由界面在 onViewCreated 里换成本次实例，onDestroyView 里清空。
+     */
+    var selectionActionHandler: ((KiteWebView.SelectionAction, String) -> Unit)? = null
+    var elementPickedHandler: ((String, String) -> Unit)? = null
+
     /** 下载拦截：返回 true 表示已处理（contentDisposition / mimeType 可能为空） */
     var onDownloadHandler: ((String, String, String?, String?, Long) -> Boolean)? = null
 
