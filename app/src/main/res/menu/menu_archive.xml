@@ -2,6 +2,17 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/action_search"
+        android:icon="@drawable/ic_search"
+        android:title="搜索"
+        app:actionViewClass="androidx.appcompat.widget.SearchView"
+        app:showAsAction="collapseActionView|ifRoom" />
+    <item
+        android:id="@+id/action_import"
+        android:icon="@drawable/ic_add"
+        android:title="导入书签"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_clear"
         android:icon="@drawable/ic_delete"
         android:title="@string/archive_clear"

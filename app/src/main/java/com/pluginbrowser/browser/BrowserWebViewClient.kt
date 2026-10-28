@@ -1,6 +1,9 @@
 package com.pluginbrowser.browser
 
 import android.graphics.Bitmap
+import android.net.http.SslError
+import android.webkit.HttpAuthHandler
+import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -42,6 +45,12 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         /** 站点适配规则（哪些站该拦跳转、该横屏、该隐藏 App 横幅） */
         val siteRules: SiteRuleEngine
 
+        /** 站点级加载偏好（桌面版 / 字号 / JS / 图片），按 host 覆盖全局设置 */
+        val sitePreferences: com.pluginbrowser.site.SitePreferences
+
+        /** 用户自己点出来的元素屏蔽规则 */
+        val elementBlocker: com.pluginbrowser.site.ElementBlocker
+
         /** 拦掉了一次 App 跳转，交给界面提示用户「留在网页里了」 */
         fun onAppJumpBlocked(host: String)
 
@@ -76,6 +85,11 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         /** WebView 渲染进程崩溃：必须丢弃这个 WebView，否则整页白屏且无法恢复 */
         fun onRenderProcessGone(tab: Tab)
 
+        /** HTTP 基本认证（路由器后台、内网服务常见） */
+        fun onWebHttpAuth(view: WebView, host: String, realm: String, handler: HttpAuthHandler)
+        /** 证书异常（过期、域名不匹配、自签名） */
+        fun onWebSslError(host: String, error: SslError, handler: SslErrorHandler)
+
         /** 在协程作用域执行（记录历史等） */
         fun runIo(block: suspend () -> Unit)
     }
@@ -102,8 +116,9 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
             if (GitHubChannel.isGitHubHost(runCatching { request.url.host }.getOrNull())) {
                 owner.githubChannel.warmUp()
             }
-            // 自动播放这类只能在加载前改的设置，在这里先套好
+            // 自动播放、UA、字号这类只能在加载前改的设置，在这里先套好
             owner.siteRules.applyTo(view, url)
+            owner.sitePreferences.applyTo(view, url)
             owner.onNavigationStarted(view, url)
             return false
         }
@@ -131,6 +146,19 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         val name = path.substringAfterLast('/')
         if (!name.contains('.')) return false
         return name.substringAfterLast('.') in DOWNLOAD_EXTENSIONS
+    }
+
+    override fun onReceivedHttpAuthRequest(
+        view: WebView,
+        handler: HttpAuthHandler,
+        host: String,
+        realm: String,
+    ) {
+        owner.onWebHttpAuth(view, host, realm, handler)
+    }
+
+    override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
+        owner.onWebSslError(error.url.orEmpty(), error, handler)
     }
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
@@ -191,6 +219,7 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         owner.browserPluginManager.enabledNativePlugins().forEach { it.onPageFinished(view, url) }
         // 二次注入：首帧时样式可能被页面脚本清掉，加载完再补一次
         injectAdBlockCss(view, url)
+        injectBlockedElements(view, url)
         injectSiteGuards(view, url, tab)
         owner.onPageFinished(tab)
     }
@@ -220,6 +249,22 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
             }
         }
         injectAdBlockCss(view, url)
+        injectBlockedElements(view, url)
+    }
+
+    /**
+     * 用户屏蔽过的元素。
+     *
+     * 首帧和加载完成各来一次：很多站点的浮层是异步插进来的，
+     * 只注入一次的话广告会在首帧之后自己冒出来。
+     */
+    private fun injectBlockedElements(view: WebView, url: String) {
+        if (!url.startsWith("http")) return
+        val tab = owner.browserTabManager.findTab(view)
+        if (tab?.readerMode == true) return
+        val host = SiteRuleEngine.hostOf(url) ?: return
+        val css = owner.elementBlocker.cssFor(host) ?: return
+        runCatching { view.evaluateJavascript(SiteScripts.hideCss(css), null) }
     }
 
     private fun injectAdBlockCss(view: WebView, url: String) {

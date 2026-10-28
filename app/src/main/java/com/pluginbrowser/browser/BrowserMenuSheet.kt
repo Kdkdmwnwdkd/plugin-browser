@@ -98,6 +98,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
             null,
         )
         listRow(listRow, "images", R.drawable.ic_image, "保存图片", null)
+        listRow(listRow, "block_element", R.drawable.ic_block, "屏蔽页面元素", null)
         listRow(
             listRow,
             "diag",

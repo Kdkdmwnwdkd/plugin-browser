@@ -5,6 +5,13 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- 插件通知（PB.notify / GM_notification）。API 33+ 必须声明，否则申请即被拒绝 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 网页要用到的硬件能力。不声明的话 WebView 连申请的机会都没有，直接静默拒绝：
+         扫码登录、拍证件上传、语音输入、地图定位全靠这几个 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- 应用内更新：下载完成后拉起系统安装器 -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- 仅传统存储需要；API 29+ 使用分区存储，下载走 MediaStore -->

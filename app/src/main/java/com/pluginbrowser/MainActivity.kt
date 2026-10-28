@@ -73,6 +73,10 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(R.string.crash_title)
             .setMessage(summary)
+            .setNeutralButton("恢复标签") { _, _ ->
+                // 崩溃后标签本来全丢了，这里直接从上次会话铺回来
+                browserFragment()?.restoreLastSession()
+            }
             .setPositiveButton(R.string.crash_copy) { _, _ ->
                 val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
                 cm.setPrimaryClip(android.content.ClipData.newPlainText("crash", summary))

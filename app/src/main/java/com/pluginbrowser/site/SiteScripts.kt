@@ -243,4 +243,116 @@ object SiteScripts {
   }
 })()
 """.trimIndent()
+
+
+    /**
+     * 把一段 CSS 注入成 <style>。
+     *
+     * 不用 evaluateJavascript 拼字符串插值（选择器里的单引号会把脚本拼坏），
+     * 这里统一做转义后再嵌进 JS 字符串。
+     */
+    fun hideCss(css: String): String {
+        val literal = css
+            .replace("\\", "\\\\")
+            .replace("'", "\\'")
+            .replace("\n", " ")
+        return "(function(){var id='__pb_block_style';var el=document.getElementById(id);" +
+            "if(!el){el=document.createElement('style');el.id=id;" +
+            "(document.head||document.documentElement).appendChild(el);}" +
+            "el.textContent='$literal';return 'ok';})()"
+    }
+
+    /**
+     * 元素屏蔽的点选模式。
+     *
+     * 不猜「哪块是广告」——猜不准还会连正文一起藏掉。
+     * 让用户点一下要藏的东西，这里算出能稳定命中的选择器交给原生存起来，
+     * 下次打开这个站点直接按选择器隐藏。
+     *
+     * 用捕获阶段的 click 并 preventDefault：很多站点的浮层是「点任意处跳转」，
+     * 不拦住的话用户一点就被带走了。
+     */
+    val ELEMENT_PICK: String = """
+(function () {
+  if (window.__pbPickerActive) return 'already';
+  window.__pbPickerActive = true;
+
+  var style = document.createElement('style');
+  style.id = '__pb_picker_style';
+  style.textContent = '*.__pb_pick_hover{outline:2px solid #ff6b35 !important;' +
+    'outline-offset:-2px !important;background:rgba(255,107,53,.12) !important;}';
+  (document.head || document.documentElement).appendChild(style);
+
+  var last = null;
+  function clearHover() {
+    if (last) { try { last.classList.remove('__pb_pick_hover'); } catch (e) {} }
+    last = null;
+  }
+  function esc(s) {
+    if (window.CSS && CSS.escape) return CSS.escape(s);
+    return String(s).replace(/[^a-zA-Z0-9_-]/g, '\\\$&');
+  }
+  function pathOf(el) {
+    var parts = [];
+    while (el && el.nodeType === 1 && parts.length < 5) {
+      if (el.id) { parts.unshift('#' + esc(el.id)); break; }
+      var sel = el.tagName.toLowerCase();
+      var raw = (typeof el.className === 'string') ? el.className : '';
+      var cls = raw.trim().split(/\s+/).filter(Boolean);
+      if (cls.length) sel += '.' + cls.slice(0, 2).map(esc).join('.');
+      var parent = el.parentElement;
+      if (parent) {
+        var idx = Array.prototype.indexOf.call(parent.children, el) + 1;
+        sel += ':nth-child(' + idx + ')';
+      }
+      parts.unshift(sel);
+      el = parent;
+    }
+    return parts.join(' > ');
+  }
+  function labelOf(el) {
+    var t = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+    return el.tagName.toLowerCase() + (t ? ' · ' + t.slice(0, 24) : '');
+  }
+  function stop() {
+    window.__pbPickerActive = false;
+    document.removeEventListener('click', onClick, true);
+    document.removeEventListener('mousemove', onMove, true);
+    document.removeEventListener('keydown', onKey, true);
+    clearHover();
+    var st = document.getElementById('__pb_picker_style');
+    if (st) st.remove();
+  }
+  function onClick(e) {
+    var el = e.target;
+    if (!el || el.nodeType !== 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var selector = pathOf(el);
+    var label = labelOf(el);
+    stop();
+    try { el.style.setProperty('display', 'none', 'important'); } catch (err) {}
+    try { window.__pbPicker.picked(selector, label); } catch (err) {}
+  }
+  function onMove(e) {
+    var el = e.target;
+    if (!el || el.nodeType !== 1 || el === document.documentElement || el === document.body) return;
+    if (el === last) return;
+    clearHover();
+    last = el;
+    try { el.classList.add('__pb_pick_hover'); } catch (err) {}
+  }
+  function onKey(e) {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    stop();
+    try { window.__pbPicker.cancelled(); } catch (err) {}
+  }
+
+  document.addEventListener('click', onClick, true);
+  document.addEventListener('mousemove', onMove, true);
+  document.addEventListener('keydown', onKey, true);
+  return 'ok';
+})()
+""".trimIndent()
 }

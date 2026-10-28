@@ -23,6 +23,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.content.pm.PackageManager
+import android.net.http.SslError
+import android.webkit.HttpAuthHandler
+import android.webkit.PermissionRequest
+import android.webkit.SslErrorHandler
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebChromeClient.FileChooserParams
@@ -62,8 +67,13 @@ import com.pluginbrowser.plugin.js.JsBridge
 import com.pluginbrowser.plugin.store.PluginStoreFragment
 import com.pluginbrowser.settings.SettingsFragment
 import com.pluginbrowser.site.AppHandoff
+import com.pluginbrowser.site.ElementBlocker
+import com.pluginbrowser.site.PermKind
 import com.pluginbrowser.site.ReaderMode
 import com.pluginbrowser.site.SiteAction
+import com.pluginbrowser.site.SiteInfoSheet
+import com.pluginbrowser.site.SitePermissions
+import com.pluginbrowser.site.SitePreferences
 import com.pluginbrowser.site.SiteRuleEngine
 import com.pluginbrowser.site.SiteScripts
 import com.pluginbrowser.translate.TranslateManager
@@ -273,6 +283,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         progressBar = view.findViewById(R.id.progress_bar)
         addressBarRow = view.findViewById(R.id.address_bar_row)
         securityIcon = view.findViewById(R.id.security_icon)
+        securityIcon.setOnClickListener { showSiteInfo() }
         addressInput = view.findViewById(R.id.address_input)
         incognitoBadge = view.findViewById(R.id.incognito_badge)
         webContainer = view.findViewById(R.id.web_container)
@@ -537,6 +548,104 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
     /* ---------------- 页内查找 ---------------- */
 
+    /* ---------------- 会话恢复 ---------------- */
+
+    /**
+     * 崩溃/被系统杀掉之后，把上次的标签铺回来。
+     *
+     * 先关掉当前的空白首页：不关的话「恢复 5 个标签」会变成「首页 + 5 个」，
+     * 而且首页会占着第一个位置，用户还得自己滑过去。
+     */
+    fun restoreLastSession() {
+        if (!isAdded) return
+        val blanks = tabManager.tabs.filter {
+            it.url.isBlank() || tabManager.isHomeUrl(it.url)
+        }
+        blanks.forEach { tab ->
+            val index = tabManager.tabs.indexOf(tab)
+            if (index >= 0) tabManager.closeTab(index)
+        }
+        val restored = tabManager.restoreSession()
+        if (!restored) {
+            toast("没有可以恢复的标签")
+            return
+        }
+        tabManager.currentTab()?.let { onCurrentTabChanged(it) }
+        toast("已恢复上次的标签")
+    }
+
+    /* ---------------- 屏蔽页面元素 ---------------- */
+
+    /**
+     * 页面里的点选结果通过这个接口回来。
+     *
+     * 只暴露两个方法，参数都当字符串处理，不碰文件与剪贴板：
+     * 任何页面都能调它，暴露面越小越好。
+     */
+    private inner class ElementPickerBridge {
+        @android.webkit.JavascriptInterface
+        fun picked(selector: String, label: String) {
+            view?.post { onElementPicked(selector, label) }
+        }
+
+        @android.webkit.JavascriptInterface
+        fun cancelled() {
+            view?.post { toast("已退出屏蔽模式") }
+        }
+    }
+
+    private fun startElementPick() {
+        val tab = tabManager.currentTab() ?: return
+        if (!tab.usable || !tab.url.startsWith("http")) {
+            toast("先打开一个网页")
+            return
+        }
+        tab.webView.evaluateJavascript(SiteScripts.ELEMENT_PICK) { result ->
+            if (!isAdded) return@evaluateJavascript
+            toast(
+                if (result?.contains("already") == true) "已经在屏蔽模式：点要隐藏的内容"
+                else "点一下要隐藏的内容，按返回可取消",
+            )
+        }
+    }
+
+    private fun onElementPicked(selector: String, label: String) {
+        val host = SiteRuleEngine.hostOf(tabManager.currentTab()?.url).orEmpty()
+        if (host.isBlank()) return
+        if (elementBlocker.add(host, selector)) {
+            toast("已屏蔽「${label.ifBlank { "这个元素" }}」，以后打开 $host 也会隐藏")
+            // 同一条选择器可能命中页面上多个同类元素，再注一次让它们一起消失
+            tabManager.currentTab()?.takeIf { it.usable }?.let { tab ->
+                elementBlocker.cssFor(host)?.let { css ->
+                    tab.webView.evaluateJavascript(SiteScripts.hideCss(css), null)
+                }
+            }
+        } else {
+            toast("这个元素已经在屏蔽列表里了")
+        }
+    }
+
+    /* ---------------- 站点信息（地址栏左侧的锁） ---------------- */
+
+    private fun showSiteInfo() {
+        val tab = tabManager.currentTab() ?: return
+        val url = tab.url
+        if (!url.startsWith("http")) {
+            toast("先在地址栏打开一个网站")
+            return
+        }
+        if (!tab.usable) return
+        val fm = requireActivity().supportFragmentManager
+        if (fm.findFragmentByTag(TAG_SITE_INFO) != null) return
+        SiteInfoSheet().apply {
+            pageUrl = url
+            onApply = { reload ->
+                sitePreferences.applyTo(tab.webView, tab.url)
+                if (reload) runCatching { tab.webView.reload() }
+            }
+        }.show(fm, TAG_SITE_INFO)
+    }
+
     /* ---------------- 保存页面图片 ---------------- */
 
     /**
@@ -799,6 +908,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         runCatching { tab.webView.stopLoading() }
         // 地址栏直接输网址不会经过 shouldOverrideUrlLoading，站点配置得在这里补一次
         siteRules.applyTo(tab.webView, url)
+        sitePreferences.applyTo(tab.webView, url)
         val ok = runCatching { tab.webView.loadUrl(url) }.isSuccess
         if (!ok) {
             onErrorPageNeeded(tab, android.webkit.WebViewClient.ERROR_UNKNOWN)
@@ -1025,6 +1135,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             )
             "screenshot" -> captureLongScreenshot()
             "images" -> pickImages()
+            "block_element" -> startElementPick()
             "sniffer" -> {
                 if (requireActivity().supportFragmentManager.findFragmentByTag(TAG_SNIFFER) == null) {
                     ResourceSnifferFragment().show(
@@ -1220,6 +1331,259 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
     }
 
+    /* ---------------- 网页权限（相机 / 麦克风 / 定位） ---------------- */
+
+    /**
+     * 一次网页权限申请。
+     *
+     * PermissionRequest 和 GeolocationPermissions.Callback 是两套回调，
+     * 但用户看到的应当是同一个「允不允许这个网站用某个能力」，所以统一收在这里，
+     * 走同一条「查记忆 → 问人 → 申请系统权限 → 回填」的流程。
+     */
+    private data class PendingWebPermission(
+        val request: PermissionRequest?,
+        val geo: android.webkit.GeolocationPermissions.Callback?,
+        val origin: String,
+        val host: String,
+        val kinds: List<PermKind>,
+    )
+
+    private var pendingWebPermission: PendingWebPermission? = null
+    private val sitePermissions by lazy { SitePermissions(requireContext()) }
+    /** 本次进程内通过的 HTTP 认证；密码不落盘 */
+    private val authCache = HashMap<String, Pair<String, String>>()
+    /** 用户明确选择「继续访问」的证书异常站点，仅本次进程有效 */
+    private val sslAllowed = HashSet<String>()
+
+    private val webPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { _ ->
+        // 不看返回值：部分机型回调给 false，但 checkSelfPermission 已经是 GRANTED，
+        // 统一用 checkSelfPermission 复核，才不会出现「点了允许网页还是拒绝」
+        val pending = pendingWebPermission ?: return@registerForActivityResult
+        pendingWebPermission = null
+        settleWebPermission(pending)
+    }
+
+    override fun onWebPermissionRequest(request: PermissionRequest) {
+        val wanted = request.resources.mapNotNull {
+            when (it) {
+                PermissionRequest.RESOURCE_VIDEO_CAPTURE -> PermKind.CAMERA
+                PermissionRequest.RESOURCE_AUDIO_CAPTURE -> PermKind.MIC
+                else -> null
+            }
+        }.distinct()
+        if (wanted.isEmpty()) {
+            runCatching { request.deny() }
+            return
+        }
+        val host = SiteRuleEngine.hostOf(tabManager.currentWebViewOrNull()?.url).orEmpty()
+        askWebPermission(PendingWebPermission(request, null, "", host, wanted))
+    }
+
+    override fun onWebGeolocation(
+        origin: String,
+        callback: android.webkit.GeolocationPermissions.Callback,
+    ) {
+        val host = SiteRuleEngine.hostOf(origin).orEmpty()
+        askWebPermission(
+            PendingWebPermission(null, callback, origin, host, listOf(PermKind.LOCATION)),
+        )
+    }
+
+    private fun askWebPermission(p: PendingWebPermission) {
+        val allowed = p.kinds.filter {
+            sitePermissions.decision(p.host, it) == SitePermissions.Decision.ALLOW
+        }
+        val denied = p.kinds.filter {
+            sitePermissions.decision(p.host, it) == SitePermissions.Decision.DENY
+        }
+        val ask = p.kinds.filter { it !in allowed && it !in denied }
+        if (ask.isEmpty()) {
+            settleWebPermission(p.copy(kinds = allowed))
+            return
+        }
+        val ctx = context
+        if (ctx == null || !isAdded) {
+            settleWebPermission(p.copy(kinds = allowed))
+            return
+        }
+
+        val remember = CheckBox(ctx).apply {
+            text = "记住这个网站的选择"
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
+            val pad = (16 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad / 3, pad, 0)
+        }
+        val who = p.host.ifBlank { "此网站" }
+        val names = ask.joinToString("、") { it.title }
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle("允许「$who」使用$names？")
+            .setMessage(ask.joinToString("\n") { "· ${it.title}：${it.detail}" })
+            .setView(remember)
+            .setNegativeButton("拒绝") { _, _ ->
+                if (remember.isChecked) {
+                    ask.forEach { sitePermissions.set(p.host, it, SitePermissions.Decision.DENY) }
+                }
+                settleWebPermission(p.copy(kinds = allowed))
+            }
+            .setPositiveButton("允许") { _, _ ->
+                if (remember.isChecked) {
+                    ask.forEach { sitePermissions.set(p.host, it, SitePermissions.Decision.ALLOW) }
+                }
+                requestAndroidPermissions(p.copy(kinds = allowed + ask))
+            }
+            .setOnCancelListener { settleWebPermission(p.copy(kinds = allowed)) }
+            .show()
+    }
+
+    private fun requestAndroidPermissions(p: PendingWebPermission) {
+        val needed = p.kinds.flatMap { androidPermsOf(it) }
+            .distinct()
+            .filter {
+                ContextCompat.checkSelfPermission(requireContext(), it) !=
+                    PackageManager.PERMISSION_GRANTED
+            }
+        if (needed.isEmpty()) {
+            settleWebPermission(p)
+            return
+        }
+        pendingWebPermission = p
+        webPermissionLauncher.launch(needed.toTypedArray())
+    }
+
+    /** 把最终结果写回网页：该给资源的给资源，该拒的明确拒 */
+    private fun settleWebPermission(p: PendingWebPermission) {
+        // 回调可能在页面切走之后才回来，此时 requireContext() 会抛
+        if (!isAdded) return
+        val allowed = p.kinds.filter { kind ->
+            val perms = androidPermsOf(kind)
+            perms.isEmpty() || perms.any {
+                ContextCompat.checkSelfPermission(requireContext(), it) ==
+                    PackageManager.PERMISSION_GRANTED
+            }
+        }
+        val request = p.request
+        if (request != null) {
+            val resources = request.resources.filter { res ->
+                when (res) {
+                    PermissionRequest.RESOURCE_VIDEO_CAPTURE -> PermKind.CAMERA in allowed
+                    PermissionRequest.RESOURCE_AUDIO_CAPTURE -> PermKind.MIC in allowed
+                    else -> false
+                }
+            }
+            runCatching {
+                if (resources.isEmpty()) request.deny() else request.grant(resources.toTypedArray())
+            }
+            if (resources.isEmpty()) {
+                toast("权限被拒绝，网页里的相关功能会不可用")
+            }
+            return
+        }
+        p.geo?.invoke(p.origin, PermKind.LOCATION in allowed, false)
+        if (PermKind.LOCATION !in allowed) toast("未获得定位权限，网页无法获取你的位置")
+    }
+
+    private fun androidPermsOf(kind: PermKind): List<String> = when (kind) {
+        PermKind.CAMERA -> listOf(android.Manifest.permission.CAMERA)
+        PermKind.MIC -> listOf(android.Manifest.permission.RECORD_AUDIO)
+        PermKind.LOCATION -> listOf(
+            android.Manifest.permission.ACCESS_FINE_LOCATION,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION,
+        )
+        PermKind.NOTIFICATION -> emptyList()
+    }
+
+    /* ---------------- HTTP 认证 ---------------- */
+
+    override fun onWebHttpAuth(
+        view: WebView,
+        host: String,
+        realm: String,
+        handler: HttpAuthHandler,
+    ) {
+        // 同一个页面常常连续要两次（先空凭据探一下），缓存住避免弹两遍
+        authCache["$host|$realm"]?.let {
+            handler.proceed(it.first, it.second)
+            return
+        }
+        val ctx = context
+        if (ctx == null || !isAdded) {
+            handler.cancel()
+            return
+        }
+        val name = EditText(ctx).apply {
+            hint = "用户名"
+            setSingleLine()
+        }
+        val pass = EditText(ctx).apply {
+            hint = "密码"
+            setSingleLine()
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        val box = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(pad, pad / 2, pad, 0)
+            addView(name)
+            addView(pass)
+        }
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle("需要登录")
+            .setMessage("$host\n${realm.ifBlank { "此页面" }} 要求输入用户名和密码。")
+            .setView(box)
+            .setNegativeButton("取消") { _, _ -> handler.cancel() }
+            .setPositiveButton("登录") { _, _ ->
+                val u = name.text?.toString().orEmpty()
+                val p = pass.text?.toString().orEmpty()
+                authCache["$host|$realm"] = u to p
+                handler.proceed(u, p)
+            }
+            .setOnCancelListener { handler.cancel() }
+            .show()
+    }
+
+    /* ---------------- 证书异常 ---------------- */
+
+    override fun onWebSslError(host: String, error: SslError, handler: SslErrorHandler) {
+        val realHost = SiteRuleEngine.hostOf(runCatching { error.url }.getOrNull())
+            ?: SiteRuleEngine.hostOf("https://$host")
+            ?: host
+        if (realHost in sslAllowed) {
+            handler.proceed()
+            return
+        }
+        val ctx = context
+        if (ctx == null || !isAdded) {
+            handler.cancel()
+            return
+        }
+        val reason = when (error.primaryError) {
+            SslError.SSL_EXPIRED -> "证书已过期"
+            SslError.SSL_IDMISMATCH -> "证书上的域名和当前网址不一致"
+            SslError.SSL_UNTRUSTED -> "证书签发者不被系统信任（自签名证书常见）"
+            SslError.SSL_DATE_INVALID -> "证书的生效时间不合法（多半是手机时间不对）"
+            SslError.SSL_NOTYETVALID -> "证书还没到生效时间"
+            SslError.SSL_INVALID -> "证书内容无效"
+            else -> "证书校验失败"
+        }
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle("连接不安全")
+            .setMessage(
+                "$realHost 的$reason。\n\n" +
+                    "继续访问时，你在这个网站上输入的内容可能被第三方看到或篡改，" +
+                    "不要输入密码、验证码或支付信息。",
+            )
+            .setPositiveButton("继续访问（不安全）") { _, _ ->
+                sslAllowed.add(realHost)
+                handler.proceed()
+            }
+            .setNegativeButton("返回") { _, _ -> handler.cancel() }
+            .setOnCancelListener { handler.cancel() }
+            .show()
+    }
+
     /* ---------------- 文件选择（Web 表单上传） ---------------- */
 
     override fun onShowFileChooser(
@@ -1243,6 +1607,32 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         } catch (e: Exception) {
             fileChooserCallback = null
             false
+        }
+    }
+
+    /* ---------------- 选中文字后的动作 ---------------- */
+
+    /**
+     * 系统选择菜单只给了「复制 / 全选 / 网页搜索」，其中网页搜索还会跳去系统浏览器。
+     * 这里补的三项都留在本应用内：搜索开新标签（不打断正在读的文章）、
+     * 翻译开新标签、分享走系统分享面板。
+     */
+    private fun handleSelectionAction(action: KiteWebView.SelectionAction, text: String) {
+        if (!isAdded || text.isBlank()) return
+        when (action) {
+            KiteWebView.SelectionAction.SEARCH ->
+                openUrl(UrlUtils.searchUrl(settings.searchEngine, text))
+            KiteWebView.SelectionAction.TRANSLATE ->
+                openUrl("https://fanyi.baidu.com/#auto/zh/" + Uri.encode(text))
+            KiteWebView.SelectionAction.SHARE -> {
+                val send = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, text)
+                }
+                runCatching {
+                    startActivity(Intent.createChooser(send, "分享所选文字"))
+                }
+            }
         }
     }
 
@@ -1356,6 +1746,10 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             grantsOf = pluginManager::grantsOf,
         )
         wv.addJavascriptInterface(bridge, JsBridge.JS_NAME)
+        wv.addJavascriptInterface(ElementPickerBridge(), "__pbPicker")
+        (wv as? KiteWebView)?.onSelectionAction = { action, text ->
+            handleSelectionAction(action, text)
+        }
         registerForContextMenu(wv)
     }
 
@@ -1742,6 +2136,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         get() = com.pluginbrowser.PluginBrowserApp.from(requireContext()).gitHubChannel
 
     override val siteRules: SiteRuleEngine by lazy { SiteRuleEngine(requireContext()) }
+    override val sitePreferences: SitePreferences by lazy { SitePreferences(requireContext()) }
+    override val elementBlocker: ElementBlocker by lazy { ElementBlocker(requireContext()) }
 
     /** 拦掉一次 App 跳转：必须让用户知道是「拦了」而不是「点了没反应」 */
     override fun onAppJumpBlocked(host: String) {
@@ -1822,11 +2218,14 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                 pendingImageUrl = result.extra
                 menu.add(0, MENU_SAVE_IMAGE, 0, getString(R.string.save_image))
                 menu.add(0, MENU_OPEN_IMAGE_NEW_TAB, 1, getString(R.string.open_new_tab))
+                menu.add(0, MENU_COPY_IMAGE_URL, 2, "复制图片地址")
             }
             WebView.HitTestResult.ANCHOR_TYPE -> {
                 pendingLinkUrl = result.extra
                 menu.add(0, MENU_OPEN_LINK_NEW_TAB, 0, getString(R.string.open_new_tab))
-                menu.add(0, MENU_COPY_LINK, 1, getString(R.string.copy_link))
+                menu.add(0, MENU_OPEN_LINK_BACKGROUND, 1, "后台打开")
+                menu.add(0, MENU_COPY_LINK, 2, getString(R.string.copy_link))
+                menu.add(0, MENU_SHARE_LINK, 3, "分享链接")
             }
             else -> {
                 menu.add(0, MENU_COPY_TEXT, 0, getString(R.string.copy_text))
@@ -1854,6 +2253,27 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             }
             MENU_COPY_LINK -> {
                 pendingLinkUrl?.let { copyToClipboard(it); toast(getString(R.string.link_copied)) }
+                return true
+            }
+            MENU_OPEN_LINK_BACKGROUND -> {
+                pendingLinkUrl?.let { url ->
+                    tabManager.newTab(url = url, select = false)
+                    toast("已在新标签打开")
+                }
+                return true
+            }
+            MENU_SHARE_LINK -> {
+                pendingLinkUrl?.let { url ->
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, url)
+                    }
+                    runCatching { startActivity(Intent.createChooser(send, "分享链接")) }
+                }
+                return true
+            }
+            MENU_COPY_IMAGE_URL -> {
+                pendingImageUrl?.let { copyToClipboard(it); toast("图片地址已复制") }
                 return true
             }
             MENU_COPY_TEXT -> {
@@ -1893,6 +2313,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         private const val TAG_SNIFFER = "resource_sniffer"
         private const val TAG_DIAG = "net_diagnostics"
         private const val TAG_IMAGES = "page_images"
+        private const val TAG_SITE_INFO = "site_info"
         private const val TAG_MENU = "browser_menu"
         private const val PROGRESS_ANIM_MS = 160L
         /** 首帧迟迟不出现才判定打不开（跨境首连十几秒是常态，别太早翻脸） */
@@ -1912,5 +2333,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         private const val MENU_OPEN_LINK_NEW_TAB = 2003
         private const val MENU_COPY_LINK = 2004
         private const val MENU_COPY_TEXT = 2005
+        private const val MENU_OPEN_LINK_BACKGROUND = 2007
+        private const val MENU_SHARE_LINK = 2008
+        private const val MENU_COPY_IMAGE_URL = 2009
     }
 }

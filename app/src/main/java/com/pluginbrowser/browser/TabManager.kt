@@ -10,6 +10,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.fragment.app.FragmentActivity
 import com.pluginbrowser.data.SettingsRepository
+import com.pluginbrowser.site.SitePreferences
 import com.pluginbrowser.site.SiteRuleEngine
 import com.pluginbrowser.util.EventLog
 import org.json.JSONArray
@@ -43,6 +44,7 @@ class TabManager(
     var incognitoMode = false
 
     private val settings = SettingsRepository(activity)
+    private val sitePrefs = SitePreferences(activity)
     private val siteRules = SiteRuleEngine(activity)
     private val sessionPrefs = activity.getSharedPreferences("pb_session", Context.MODE_PRIVATE)
 
@@ -61,7 +63,7 @@ class TabManager(
             if (victim >= 0) closeTab(victim)
         }
         val tab = Tab(url = url ?: "", incognito = incognito)
-        val wv = WebView(webViewContext())
+        val wv = KiteWebView(webViewContext())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // 当前标签的渲染进程保持 IMPORTANT：被降级后切回来要整页重新布局，观感就是"卡一下"
             wv.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
@@ -98,6 +100,7 @@ class TabManager(
         // 站点适配里必须「加载前」生效的那部分。放在 loadUrl 之前：
         // 自动播放策略是文档创建时读取的，页面跑起来再改对当前页无效
         siteRules.applyTo(wv, url)
+        sitePrefs.applyTo(wv, url)
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, settings.thirdPartyCookies)
         webViewConfigurator?.invoke(tab, wv)
         tab.webView = wv

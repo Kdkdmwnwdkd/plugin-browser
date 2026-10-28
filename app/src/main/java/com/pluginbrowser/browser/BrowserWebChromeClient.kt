@@ -4,11 +4,13 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Message
 import android.view.View
+import android.webkit.GeolocationPermissions
+import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 
-/** 浏览器 WebChromeClient：进度、标题、图标、文件选择、全屏视频、多窗口 */
+/** 浏览器 WebChromeClient：进度、标题、图标、文件选择、全屏视频、多窗口、网页权限 */
 class BrowserWebChromeClient(private val owner: Owner) : WebChromeClient() {
 
     interface Owner {
@@ -25,6 +27,12 @@ class BrowserWebChromeClient(private val owner: Owner) : WebChromeClient() {
         fun onEnterFullscreen(view: View)
         fun onExitFullscreenRequest()
         fun openPopupWindow(): WebView?
+
+        /** 网页申请相机/麦克风。不覆写的话 WebView 直接拒绝，页面里一点提示都没有 */
+        fun onWebPermissionRequest(request: PermissionRequest)
+
+        /** 网页申请定位 */
+        fun onWebGeolocation(origin: String, callback: GeolocationPermissions.Callback)
     }
 
     override fun onProgressChanged(view: WebView, newProgress: Int) {
@@ -57,6 +65,17 @@ class BrowserWebChromeClient(private val owner: Owner) : WebChromeClient() {
 
     override fun onHideCustomView() {
         owner.onExitFullscreenRequest()
+    }
+
+    override fun onPermissionRequest(request: PermissionRequest) {
+        owner.onWebPermissionRequest(request)
+    }
+
+    override fun onGeolocationPermissionsShowPrompt(
+        origin: String,
+        callback: GeolocationPermissions.Callback,
+    ) {
+        owner.onWebGeolocation(origin, callback)
     }
 
     override fun onCreateWindow(

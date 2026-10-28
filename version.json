@@ -1,13 +1,13 @@
 {
-  "versionCode": 35,
-  "versionName": "2.6.0",
-  "size": 8718424,
-  "sha256": "107faafc4330eea8059ce8d6b8f6aad1d5ea93081661bdca4efbf51681344d08",
-  "notes": "2.6.0 把「互补」补齐：视频能存、图片能挑、App 不再硬拽\n\n【m3u8 流媒体下载】\n以前嗅探到 m3u8 只能复制一条链接，等于没有。现在点下载就直接把整条流拉下来：\n自动读 master 列表挑码率最高的一路，按顺序拉全部分片，首尾相接成一个文件。\n支持 AES-128 加密（显式 IV 和按序号推的 IV 都认），fMP4 会把初始化段写在最前面、\n存成 .mp4。分片服务器普遍的 Referer 校验也带上了，不再一片 403。\n局限说清楚：只给音频轨的流（EXT-X-MEDIA）拼出来是无声的，那需要重新封装；\n.mp d（DASH）仍然只给复制。\n\n【保存图片】\n菜单 → 保存图片：把页面里的图排成九宫格，缩略图、尺寸、全选都在，勾完批量入队。\nsrcset 取最大一档，懒加载的 data-src 也认，背景图在图片较少时补扫，\ndata: 内联图标自动跳过。存到相册 Pictures/PluginBrowser，图库里直接能看到。\n图片下载自动带同源 Referer，防盗链的站点也能存下来。\n\n【唤起 App 不再硬拽】\n以前网页里一点 App 链接就直接 startActivity，人被拽走，回来浏览位置全丢。\n现在先问一句「在 App 里打开 / 留在网页」，可以按站点记住这次选择。\n站点适配里已经配了「拦 App 跳转」的站（知乎、百度、微博、淘宝、京东）不弹窗，直接留在网页。\n唤起失败（没装那个 App）会明确提示并留在网页，不再跳出一屏错误。\n\n【从 App 回来有迹可循】\n两分钟内从外面 App 切回来，底部会出现一条提示：「刚从某某 App 回来」，\n点「再打开」直接回去，点叉或 12 秒后自动消失。不用再自己想「我刚才点的是哪个链接」。\n\n【测试】\n新增 17 条用例（共 61 条全绿）。HLS 部分是起了本地 HTTP 服务跑完整流程的：\nmaster 选路、分片顺序拼接、AES 解密后的字节逐字节比对，不只是解析对不对。\n",
+  "versionCode": 36,
+  "versionName": "2.7.0",
+  "size": 8766291,
+  "sha256": "b06fb1ca44984bffeeb68d872096ef6052d4bf4537b1bba64f9dadbe1a706783",
+  "notes": "2.7.0 把网页当 App 用的地方补齐：权限、站点设置、页面操作\n\n【网页权限：以前是静默拒绝】\n清单里原来连相机、麦克风、定位都没声明，WebView 的权限回调也没接——\n网页扫码登录、拍照上传、语音输入、地图定位，全是「点了没反应」。\n现在会正常问一句，允许/拒绝可以按站点记住；记住了就不再反复弹。\n\n【地址栏的锁，现在能点开】\n点一下看到：连接是否加密、证书签发给谁、签发者、有效期。\n下面就是这个站专用的设置：桌面版网页、文字大小、是否允许 JavaScript、是否加载图片。\n全部按站点存，互不影响；改完立即重载生效。\n还能一键清除这个站的 Cookie、本地存储、设置和权限记忆——不会动别的网站。\n\n【HTTP 认证与证书异常】\n路由器后台、内网服务常见的「请输入用户名密码」，以前直接白屏；\n现在弹框输入，同一会话记住凭据。证书过期或域名不匹配时，说清楚原因再让你选，不默认放行。\n\n【选中文字：搜索 / 翻译 / 分享】\n系统选择菜单只有复制和「网页搜索」（还会跳去系统浏览器）。\n现在补了三项，都在本应用内，搜索开新标签、不打断开正在读的文章。\n\n【屏蔽页面元素】\n不是猜哪块是广告，是让你点。菜单 → 屏蔽页面元素，点一下要藏的东西，\n自动算出稳定的选择器存下来，以后打开这个站也隐藏。点错了在锁面板里一键恢复。\n\n【长按菜单补齐】\n链接：后台打开、复制链接、分享链接；图片：另存、新标签打开、复制图片地址。\n\n【崩溃后能恢复标签】\n以前只弹一句「上次异常退出」，标签全没了。现在弹框里有「恢复标签」，\n点一下把上次的会话铺回来。\n\n【书签与历史】\n书签页右上角可导入其他浏览器导出的 HTML 书签（Chrome/Edge/Safari 都能导），\n重复地址自动去重。书签和历史都支持边打边搜。\n\n【测试】66 个用例全绿。新增书签解析 5 条；元素点选脚本在 jsdom 里真跑过：\n点中广告位后生成的 `#wrap > div.ad-box:nth-child(1)` 能唯一命中该节点、\n元素被隐藏、退出后普通点击不再被拦。\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.6.0/Kite-2.6.0-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.6.0/Kite-2.6.0-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.6.0/Kite-2.6.0-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.7.0/Kite-2.7.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.7.0/Kite-2.7.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.7.0/Kite-2.7.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

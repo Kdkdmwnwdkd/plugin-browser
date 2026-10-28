@@ -80,6 +80,12 @@ class SiteRulesFragment : PreferenceFragmentCompat() {
         screen.addPreference(PreferenceCategory(requireContext()).apply {
             title = "说明"
             addPreference(Preference(requireContext()).apply {
+                title = "单个网站的设置不在这里"
+                summary = "打开某个网站后，点地址栏左边的锁：可以单独设桌面版、字号、JavaScript、图片，" +
+                    "也能看证书、给相机/麦克风/定位授权、清除这个站的数据"
+                isSelectable = false
+            })
+            addPreference(Preference(requireContext()).apply {
                 title = "这些开关都立即生效"
                 summary = "当前页面重新加载一次即可看到效果；自动播放、后台播放这类 WebView 设置在下一次加载时套用"
                 isSelectable = false
