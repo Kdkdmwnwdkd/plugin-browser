@@ -660,6 +660,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         cancelNavigateWatchdog()
         val host = view ?: return
         navRetried = false
+        val startedAt = android.os.SystemClock.elapsedRealtime()
 
         val runnable = object : Runnable {
             private var lastProgress = tab.progress
@@ -669,14 +670,15 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                 if (tab !== tabManager.currentTab()) return
                 // 首帧都画出来了就不叫「打不开」，剩下的交给 60 秒收尾定时器
                 if (tab.committed) return
-
-                if (tab.progress != lastProgress) {
-                    // 进度在走，说明只是慢，不是死了
-                    lastProgress = tab.progress
-                    host.postDelayed(this, NAV_WATCHDOG_MS)
+                // 进度已经在走：只是慢，不是死了。onPageStarted 一到，两级的
+                // 首帧 / 收尾超时就已经接管了，这里直接收工，不再插手
+                if (tab.progress != lastProgress || tab.progress > START_PROGRESS) {
                     return
                 }
-                if (!navRetried) {
+
+                val waited = android.os.SystemClock.elapsedRealtime() - startedAt
+                if (!navRetried && waited < NAV_GIVE_UP_MS) {
+                    // 连「开始加载」都没有：八成是 DNS 或连接卡住，重发一次
                     navRetried = true
                     runCatching { tab.webView.stopLoading() }
                     runCatching { tab.webView.loadUrl(target) }
@@ -1120,6 +1122,25 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
     /* ---------------- 页面事件（Owner 回调） ---------------- */
 
+    /**
+     * 链接刚被点开、还没交给 WebView 加载。
+     *
+     * 首页上的 GitHub 图标就是这条路径：`<a href>` 由 WebView 自己导航，
+     * 不经过地址栏的 navigateTo，所以以前既没有进度反馈、也没有看门狗，
+     * 一旦系统 DNS 卡住，界面会停在首页一动不动好几秒——用户只能以为「没点上」。
+     */
+    override fun onNavigationStarted(url: String) {
+        val tab = tabManager.currentTab() ?: return
+        if (!tab.usable) return
+        if (tab.url == url && tab.progress in 1..99) return
+        tab.failedUrl = null
+        tab.url = url
+        tab.committed = false
+        tab.progress = START_PROGRESS
+        refreshUi()
+        armNavigateWatchdog(tab, url)
+    }
+
     override fun onPageStarted(tab: Tab) {
         // 导航真的开始了，看门狗可以下班，改由两级超时接管
         cancelNavigateWatchdog()
@@ -1178,10 +1199,21 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     override fun onRenderProcessGone(tab: Tab) {
+        // 渲染进程没了，这个 WebView 已经是一具尸体，只能丢掉重建。
+        // 先把地址记下来，重建后原样打开，别让用户自己再输一遍
+        val url = tab.url
         val index = tabManager.tabs.indexOf(tab)
-        if (index >= 0) tabManager.closeTab(index)
-        if (tabManager.tabs.isEmpty()) {
-            openUrl(settings.homeUrl)
+        if (index < 0) return
+        tabManager.closeTab(index)
+        val current = tabManager.currentTab()
+        if (url.isNotBlank() && current != null && tabManager.isHomeUrl(current.url)) {
+            current.failedUrl = null
+            current.url = url
+            current.committed = false
+            current.progress = START_PROGRESS
+            refreshUi()
+            current.webView.loadUrl(url)
+            armNavigateWatchdog(current, url)
         } else {
             toast(getString(R.string.renderer_crashed))
         }
@@ -1503,12 +1535,14 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         private const val TAG_SNIFFER = "resource_sniffer"
         private const val TAG_MENU = "browser_menu"
         private const val PROGRESS_ANIM_MS = 160L
-        /** 首帧迟迟不出现才判定打不开 */
-        private const val FIRST_PAINT_TIMEOUT_MS = 12_000L
+        /** 首帧迟迟不出现才判定打不开（跨境首连十几秒是常态，别太早翻脸） */
+        private const val FIRST_PAINT_TIMEOUT_MS = 18_000L
         /** 首帧已出现后的兜底时长：只收进度条，不报错 */
         private const val SETTLE_TIMEOUT_MS = 60_000L
         /** 按下回车后多久还没动静就判定「卡住了」 */
         private const val NAV_WATCHDOG_MS = 10_000L
+        /** 导航看门狗的放弃时间：跨境的 GitHub 首次连接 10 秒很正常，别急着报错 */
+        private const val NAV_GIVE_UP_MS = 24_000L
         /** 刚发起导航时的进度起点，让进度条立刻出现 */
         private const val START_PROGRESS = 5
         private const val MENU_GROUP_PLUGIN = 1

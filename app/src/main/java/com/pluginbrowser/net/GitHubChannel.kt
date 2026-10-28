@@ -50,6 +50,21 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
     @Volatile
     private var blockedUntil = 0L
 
+    /**
+     * 预热结果：0 未知 / 1 通 / -1 不通。
+     *
+     * 网页本身要不要交给我们发，全看这个值。原因是接管主文档是把双刃剑：
+     * 通了能省掉系统 DNS 那几秒，不通就是白等一个 connectTimeout 再回落。
+     * 所以只在「刚刚确认过这条路能走」的时候才接手。
+     */
+    @Volatile
+    private var warmState = 0
+
+    @Volatile
+    private var warmAt = 0L
+
+    private val warming = java.util.concurrent.atomic.AtomicBoolean(false)
+
     @Volatile
     private var client: OkHttpClient? = null
 
@@ -91,10 +106,58 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
     fun reset() {
         client = null
         clientKey = ""
+        pageClientCache = null
         blockedUntil = 0L
         failures.set(0)
         dnsCache.clear()
+        warmState = 0
+        warmAt = 0L
     }
+
+    /**
+     * 预热：提前把 DNS 解析完、把 TLS 连接建好。
+     *
+     * GitHub 在国内的第一笔开销往往不是带宽，是「解析域名 + 握手」这几秒。
+     * 应用启动、或者手指刚点到 GitHub 图标的时候先在后台把这两步做掉，
+     * 真正开始加载时就能直接复用连接。
+     *
+     * 全程 4 秒封顶，跑在独立线程上，失败只把状态记成「不通」，不影响任何请求。
+     */
+    fun warmUp(force: Boolean = false) {
+        if (!settings.githubAccel) return
+        val now = System.currentTimeMillis()
+        if (!force && now - warmAt < WARM_TTL_MS) return
+        if (!warming.compareAndSet(false, true)) return
+        Thread {
+            try {
+                val ok = runCatching {
+                    client().newBuilder()
+                        .connectTimeout(WARM_TIMEOUT_S, TimeUnit.SECONDS)
+                        .readTimeout(WARM_TIMEOUT_S, TimeUnit.SECONDS)
+                        .callTimeout(WARM_TIMEOUT_S + 1L, TimeUnit.SECONDS)
+                        .build()
+                        .newCall(Request.Builder().url(PROBE_URL).head().build())
+                        .execute()
+                        .use { it.isSuccessful || it.code in 300..399 }
+                }.getOrDefault(false)
+                warmState = if (ok) 1 else -1
+                warmAt = System.currentTimeMillis()
+                if (ok) {
+                    // 静态资源域顺手把 DNS 也解析掉（只填缓存，不建连接：域名多，一个个握手反而慢）
+                    WARM_HOSTS.forEach { runCatching { resolve(it) } }
+                }
+            } finally {
+                warming.set(false)
+            }
+        }.apply {
+            isDaemon = true
+            name = "gh-warmup"
+            priority = Thread.MIN_PRIORITY
+        }.start()
+    }
+
+    /** 预热是否确认可用（设置页「测试连接」也能看见同一份判断） */
+    fun isWarm(): Boolean = warmState == 1
 
     /**
      * 拿一次 GitHub 首页的响应头，给设置页做「测试连接用」。
@@ -130,10 +193,16 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
         if (!handles(host)) return null
 
         if (!settings.githubAccel) return null
-        // 默认只接静态资源域。github.com 的网页、登录表单、页面里动态拉取的片段
-        // 一律交回 WebView 自己的网络栈——它们依赖 Cookie 轮换、CSRF 令牌和重定向链，
-        // 经手中转一次就足以让「登录后跳转」和「下载列表懒加载」卡死。
-        if (!shouldHandle(host, settings.githubCatchPages)) return null
+        // 接管范围：
+        //   · 静态资源域（assets / raw / avatars / camo）——永远接，缓存和自定义 DNS 在这里最值；
+        //   · 网页本身（主文档 GET）——只在预热确认这条路通、或者用户配了代理时接。
+        //     系统 DNS 在国内解析 github.com 经常要几秒甚至超时，这一段正是「点了没反应」的元凶；
+        //     但没确认能连通就抢着接，只会白等一个 connectTimeout 再回落，反而更慢。
+        //   · 登录 / 接口 / 页面里的动态片段——默认交回原生栈，它们依赖 Cookie 轮换和 CSRF 令牌。
+        if (!shouldHandle(host, settings.githubCatchPages)) {
+            if (!request.isForMainFrame) return null
+            if (!canCatchMainDoc()) return null
+        }
         if (!request.method.equals("GET", ignoreCase = true)) return null
         // 分段请求（视频、大文件续传）不接手：206 + Content-Range 交给原生栈更稳
         if (request.requestHeaders.keys.any { it.equals("Range", ignoreCase = true) }) return null
@@ -161,15 +230,8 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
         val response = try {
             // 主文档是整页的命门：等不到就整页卡住，界面上是「点了一下，什么都不发生」。
             // 所以主文档用更短的超时，宁可早点交回原生栈，也不要把这一页吊死
-            val call = if (request.isForMainFrame) {
-                client().newBuilder()
-                    .connectTimeout(4, TimeUnit.SECONDS)
-                    .readTimeout(8, TimeUnit.SECONDS)
-                    .build()
-                    .newCall(builder.build())
-            } else {
-                client().newCall(builder.build())
-            }
+            val call = if (request.isForMainFrame) pageClient().newCall(builder.build())
+            else client().newCall(builder.build())
             call.execute()
         } catch (e: Exception) {
             noteFailure()
@@ -270,12 +332,30 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
         // 实测 DoH 给的边缘节点不一定可达，所以两份都要留着，让 OkHttp 顺着列表试。
         if (hostname in DOH_FIRST) {
             val merged = (dohLookupOrNull(hostname).orEmpty() + system).distinct()
-            if (merged.isNotEmpty()) return merged
+            if (merged.isNotEmpty()) return rotate(merged)
         }
-        if (system.isNotEmpty()) return system
-        dohLookupOrNull(hostname)?.let { return it }
+        if (system.isNotEmpty()) return rotate(system)
+        dohLookupOrNull(hostname)?.let { return rotate(it) }
         throw java.net.UnknownHostException("无法解析 $hostname")
     }
+
+    /**
+     * 每次从不同起点开始试。
+     *
+     * 一个域名常常解析出好几个 IP，其中总有那么一两个连不上。OkHttp 是顺着列表依次
+     * connect 的，每次都从第一个开始的话，恰好第一个不通时，每个连接都要先白等一个
+     * connectTimeout——同一个页面几十个请求，累积起来就是「一直转圈」。
+     */
+    private fun rotate(addresses: List<InetAddress>): List<InetAddress> {
+        if (addresses.size <= 1) return addresses
+        val start = (dnsCursor.getAndIncrement() and Int.MAX_VALUE) % addresses.size
+        if (start == 0) return addresses
+        return buildList(addresses.size) {
+            for (i in addresses.indices) add(addresses[(start + i) % addresses.size])
+        }
+    }
+
+    private val dnsCursor = AtomicInteger(0)
 
     private fun isIpLiteral(host: String): Boolean {
         if (host.isEmpty()) return false
@@ -339,6 +419,31 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
         return buildClient(key)
     }
 
+    /**
+     * 主文档专用：更短的连接与读超时。
+     *
+     * 网页卡住和图片卡住的代价完全不同——后者只是少一张图，前者是整页白屏。
+     * 所以主文档等不到就赶紧放手，让 WebView 用系统栈再试一次。
+     */
+    private fun pageClient(): OkHttpClient =
+        pageClientCache ?: client().newBuilder()
+            .connectTimeout(PAGE_CONNECT_TIMEOUT_S, TimeUnit.SECONDS)
+            .readTimeout(PAGE_READ_TIMEOUT_S, TimeUnit.SECONDS)
+            .build()
+            .also { pageClientCache = it }
+
+    @Volatile
+    private var pageClientCache: OkHttpClient? = null
+
+    /** 主文档能不能走我们这条路：配了代理（用户自己负责），或者刚刚预热确认过 */
+    private fun canCatchMainDoc(): Boolean {
+        if (settings.proxyUrl.isNotBlank()) return true
+        if (warmState == 1) return true
+        // 还不知道通不通：这次不接，但顺手把预热排上，下一次导航就能吃到
+        if (warmState == 0) warmUp()
+        return false
+    }
+
     @Synchronized
     private fun buildClient(key: String): OkHttpClient {
         client?.let { if (clientKey == key) return it }
@@ -358,6 +463,7 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
             .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
 
         proxyOf(settings.proxyUrl.trim())?.let { builder.proxy(it) }
+        pageClientCache = null
         return builder.build().also {
             client = it
             clientKey = key
@@ -435,6 +541,23 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
         private const val BLOCK_MS = 60_000L
         private const val DNS_TTL_MS = 5 * 60_000L
 
+        /** 预热结果的有效期：过期后重新确认一次，免得代理关了还在用旧结论 */
+        private const val WARM_TTL_MS = 3 * 60_000L
+        private const val WARM_TIMEOUT_S = 4L
+
+        /** 主文档：连接 3.5 秒还不成，多半再等也不会成，快点让给原生栈 */
+        private const val PAGE_CONNECT_TIMEOUT_S = 4L
+        private const val PAGE_READ_TIMEOUT_S = 7L
+
+        /** 预热时顺手解析的静态资源域（只做 DNS，逐个握手反而拖慢） */
+        private val WARM_HOSTS = listOf(
+            "github.com",
+            "github.githubassets.com",
+            "avatars.githubusercontent.com",
+            "raw.githubusercontent.com",
+            "objects.githubusercontent.com",
+        )
+
         /** 同时占用拦截线程的上限，超出的请求直接交回原生栈 */
         private const val MAX_IN_FLIGHT = 3
 
@@ -443,12 +566,17 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
          * 所以必须主动先问 DoH。
          */
         private val DOH_FIRST = setOf(
+            "github.com",
+            "www.github.com",
+            // 首屏的 CSS / JS 全在这个域上，解析慢一拍，整页就白屏一拍
+            "github.githubassets.com",
+            "api.github.com",
             "raw.githubusercontent.com",
             "camo.githubusercontent.com",
             "user-images.githubusercontent.com",
             "avatars.githubusercontent.com",
-            "gist.githubusercontent.com",
             "objects.githubusercontent.com",
+            "gist.githubusercontent.com",
         )
 
         /** 都是 JSON 接口，比自己拼 DNS wire format 省事，国内也都可达 */

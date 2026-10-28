@@ -55,9 +55,30 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
         }
 
         handleIntent(intent)
+        // 上次要是横着出去的，这里给个交代：至少让下次能看到是哪里崩的
+        maybeShowLastCrash()
     }
 
-    /** 状态栏/导航栏跟随页面底色，避免首页深色、状态栏浅色那种断层 */
+    /**
+     * 上次进程异常结束时弹一次说明。
+     *
+     * 自用场景没人看 Logcat，App 又「点一下就没了」的时候，唯一的线索就是这里。
+     * 同一份崩溃只弹一次，避免每次启动都挡一下。
+     */
+    private fun maybeShowLastCrash() {
+        val summary = com.pluginbrowser.util.CrashLogger.lastRunCrash(this) ?: return
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.crash_title)
+            .setMessage(summary)
+            .setPositiveButton(R.string.crash_copy) { _, _ ->
+                val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("crash", summary))
+                Toast.makeText(this, R.string.crash_copied, Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(R.string.crash_dismiss, null)
+            .show()
+    }
+
     private fun applySystemBars() {
         val night = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
             Configuration.UI_MODE_NIGHT_YES
@@ -149,9 +170,39 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
         handleIntent(intent)
     }
 
+    override fun onStart() {
+        super.onStart()
+        // 使用期间打这个标记；正常退到后台会清掉。
+        // 下次启动还亮着 → 上次是在前台「突然没了」，正是要抓的那种崩溃
+        com.pluginbrowser.util.CrashLogger.markRunning(this)
+    }
+
+    override fun onStop() {
+        com.pluginbrowser.util.CrashLogger.markClean(this)
+        super.onStop()
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        // 系统开始喊内存紧张了：把看不见的标签全部降级，先保住正在看的这一页
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW &&
+            ::tabManager.isInitialized
+        ) {
+            tabManager.trimInactive()
+        }
+    }
+
     override fun onDestroy() {
-        // 释放 WebView 原生内存（重建/退出都不会自动回收）
-        if (::tabManager.isInitialized) tabManager.destroyAll()
+        // 释放 WebView 原生内存（重建/退出都不会自动回收）。
+        // 但只在真退出时销毁：配置变化、系统回收重建时销毁掉，重开就是一片空白
+        if (::tabManager.isInitialized) {
+            if (isFinishing) {
+                tabManager.destroyAll()
+                com.pluginbrowser.util.CrashLogger.markClean(this)
+            } else {
+                tabManager.pauseAll()
+            }
+        }
         // Application 级的 PluginManager 持有 hostProvider={ this }，不置空会泄漏整个 Activity
         if (::tabManager.isInitialized) {
             PluginBrowserApp.from(this).pluginManager.hostProvider = null

@@ -77,14 +77,14 @@
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="github_accel"
-            android:summary="raw、头像、release 直链这些静态资源走独立通道：自定义 DNS、可选代理、磁盘缓存"
+            android:summary="页面、头像、release 直链都走独立通道：自定义 DNS、可选代理、磁盘缓存。启动时会先把连接预热好"
             android:title="GitHub 加速" />
 
         <SwitchPreferenceCompat
             android:defaultValue="false"
             android:key="github_catch_pages"
-            android:summary="默认不接管。github.com 的网页与登录交给系统内核，才不会出现登录后报错、下载列表一直转圈"
-            android:title="网页也走独立通道（高级）" />
+            android:summary="默认只接管网页本身和静态资源；登录、接口这些依赖 Cookie 轮换的请求交给系统内核。页面里某些区块一直转圈时才需要打开"
+            android:title="连页面的动态请求也接管（高级）" />
 
         <EditTextPreference
             android:key="proxy_url"

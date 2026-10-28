@@ -93,7 +93,9 @@ class TabManager(
 
         tabs.add(tab)
         if (select) {
+            val previous = currentTab()
             currentIndex = tabs.size - 1
+            if (previous !== null && previous !== tab) demote(previous)
             listener.onCurrentTabChanged(tab)
         }
         listener.onTabsChanged()
@@ -122,9 +124,44 @@ class TabManager(
 
     fun switchTo(index: Int) {
         if (index !in tabs.indices || index == currentIndex) return
+        val previous = currentTab()
         currentIndex = index
+        if (previous !== currentTab()) demote(previous)
+        promote(currentTab())
         listener.onCurrentTabChanged(currentTab())
         listener.onTabsChanged()
+    }
+
+    /**
+     * 后台标签的渲染进程降级。
+     *
+     * 每个 WebView 都是一整个渲染进程，三个重页面同时「活着」，中低端机很容易被
+     * 系统判定内存不足直接杀掉（表现就是「用着用着突然回到桌面」，没有报错弹窗）。
+     * 降级后系统可以优先回收看不见的那些，切回来再提上去，页面状态不丢。
+     */
+    private fun demote(tab: Tab?) {
+        if (tab == null || !tab.usable) return
+        runCatching { tab.webView.onPause() }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            runCatching {
+                tab.webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_BOUND, true)
+            }
+        }
+    }
+
+    private fun promote(tab: Tab?) {
+        if (tab == null || !tab.usable) return
+        runCatching { tab.webView.onResume() }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            runCatching {
+                tab.webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+            }
+        }
+    }
+
+    /** 内存吃紧时只留当前标签，其余全部降级 */
+    fun trimInactive() {
+        tabs.forEach { if (it !== currentTab()) demote(it) }
     }
 
     fun closeTab(index: Int) {
@@ -252,8 +289,13 @@ class TabManager(
         const val DESKTOP_UA =
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-        /** 标签数上限（每个标签持有独立 WebView，过多会 OOM） */
-        private const val MAX_TABS = 20
+        /**
+         * 标签数上限（每个标签持有独立 WebView）。
+         *
+         * 一个标签就是一个渲染进程，手机上同时活着的重页面越多，被系统直接回收的概率越高。
+         * 20 个纯属理论值，真机上到五六个就开始吃不消，收到 8 个，超了先回收最早的非当前标签。
+         */
+        private const val MAX_TABS = 8
 
         private const val KEY_SESSION = "session_tabs"
     }

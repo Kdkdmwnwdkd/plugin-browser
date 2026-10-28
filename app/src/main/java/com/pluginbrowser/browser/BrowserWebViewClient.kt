@@ -36,6 +36,14 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
 
         fun onPageStarted(tab: Tab)
         fun onPageFinished(tab: Tab)
+        /**
+         * 页内链接被点开、即将交给 WebView 加载。
+         *
+         * 这条回调存在的意义只有一个：让界面**立刻**有反应。
+         * WebView 从「调用 loadUrl」到「onPageStarted」之间可能隔着好几秒的系统 DNS，
+         * 这期间地址栏、进度条全都纹丝不动，用户看到的就是「点了没反应」。
+         */
+        fun onNavigationStarted(url: String)
         /** 进度被这里改写时（例如首帧可见后推高进度）需要刷新一次界面 */
         fun onProgressChanged(tab: Tab, progress: Int)
         fun onErrorPageNeeded(tab: Tab, errorCode: Int)
@@ -75,6 +83,12 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
                     -1L,
                 )
             }
+            // GitHub 慢在 DNS，先把预热排上；同时让 UI 立刻进入「正在加载」状态，
+            // 不要等 onPageStarted——那一等可能就是好几秒，看起来像点了个死链接
+            if (GitHubChannel.isGitHubHost(runCatching { request.url.host }.getOrNull())) {
+                owner.githubChannel.warmUp()
+            }
+            owner.onNavigationStarted(url)
             return false
         }
         if (url.startsWith("file://") || url.startsWith("about:")) return false

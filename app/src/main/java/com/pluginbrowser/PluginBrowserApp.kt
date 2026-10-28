@@ -34,6 +34,8 @@ class PluginBrowserApp : Application() {
         pluginManager.loadExternalNativePlugins()
         // 注册下载完成广播跟踪
         DownloadTracker.get(this).register()
+        // 启动即预热 GitHub 通道：DNS 和 TLS 先行，用户真去点的时候就不用再等这一两秒
+        gitHubChannel.warmUp()
     }
 
     companion object {

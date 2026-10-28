@@ -206,6 +206,10 @@
     <string name="deep_link_found">这个链接里带有下载地址，要下载吗？</string>
     <string name="page_download_title">页面里有这些文件，要下载哪个？</string>
     <string name="renderer_crashed">页面渲染出错，已重建标签</string>
+    <string name="crash_title">上次没有正常退出</string>
+    <string name="crash_copy">复制详情</string>
+    <string name="crash_copied">已复制</string>
+    <string name="crash_dismiss">知道了</string>
     <string name="no_app_for_link">这个链接要用对应的 App 打开，本机没安装或暂不支持</string>
 
     <!-- 长截图 -->

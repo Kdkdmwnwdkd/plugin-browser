@@ -131,6 +131,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
         findPreference<SwitchPreferenceCompat>("github_accel")?.setOnPreferenceChangeListener { _, newValue ->
             settings.githubAccel = newValue as Boolean
             channel.reset()
+            // 配置变了就重新确认一次这条路通不通，别等用户去点页面才发现
+            if (newValue) channel.warmUp(force = true)
             true
         }
 
@@ -147,6 +149,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 settings.proxyUrl = text
                 pref.summary = proxySummary(text)
                 channel.reset()
+                channel.warmUp(force = true)
                 true
             }
         }
@@ -154,6 +157,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         findPreference<SwitchPreferenceCompat>("doh_enabled")?.setOnPreferenceChangeListener { _, newValue ->
             settings.dohEnabled = newValue as Boolean
             channel.reset()
+            channel.warmUp(force = true)
             true
         }
 
