@@ -48,14 +48,32 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
 
     override fun onStart() {
         super.onStart()
-        // 面板默认停在「半展开」，三组图标加下面的列表装不下，最后一行直接被裁掉。
-        // 这里强制全展开：内容有多高就升多高，不够高再由外层滚动兜底
         val sheet = dialog?.findViewById<View>(
             com.google.android.material.R.id.design_bottom_sheet,
         ) ?: return
         val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(sheet)
         behavior.skipCollapsed = true
+        behavior.isFitToContents = true
         behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+
+        // 高度要钉在根视图上，不能钉 sheet。
+        //
+        // sheet 的高度由 BottomSheetBehavior 的展开逻辑接管，直接改 sheet.layoutParams.height
+        // 会被覆盖（改完还是原样）。fitToContents=true 时 behavior 读的是根视图的高度当成
+        // 展开高度，所以把根限死在 92% 屏高，超出的内容交给里面的 ScrollView 滚。
+        //
+        // 不能用 wrap_content：那会让 ScrollView 跟着内容一起变高，结果既不裁也不滚，
+        // 底部几行凭空消失——360~410dp 高的国产机上「设置」就是这么丢的。
+        val content = view ?: return
+        content.post {
+            // 用窗口可用高度，不是物理屏高。
+            // 物理屏高含状态栏和导航栏（这块屏 1280 对 1048），按它算会把底部内容推出可视区。
+            val avail = (sheet.parent as? View)?.height?.takeIf { it > 0 }
+                ?: resources.displayMetrics.heightPixels
+            val target = (avail * 0.94f).toInt()
+            content.layoutParams = content.layoutParams.apply { height = target }
+            behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -63,20 +81,23 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         onSurfaceVariant =
             MaterialColors.getColor(view, com.google.android.material.R.attr.colorOnSurfaceVariant)
 
-        // 三键导航的机型上，最后一行「下载 / 嗅探 / 截图 / 插件」会被导航栏压掉半截，
-        // 文字只剩上半截，看着像坏了。
+        // 三键导航的机型上，最后一行会被导航栏压掉半截，文字只剩上半截，看着像坏了。
         //
         // 只挂 insets listener 不够：BottomSheet 的 window 是 layout-no-limits 的，
         // 导航栏根本不作为 inset 派发下来（拿到的永远是 0）。所以先用系统资源算一个
         // 保底高度，再让 listener 在有真实 insets 时覆盖它。
-        val basePad = view.paddingBottom
+        //
+        // 内边距要加在滚动内容上，不能加在 ScrollView 自己身上——加在外层等于把可视区截短，
+        // 底部那几行反而更够不着了。
+        val inner = (view as? ViewGroup)?.getChildAt(0) ?: view
+        val basePad = inner.paddingBottom
         val navFromRes = resources
             .getIdentifier("navigation_bar_height", "dimen", "android")
             .takeIf { it > 0 }
             ?.let { resources.getDimensionPixelSize(it) }
             ?: 0
-        view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, basePad + navFromRes)
-        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+        inner.setPadding(inner.paddingLeft, inner.paddingTop, inner.paddingRight, basePad + navFromRes)
+        ViewCompat.setOnApplyWindowInsetsListener(inner) { v, insets ->
             val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
             if (nav > 0) {
                 v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, basePad + nav)
@@ -156,7 +177,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         val cell = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, dp(76), 1f)
+            layoutParams = LinearLayout.LayoutParams(0, dp(cellHeightDp()), 1f)
             isClickable = true
             isFocusable = true
             background = rippleBackground(ctx)
@@ -188,6 +209,22 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
     }
 
     /** 列表行：左图标 + 文字 + 右侧可选状态 */
+    /**
+     * 图标格子的高度。
+     *
+     * 固定 76dp 是按 640dp 高的机器定的，720×1280 这类机器逻辑高度只有 640dp，
+     * 1080p 的国产手机普遍只有 360~410dp——三组图标就是 540dp，光格子就超出全屏。
+     * 按屏幕高度分档压缩，配合外层滚动，小屏才不至于一打开就只能看见两组。
+     */
+    private fun cellHeightDp(): Int {
+        val h = resources.configuration.screenHeightDp
+        return when {
+            h >= 660 -> 76
+            h >= 560 -> 66
+            else -> 58
+        }
+    }
+
     private fun listRow(
         parent: LinearLayout,
         id: String,

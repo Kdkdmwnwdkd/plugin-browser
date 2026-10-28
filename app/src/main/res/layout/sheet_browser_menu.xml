@@ -1,81 +1,97 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+    根节点必须是可滚动的容器。
+
+    之前这里是 LinearLayout，面板高度被 BottomSheet 限制在屏幕内，
+    超出的部分不是「滚动到看不见」，而是直接不存在——在 360~410dp 高的机型上
+    （魅族 20 这类 1080p 手机逻辑高度就是这个数），「添加书签 / 设置 / 网络诊断」
+    这三行永远够不到。功能藏在根本点不进去的地方，用起来就跟裸浏览器一样。
+-->
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="?attr/colorSurface"
-    android:orientation="vertical"
-    android:paddingBottom="16dp">
-
-    <View
-        android:layout_width="36dp"
-        android:layout_height="4dp"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="10dp"
-        android:background="@drawable/bg_sheet_handle" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        style="@style/TextAppearance.PluginBrowser.GroupLabel"
-        android:text="@string/menu_group_page" />
+    android:clipToPadding="false"
+    android:fillViewport="false"
+    android:overScrollMode="ifContentScrolls">
 
     <LinearLayout
-        android:id="@+id/row_page"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal" />
+        android:orientation="vertical"
+        android:paddingBottom="16dp">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        style="@style/TextAppearance.PluginBrowser.GroupLabel"
-        android:text="@string/menu_group_tabs" />
+        <View
+            android:layout_width="36dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_sheet_handle" />
 
-    <LinearLayout
-        android:id="@+id/row_tabs"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal" />
+        <TextView
+            style="@style/TextAppearance.PluginBrowser.GroupLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/menu_group_page" />
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        style="@style/TextAppearance.PluginBrowser.GroupLabel"
-        android:text="@string/menu_group_tools" />
+        <LinearLayout
+            android:id="@+id/row_page"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
 
-    <LinearLayout
-        android:id="@+id/row_tools"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal" />
+        <TextView
+            style="@style/TextAppearance.PluginBrowser.GroupLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/menu_group_tabs" />
 
-    <TextView
-        android:id="@+id/title_plugins"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        style="@style/TextAppearance.PluginBrowser.GroupLabel"
-        android:text="@string/menu_group_plugins"
-        android:visibility="gone" />
+        <LinearLayout
+            android:id="@+id/row_tabs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
 
-    <LinearLayout
-        android:id="@+id/row_plugins"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:visibility="gone" />
+        <TextView
+            style="@style/TextAppearance.PluginBrowser.GroupLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/menu_group_tools" />
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginStart="20dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginEnd="20dp"
-        android:background="?attr/colorOutlineVariant" />
+        <LinearLayout
+            android:id="@+id/row_tools"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
 
-    <LinearLayout
-        android:id="@+id/row_list"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:orientation="vertical" />
-</LinearLayout>
+        <TextView
+            android:id="@+id/title_plugins"
+            style="@style/TextAppearance.PluginBrowser.GroupLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/menu_group_plugins"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/row_plugins"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginStart="20dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginEnd="20dp"
+            android:background="?attr/colorOutlineVariant" />
+
+        <LinearLayout
+            android:id="@+id/row_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="vertical" />
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

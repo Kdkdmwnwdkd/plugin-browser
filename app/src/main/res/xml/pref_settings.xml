@@ -108,6 +108,14 @@
             android:title="测试连接" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="设备">
+
+        <Preference
+            android:key="engine_check"
+            android:summary="网页内核版本、实测支持的能力、可一键复制成报告"
+            android:title="浏览器内核体检" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="外观">
 
         <ListPreference

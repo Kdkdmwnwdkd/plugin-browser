@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
+    android:orientation="vertical"
+    android:paddingBottom="10dp">
+
+    <View
+        android:layout_width="36dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_sheet_handle" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="12dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="浏览器内核体检"
+                android:textColor="?attr/colorOnSurface"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/engine_subtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textSize="11.5sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/engine_copy"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:paddingStart="10dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="4dp"
+            android:paddingBottom="8dp"
+            android:text="复制"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="12.5sp" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?attr/colorOutlineVariant" />
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false">
+
+        <LinearLayout
+            android:id="@+id/engine_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="14dp" />
+    </androidx.core.widget.NestedScrollView>
+
+    <!--
+        隐藏的 WebView 宿主：跑实测脚本用。
+        尺寸不能给 0×0、也不能是 invisible——Chromium 对零尺寸或不可见容器里的 WebView
+        会跳过加载流程，onPageFinished 永远不回调，探测就卡在「进行中」没有任何反应。
+        1dp 大小 + 全透明，它仍然是「可见且在布局里」的。
+    -->
+    <FrameLayout
+        android:id="@+id/engine_probe_host"
+        android:layout_width="1dp"
+        android:layout_height="1dp"
+        android:alpha="0" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="20dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/engine_probe"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="跑一次实际能力检测" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/engine_hide"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="关闭" />
+    </LinearLayout>
+</LinearLayout>

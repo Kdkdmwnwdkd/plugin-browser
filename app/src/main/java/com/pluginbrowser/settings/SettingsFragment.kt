@@ -208,6 +208,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
+        findPreference<Preference>("engine_check")?.setOnPreferenceClickListener {
+            com.pluginbrowser.compat.EngineSheet().show(
+                parentFragmentManager,
+                com.pluginbrowser.compat.EngineSheet.TAG,
+            )
+            true
+        }
+
         findPreference<Preference>("translate_service")?.apply {
             summary = TranslateSettings(requireContext()).provider.label
             setOnPreferenceClickListener {

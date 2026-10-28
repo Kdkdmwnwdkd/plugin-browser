@@ -1,13 +1,13 @@
 {
-  "versionCode": 37,
-  "versionName": "2.7.1",
-  "size": 8915482,
-  "sha256": "9ec2ece8bf20b5b4fc9eef0029026b2ed5c4063ffac1c1a71dabfa472ac994b5",
-  "notes": "2.7.1 这次不加功能，只把「点一下就走进错误页」这类硬伤堵掉\n\n这一版是在一台 Android 11 + WebView 83 的模拟器上把 2.7.0 真跑了一遍之后的修补，\n不是靠猜。\n\n【点「用 App 打开」，整个页面没了】\n百度搜一下就会弹「用百度 App 打开」，链接是 baiduboxapp://。手机没装百度时，\n以前会把这种链接原样丢给 WebView 去加载——它当然打不开，于是当前页面被整页\n换成「无法访问此网页」，用户还得自己翻历史找回来。\n现在这类跳转直接吞掉，页面留在原地，只提示一句没有应用能打开。\n同时补了百度、微信、QQ、高德、拼多多、京东等一批唤醒协议。\n\n【错误页按返回会退出浏览器】\n失败地址有时是 about:blank，被判成「首页」，返回键直接把 App 关掉。\n现在优先回退历史，退不动才回首页。\n\n【地址栏里的乱码】\n非网页链接以前会把整串参数塞进地址栏，截断后变成\n「!C%22matrix%22%3A%22main%22%7D」这种谁也看不懂的碎片。\n现在显示「baiduboxapp · 应用链接」。\n\n【功能面板最后一行被切掉】\n菜单只升到半屏，「下载 / 嗅探 / 截图 / 插件」的文字只剩上半截。\n现在全展开，并给底部导航栏留出高度。\n\n【读屏用户听到三个「刷新」】\n后退和前进图标的无障碍描述都写成了「刷新」，已改成后退 / 前进。\n\n签名未变，可直接覆盖安装。\n",
+  "versionCode": 38,
+  "versionName": "2.8.0",
+  "size": 8939075,
+  "sha256": "244a3537ce71e74f461d2d5e35b9b873eeeba44f3806c138681a9cdeb0eba177",
+  "notes": "2.8.0 修掉「功能藏在点不到的地方」，并加一个能替你说话的体检面板\n\n这一版还是先在 Android 11 + WebView 83 的模拟器上逐屏点出来的，不是靠猜。\n\n【功能面板下半截根本不存在】\n功能面板的根节点是个普通 LinearLayout，没有滚动；面板高度又被 BottomSheet\n限制在屏幕内。结果不是「内容被裁掉需要往下滑」，而是超出的部分干脆没被布局出来——\n720x1280 上内容约 912dp、可视区只有 576dp，「屏蔽页面元素 / 网络诊断 /\n添加书签 / 设置」这四行永远够不到。\n\n1080p 的国产手机（包括魅族 20）逻辑高度只有 360~410dp，超出得更多。\n也就是说：设置页、站点适配、备份恢复这些入口，在真机上一直是要靠运气才能进的。\n\n现在改成滚动容器，高度按「窗口可用高度」钉死，图标格子按屏幕高度分档压缩。\n\n顺带一个坑：计算高度不能用 displayMetrics.heightPixels，那是物理屏高，\n含状态栏和导航栏。这块屏物理 1280、应用窗口只有 1048，按 0.9 算出的 1152\n把底部按钮推出可视区，按钮看得见但点不着（bounds 全是 0）。\n\n【新增：设置 → 设备 → 浏览器内核体检】\nKite 是一层壳，网页能不能正常显示取决于手机里的 WebView，而 WebView 跟系统走、\n我升不了。过去几轮我一直在猜用户的内核版本，还猜错过一次，说 GitHub 崩是因为\n内核旧——实际上那台机器是 Android 16，问题出在别处。\n\n这个面板把该问的机器自己答了：\n· 内核提供者、版本号、主版本、完整 UA\n· 厂商/机型/系统/版本串/架构/可用内存\n· Kite 自身的版本与目标 SDK\n· 一点就实测 12 项能力（空值合并、类字段、可选链、BigInt、深拷贝、flex gap、\n  宽高比、:is()、背景模糊、100dvh、容器查询、WebGL2）\n· 按档位给结论和建议，并附这个品牌的已知情况（内核由谁更新、能不能单独升）\n· 一键复制成一段文本，直接发过来就能定位问题\n\n为什么要有实测这一项：版本号只能说明内核「自称是谁」，有些 ROM 会改 UA。\n真正决定网页会不会崩的是它支持哪些语法和 CSS 特性。\n\n【这一版踩到的两个坑，都写进注释了】\n· 隐藏 WebView 用 0x0 + invisible 时，Chromium 会跳过加载，onPageFinished\n  永远不回调，探测卡在「进行中」；改成 1dp + 全透明，并加 8 秒超时兜底。\n· 给 sheet 设 height 是无效的（会被 BottomSheetBehavior 的展开逻辑覆盖），\n  要钉在根视图上。\n\n签名未变，可直接覆盖安装。\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.7.1/Kite-2.7.1-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.7.1/Kite-2.7.1-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.7.1/Kite-2.7.1-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.8.0/Kite-2.8.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.8.0/Kite-2.8.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.8.0/Kite-2.8.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
