@@ -11,11 +11,11 @@ object ErrorPages {
      */
     const val RETRY_SCHEME = "pb://retry"
 
-    fun html(errorCode: Int, failedUrl: String): String {
+    fun html(errorCode: Int, failedUrl: String, extraHint: String? = null): String {
         val reason = when (errorCode) {
             WebViewClient.ERROR_HOST_LOOKUP -> "找不到服务器，请检查网址是否正确"
             WebViewClient.ERROR_CONNECT -> "连接服务器失败"
-            WebViewClient.ERROR_TIMEOUT -> "连接超时"
+            WebViewClient.ERROR_TIMEOUT -> "等了很久都没有响应，连接卡住了"
             WebViewClient.ERROR_FILE_NOT_FOUND -> "文件不存在"
             // WebView 把「连接被中途掐断」「TLS 被重置」都归到这一类，
             // 国内访问 GitHub 时最常见的正是代理抖动，所以文案要说人话
@@ -23,10 +23,10 @@ object ErrorPages {
             else -> "页面加载失败"
         }
         val host = runCatching { android.net.Uri.parse(failedUrl).host }.getOrNull()
-        val hint = if (host.isNullOrBlank()) {
-            "请检查网络连接后重试"
-        } else {
-            "请检查网络或代理设置，也可以稍后再试"
+        val hint = when {
+            !extraHint.isNullOrBlank() -> extraHint
+            host.isNullOrBlank() -> "请检查网络连接后重试"
+            else -> "请检查网络或代理设置，也可以稍后再试"
         }
         return """
 <!DOCTYPE html>

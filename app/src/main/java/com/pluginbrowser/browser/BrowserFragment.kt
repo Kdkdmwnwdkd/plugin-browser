@@ -15,6 +15,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -60,6 +61,7 @@ import com.pluginbrowser.settings.SettingsFragment
 import com.pluginbrowser.translate.TranslateManager
 import com.pluginbrowser.translate.TranslateSettingsFragment
 import com.pluginbrowser.ui.BookmarksFragment
+import com.pluginbrowser.util.AddressSubmit
 import com.pluginbrowser.util.UrlUtils
 import kotlinx.coroutines.launch
 
@@ -200,6 +202,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
      */
     private var firstPaintTimeout: Runnable? = null
     private var settleTimeout: Runnable? = null
+    private var navWatchdog: Runnable? = null
+    private var navRetried = false
 
     private fun scheduleLoadTimeouts(tab: Tab) {
         val host = view ?: return
@@ -281,7 +285,12 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     override fun onStart() {
         super.onStart()
         if (!::webContainer.isInitialized) return
-        tabManager.attachTo(webContainer)
+        // 只有真的错位时才重新挂，避免每次回到前台都白白 detach/attach 一遍
+        if (!tabManager.isAttached(webContainer)) {
+            // 错位的另一种可能是「容器里那张 WebView 已经销毁了」，换一张能用的
+            tabManager.requireLoadableTab()
+            tabManager.attachTo(webContainer)
+        }
         refreshUi()
     }
 
@@ -300,6 +309,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     override fun onDestroyView() {
         tabManager.pauseAll()
         clearLoadTimeouts()
+        cancelNavigateWatchdog()
         if (::downloadPrompt.isInitialized) downloadPrompt.dismiss()
         suggestionRunnable?.let { suggestionHandler.removeCallbacks(it) }
         super.onDestroyView()
@@ -310,12 +320,23 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private fun setupAddressBar() {
         addressInput.setAdapter(suggestionAdapter)
         addressInput.threshold = 1
-        addressInput.addTextChangedListener { editable -> querySuggestions(editable?.toString() ?: "") }
-        addressInput.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_GO ||
-                actionId == EditorInfo.IME_NULL ||
-                actionId == EditorInfo.IME_ACTION_UNSPECIFIED
-            ) {
+        addressInput.addTextChangedListener { editable ->
+            updateAddressAction()
+            querySuggestions(editable?.toString() ?: "")
+        }
+        // 输入法给的「前往 / 搜索 / 完成」都算提交；有的输入法（尤其带皮肤的三方键盘）
+        // 干脆只发一个原始回车键事件，连 actionId 都不给，所以两种都要接住。
+        addressInput.setOnEditorActionListener { _, actionId, event ->
+            if (isSubmitAction(actionId, event)) {
+                navigate()
+                true
+            } else {
+                false
+            }
+        }
+        addressInput.setOnKeyListener { _, keyCode, event ->
+            val enter = keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
+            if (enter && event.action == KeyEvent.ACTION_DOWN) {
                 navigate()
                 true
             } else {
@@ -326,13 +347,48 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             suggestionAdapter.getItem(position)?.let { navigateTo(it.url) }
         }
         addressInput.setOnFocusChangeListener { _, hasFocus ->
+            updateAddressAction()
             if (hasFocus && suggestionAdapter.count > 0) {
                 addressInput.postDelayed({
                     if (addressInput.hasFocus()) addressInput.showDropDown()
                 }, 120)
             }
         }
-        btnReload.setOnClickListener { onReloadClicked() }
+        btnReload.setOnClickListener {
+            // 正在输入时这颗按钮是「前往」，其余时候才是刷新 / 停止
+            if (isAddressEditing()) navigate() else onReloadClicked()
+        }
+    }
+
+    /** 地址栏里正有内容、并且焦点也在它身上 */
+    private fun isAddressEditing(): Boolean =
+        addressInput.hasFocus() && !addressInput.text.isNullOrBlank()
+
+    /**
+     * 判断这次 IME 回调是不是「提交地址栏内容」。
+     *
+     * 老代码只认 IME_ACTION_GO / IME_NULL，三方输入法发 DONE、SEARCH，
+     * 或者干脆只发一个 KEYCODE_ENTER 的时候就被漏掉了——表现就是
+     * 打完网址按回车，键盘收起来，页面一动不动。
+     */
+    private fun isSubmitAction(actionId: Int, event: KeyEvent?): Boolean =
+        AddressSubmit.isSubmit(
+            actionId = actionId,
+            keyCode = event?.keyCode ?: 0,
+            keyDown = event?.action == KeyEvent.ACTION_DOWN,
+        )
+
+    /** 地址栏右侧那颗按钮的图标：编辑时是「前往」，加载时是「停止」，平时是「刷新」 */
+    private fun updateAddressAction() {
+        if (!::btnReload.isInitialized || !::addressInput.isInitialized) return
+        if (isAddressEditing()) {
+            btnReload.setImageResource(R.drawable.ic_go)
+            btnReload.contentDescription = getString(R.string.address_go)
+            return
+        }
+        val loading = (tabManager.currentTab()?.progress ?: 0) in 1..99
+        btnReload.setImageResource(if (loading) R.drawable.ic_close else R.drawable.ic_refresh)
+        btnReload.contentDescription = getString(if (loading) R.string.menu_stop else R.string.menu_refresh)
     }
 
     /* ---------------- 整页翻译 ---------------- */
@@ -565,9 +621,86 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         addressInput.dismissDropDown()
         addressInput.clearFocus()
         suggestionAdapter.clear()
-        val tab = tabManager.currentTab() ?: return
+
+        // 当前标签的 WebView 可能已经销毁（界面上只剩它的最后一帧），
+        // 那种 WebView 再 loadUrl 是没有任何反应的，必须换一个能用的
+        val tab = tabManager.requireLoadableTab()
+        if (tab !== tabManager.currentTab()) onCurrentTabChanged(tab)
+
         tab.failedUrl = null
-        tab.webView.loadUrl(url)
+        // 先把目标地址写进标签并刷新一次界面：
+        // 加载再慢，地址栏里也得先看到自己输的地址、进度条得先动起来，
+        // 而不是像以前那样「按了回车，键盘收起，页面和地址栏都跟没发生过一样」
+        tab.url = url
+        tab.committed = false
+        tab.progress = START_PROGRESS
+        refreshUi()
+
+        // 容器里挂的必须就是当前标签的 WebView，否则加载的是看不见的那一个
+        if (!tabManager.isAttached(webContainer)) tabManager.attachTo(webContainer)
+
+        runCatching { tab.webView.stopLoading() }
+        val ok = runCatching { tab.webView.loadUrl(url) }.isSuccess
+        if (!ok) {
+            onErrorPageNeeded(tab, android.webkit.WebViewClient.ERROR_UNKNOWN)
+            return
+        }
+        armNavigateWatchdog(tab, url)
+    }
+
+    /**
+     * 导航看门狗。
+     *
+     * WebView 最讨厌的一种状态是「请求发出去了，然后什么都没发生」：
+     * 不报错、不提交首帧、进度永远停在 10%，旧页面就一直晾在屏幕上。
+     * 原来只有 onPageStarted 之后才会挂超时，可这种卡法恰恰连 onPageStarted 都不来，
+     * 于是页面就能一直转下去。这里从「按下回车」那一刻开始计时，跟 onPageStarted 无关。
+     */
+    private fun armNavigateWatchdog(tab: Tab, target: String) {
+        cancelNavigateWatchdog()
+        val host = view ?: return
+        navRetried = false
+
+        val runnable = object : Runnable {
+            private var lastProgress = tab.progress
+
+            override fun run() {
+                if (tab.failedUrl != null) return
+                if (tab !== tabManager.currentTab()) return
+                // 首帧都画出来了就不叫「打不开」，剩下的交给 60 秒收尾定时器
+                if (tab.committed) return
+
+                if (tab.progress != lastProgress) {
+                    // 进度在走，说明只是慢，不是死了
+                    lastProgress = tab.progress
+                    host.postDelayed(this, NAV_WATCHDOG_MS)
+                    return
+                }
+                if (!navRetried) {
+                    navRetried = true
+                    runCatching { tab.webView.stopLoading() }
+                    runCatching { tab.webView.loadUrl(target) }
+                    host.postDelayed(this, NAV_WATCHDOG_MS)
+                } else {
+                    showStalledError(tab)
+                }
+            }
+        }
+        navWatchdog = runnable
+        host.postDelayed(runnable, NAV_WATCHDOG_MS)
+    }
+
+    private fun cancelNavigateWatchdog() {
+        navWatchdog?.let { view?.removeCallbacks(it) }
+        navWatchdog = null
+        navRetried = false
+    }
+
+    /** 重试过一次还是没动静：给错误页，至少能一键重来，而不是无限转圈 */
+    private fun showStalledError(tab: Tab) {
+        cancelNavigateWatchdog()
+        runCatching { tab.webView.stopLoading() }
+        onErrorPageNeeded(tab, android.webkit.WebViewClient.ERROR_TIMEOUT)
     }
 
     private fun onReloadClicked() {
@@ -583,7 +716,13 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         val tab = tabManager.currentTab() ?: return
         val target = tab.failedUrl ?: tab.url
         tab.failedUrl = null
-        if (target.isNotBlank()) tab.webView.loadUrl(target)
+        if (target.isNotBlank()) {
+            tab.committed = false
+            tab.progress = START_PROGRESS
+            refreshUi()
+            tab.webView.loadUrl(target)
+            armNavigateWatchdog(tab, target)
+        }
     }
 
     /** 打开 URL（书签、外部链接、插件 API 调用） */
@@ -592,6 +731,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         // 只影响本次新建的标签，不再改写全局 incognitoMode（否则之后所有新标签都变无痕）
         val tab = tabManager.newTab(url = url, incognito = incognito)
         onCurrentTabChanged(tab)
+        armNavigateWatchdog(tab, url)
     }
 
     fun currentTabUrl(): String? {
@@ -981,11 +1121,14 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     /* ---------------- 页面事件（Owner 回调） ---------------- */
 
     override fun onPageStarted(tab: Tab) {
+        // 导航真的开始了，看门狗可以下班，改由两级超时接管
+        cancelNavigateWatchdog()
         refreshUi()
         scheduleLoadTimeouts(tab)
     }
 
     override fun onPageFinished(tab: Tab) {
+        cancelNavigateWatchdog()
         clearLoadTimeouts()
         // 页面主体已经结束，剩下的零散资源不该再让进度条吊着
         if (tab.progress < 100) tab.progress = 100
@@ -1016,10 +1159,22 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             current
         }
         tab.failedUrl = failed
-        tab.webView.stopLoading()
-        val html = ErrorPages.html(errorCode, failed)
+        runCatching { tab.webView.stopLoading() }
+        val html = ErrorPages.html(errorCode, failed, errorHintFor(failed))
         tab.webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
         if (tab === tabManager.currentTab()) refreshUi()
+    }
+
+    /**
+     * GitHub 打不开时最常见的原因是「网页也走独立通道」开着，但代理没在跑。
+     * 那个开关藏在设置里，用户十有八九记不住，直接在错误页上点名。
+     */
+    private fun errorHintFor(url: String): String? {
+        val host = runCatching { Uri.parse(url).host }.getOrNull() ?: return null
+        if (!settings.githubAccel) return null
+        val github = host == "github.com" || host.endsWith(".github.com")
+        if (!github || !settings.githubCatchPages) return null
+        return "「网页也走独立通道」正开着，如果代理没启动，GitHub 就会一直连不上；到 设置 → 网络 关掉它再试"
     }
 
     override fun onRenderProcessGone(tab: Tab) {
@@ -1258,9 +1413,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             .setDuration(PROGRESS_ANIM_MS)
             .start()
 
-        // 加载中显示停止图标
-        val loading = progress in 1..99
-        btnReload.setImageResource(if (loading) R.drawable.ic_close else R.drawable.ic_refresh)
+        // 加载中显示停止图标，编辑地址时显示「前往」
+        updateAddressAction()
     }
 
     /* ---------------- 长按上下文菜单 ---------------- */
@@ -1353,6 +1507,10 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         private const val FIRST_PAINT_TIMEOUT_MS = 12_000L
         /** 首帧已出现后的兜底时长：只收进度条，不报错 */
         private const val SETTLE_TIMEOUT_MS = 60_000L
+        /** 按下回车后多久还没动静就判定「卡住了」 */
+        private const val NAV_WATCHDOG_MS = 10_000L
+        /** 刚发起导航时的进度起点，让进度条立刻出现 */
+        private const val START_PROGRESS = 5
         private const val MENU_GROUP_PLUGIN = 1
         private const val MENU_PLUGIN_ID_BASE = 10000
         private const val MENU_SAVE_IMAGE = 2001

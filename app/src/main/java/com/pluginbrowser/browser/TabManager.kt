@@ -103,10 +103,22 @@ class TabManager(
 
     fun currentTab(): Tab? = tabs.getOrNull(currentIndex)
 
-    /** 当前标签的 WebView（未创建或没有标签时返回 null），手势与查找用 */
-    fun currentWebViewOrNull(): WebView? = currentTab()?.takeIf { it.isCreated }?.webView
+    /** 当前标签的 WebView（未创建、已销毁或没有标签时返回 null），手势与查找用 */
+    fun currentWebViewOrNull(): WebView? = currentTab()?.takeIf { it.usable }?.webView
 
-    fun findTab(webView: WebView): Tab? = tabs.firstOrNull { it.isCreated && it.webView === webView }
+    /**
+     * 拿一个「现在就能加载页面」的标签。
+     *
+     * 界面上残留的是已销毁 WebView 时，currentTab() 依然非空，直接 loadUrl 会毫无反应。
+     * 这里统一兜底：不可用就新开一个，保证调用方永远拿得到一个能动的 WebView。
+     */
+    fun requireLoadableTab(): Tab {
+        val tab = currentTab()
+        if (tab != null && tab.usable) return tab
+        return newTab(url = settings.homeUrl)
+    }
+
+    fun findTab(webView: WebView): Tab? = tabs.firstOrNull { it.usable && it.webView === webView }
 
     fun switchTo(index: Int) {
         if (index !in tabs.indices || index == currentIndex) return
@@ -118,6 +130,7 @@ class TabManager(
     fun closeTab(index: Int) {
         if (index !in tabs.indices) return
         val tab = tabs[index]
+        tab.alive = false
         (tab.webView.parent as? ViewGroup)?.removeView(tab.webView)
         runCatching { tab.webView.destroy() }
         tabs.removeAt(index)
@@ -132,6 +145,7 @@ class TabManager(
 
     fun closeAll() {
         tabs.toList().forEach { tab ->
+            tab.alive = false
             (tab.webView.parent as? ViewGroup)?.removeView(tab.webView)
             runCatching { tab.webView.destroy() }
         }
@@ -145,6 +159,8 @@ class TabManager(
     fun attachTo(container: ViewGroup) {
         container.removeAllViews()
         val tab = currentTab() ?: return
+        // 销毁过的 WebView 不能再挂回界面：挂上去就是一张不动的静止画面
+        if (!tab.alive) return
         (tab.webView.parent as? ViewGroup)?.removeView(tab.webView)
         container.addView(
             tab.webView,
@@ -154,6 +170,12 @@ class TabManager(
             ),
         )
         tab.webView.onResume()
+    }
+
+    /** 容器里挂的到底是不是当前标签的 WebView（界面与标签错位时靠它发现） */
+    fun isAttached(container: ViewGroup): Boolean {
+        val tab = currentTab() ?: return false
+        return tab.alive && tab.webView.parent === container
     }
 
     /**
@@ -182,6 +204,7 @@ class TabManager(
     /** 释放全部标签的 WebView（Activity 销毁时调用，避免原生内存泄漏） */
     fun destroyAll() {
         tabs.forEach { tab ->
+            tab.alive = false
             if (!tab.isCreated) return@forEach
             (tab.webView.parent as? ViewGroup)?.removeView(tab.webView)
             runCatching {

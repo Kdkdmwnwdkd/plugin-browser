@@ -159,7 +159,18 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
 
         inFlight.incrementAndGet()
         val response = try {
-            client().newCall(builder.build()).execute()
+            // 主文档是整页的命门：等不到就整页卡住，界面上是「点了一下，什么都不发生」。
+            // 所以主文档用更短的超时，宁可早点交回原生栈，也不要把这一页吊死
+            val call = if (request.isForMainFrame) {
+                client().newBuilder()
+                    .connectTimeout(4, TimeUnit.SECONDS)
+                    .readTimeout(8, TimeUnit.SECONDS)
+                    .build()
+                    .newCall(builder.build())
+            } else {
+                client().newCall(builder.build())
+            }
+            call.execute()
         } catch (e: Exception) {
             noteFailure()
             return null

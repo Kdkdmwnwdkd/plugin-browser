@@ -1,13 +1,13 @@
 {
-  "versionCode": 29,
-  "versionName": "2.4.1",
-  "size": 8616259,
-  "sha256": "b9052d99b92207f4408683290c95283d456fe57981d873587c5a1731b5bfae6e",
-  "notes": "2.4.1 修 GitHub 登录报错、下载列表一直转圈\n· GitHub 加速默认只接管静态资源（raw、头像、release 直链、CSS/JS），网页、登录、页面内动态加载的片段全部交回系统内核\n· 设置 → 网络新增「网页也走独立通道（高级）」，默认关闭；确实需要连网页一起代理时才打开\n· 重定向响应里的 Set-Cookie 现在会先落盘再转交，登录态不再因为丢 Cookie 而失效\n· 同时占用通道的请求限制为 3 个，卡住的连接不会再拖住整页资源加载\n· 错误页保留真实网址（不再变成 about:blank），并加了「重新加载」按钮，提示文案也改成说人话",
+  "versionCode": 30,
+  "versionName": "2.4.2",
+  "size": 8601943,
+  "sha256": "ea5c96293c5140e3032528aa468ac1753b4c1efcd48e4079112b9759972d2d12",
+  "notes": "2.4.2 修「输入网址按回车，页面一动不动」\n· 地址栏回车兼容更多输入法：以前只认「前往」键，三方键盘发「完成 / 搜索」或者只发一个回车键时会被漏掉，键盘收起但页面没反应；现在这些全都算提交\n· 输入地址时右上角变成「→ 前往」箭头，点一下也能直接跳转，不用非按回车\n· 按下回车立刻有反馈：地址栏先显示目标网址、进度条马上出现，不会再像什么都没发生\n· 新增导航看门狗：10 秒还停在起点就自动重试一次，20 秒仍无响应则给出错误页和「重新加载」，不再无限转圈\n· 界面与标签错位、WebView 已被销毁这类「加载了但看不见」的情况会在导航时自动纠正\n· GitHub 主文档走独立通道时改用更短超时，等不到就尽快交回系统内核；连不上时错误页会直接提示去关掉那个开关",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.1/Kite-2.4.1-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.1/Kite-2.4.1-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.1/Kite-2.4.1-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.2/Kite-2.4.2-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.2/Kite-2.4.2-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.2/Kite-2.4.2-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
