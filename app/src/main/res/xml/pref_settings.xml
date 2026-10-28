@@ -62,6 +62,11 @@
             android:title="@string/settings_plugins" />
 
         <Preference
+            android:key="site_rules"
+            android:summary="按站点决定加载方式：拦 App 跳转、视频自动横屏、正文阅读模式，逐条可关"
+            android:title="站点适配" />
+
+        <Preference
             android:key="gesture_settings"
             android:summary="@string/settings_gesture_summary"
             android:title="@string/settings_gesture_title" />

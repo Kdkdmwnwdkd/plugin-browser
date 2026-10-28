@@ -1,13 +1,13 @@
 {
-  "versionCode": 33,
-  "versionName": "2.5.0",
-  "size": 8659291,
-  "sha256": "101f49413a91cc2c1882b6a21741fa3cdfe3577b53e8d9c0078db8c700520344",
-  "notes": "2.5.0 让「慢」变得看得见，让下载真正跑起来\n\n【网络诊断】菜单 → 诊断\n把每个 GitHub 请求摊开：走独立通道还是交回系统、耗时多少、状态码、为什么没接管。\n以前排查慢只能靠猜和试，现在能直接看到瓶颈在哪一层。\n附带：通道预热状态、代理与 DoH 配置、磁盘缓存占用、最近 50 条请求的通道命中率。\n「测试连接」会把 DNS + 连接 + TLS 的实际耗时打出来，复制按钮一键带走全部信息。\n\n【下载 4 路分片】\n以前是单连接，跨境链路上限就是 1-2 MB/s。现在服务端支持 Range 时自动切 4 路并发，\n各写各的偏移，进度合并显示。GitHub 的 release 包在这个链路上能快好几倍。\n断点续传升级到分片级：每 1.2 秒把已下偏移落盘，进程被杀也只重下最后一小段。\n服务端对并发限流（429/503）时自动退回单连接，慢也比失败强。\n小于 8MB 的文件仍然单连接，多几次握手反而更浪费时间。\n\n【崩溃现场】\n新增事件时间线：导航开始/结束/失败、渲染进程崩溃、系统内存压力等级、标签增删，\n外加每 30 秒一条心跳（Java 堆、native 堆、系统可用内存、标签数）。\n系统用 SIGKILL 杀掉进程时不会留堆栈，但会先走几轮 onTrimMemory——\n这条爬升曲线就是能拿到的唯一证据。\n设置 → 关于 → 运行日志：崩溃堆栈与最近事件一起看、一起复制。\n",
+  "versionCode": 34,
+  "versionName": "2.5.1",
+  "size": 8684947,
+  "sha256": "0852b64ba4e7e3a4f8973f55481799d7cb135dec9d74329e1dbc19ac02f094c0",
+  "notes": "2.5.1 站点适配层：不再是「WebView 原样跑」\n\n【适配层本身】\n新增 SiteRule / SiteRuleEngine：按域名决定一个站点该怎么加载、要注什么脚本。\n规则是声明式的一张表，加站点点一下就有，不用回头改 WebViewClient 里散落的 if。\n设置 → 站点适配：总开关 + 每条规则单独开关，全部立即生效。\n\n【打开 App 拦截】知乎、百度、微博、淘宝 / 天猫、京东\nintent:// market:// 以及各家自己的 scheme 全部拦在网页里，不再被拽去应用商店再回不来。\n页面里「打开 App」的横幅、浮层、悬浮按钮一并隐藏，后插入的也会被盯上。\n\n【视频全屏】B站、YouTube、腾讯视频 / 爱奇艺 / 优酷 / 芒果\n全屏自动锁横屏，退出自动还原；顺带进了真全屏（状态栏、导航栏一起隐藏）。\nB站、YouTube 额外开启后台播放：锁屏或切走不再断音。\n\n【阅读模式】菜单 → 阅读模式\n正文提取后重新排版：居中一行、行高 1.78、图片自适应、代码块可横向滚动，\n自带走/浅色两套配色和 A- / A+ 字号。微信公众号、知乎专栏这类长文效果最明显，\n其他页面也能手动用；提不到正文会明确提示，不会给你一页空白。\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.5.0/Kite-2.5.0-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.5.0/Kite-2.5.0-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.5.0/Kite-2.5.0-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.5.1/Kite-2.5.1-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.5.1/Kite-2.5.1-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.5.1/Kite-2.5.1-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

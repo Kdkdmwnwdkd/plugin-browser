@@ -10,6 +10,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.fragment.app.FragmentActivity
 import com.pluginbrowser.data.SettingsRepository
+import com.pluginbrowser.site.SiteRuleEngine
 import com.pluginbrowser.util.EventLog
 import org.json.JSONArray
 import org.json.JSONObject
@@ -42,6 +43,7 @@ class TabManager(
     var incognitoMode = false
 
     private val settings = SettingsRepository(activity)
+    private val siteRules = SiteRuleEngine(activity)
     private val sessionPrefs = activity.getSharedPreferences("pb_session", Context.MODE_PRIVATE)
 
     init {
@@ -93,6 +95,9 @@ class TabManager(
         wv.setDownloadListener { dlUrl, userAgent, cd, mime, len ->
             onDownloadHandler?.invoke(dlUrl, userAgent, cd, mime, len)
         }
+        // 站点适配里必须「加载前」生效的那部分。放在 loadUrl 之前：
+        // 自动播放策略是文档创建时读取的，页面跑起来再改对当前页无效
+        siteRules.applyTo(wv, url)
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, settings.thirdPartyCookies)
         webViewConfigurator?.invoke(tab, wv)
         tab.webView = wv

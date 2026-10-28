@@ -32,6 +32,14 @@ class Tab(
      * 所以销毁时打个标记，后面所有「拿当前标签去加载」的地方都先看这个标记。
      */
     var alive: Boolean = true,
+    /** 当前显示的是不是阅读模式渲染出来的那一页 */
+    var readerMode: Boolean = false,
+    /**
+     * 阅读模式对应的原文地址。
+     * loadDataWithBaseURL 会让 WebView 报一次 base url 的 onPageStarted，
+     * 靠这个字段区分「是阅读页自己」还是「用户点了别的链接」，后者要退出阅读模式。
+     */
+    var readerUrl: String? = null,
 ) {
     lateinit var webView: WebView
 

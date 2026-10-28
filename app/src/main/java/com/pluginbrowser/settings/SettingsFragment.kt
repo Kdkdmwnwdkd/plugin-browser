@@ -192,6 +192,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
+        findPreference<Preference>("site_rules")?.setOnPreferenceClickListener {
+            requireActivity().supportFragmentManager.beginTransaction()
+                .replace(R.id.main_container, com.pluginbrowser.site.SiteRulesFragment())
+                .addToBackStack(null)
+                .commitAllowingStateLoss()
+            true
+        }
+
         findPreference<Preference>("gesture_settings")?.setOnPreferenceClickListener {
             requireActivity().supportFragmentManager.beginTransaction()
                 .replace(R.id.main_container, GestureSettingsFragment())

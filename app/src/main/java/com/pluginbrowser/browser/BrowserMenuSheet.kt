@@ -28,6 +28,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
     data class State(
         val translated: Boolean = false,
         val desktopUa: Boolean = false,
+        val readerMode: Boolean = false,
         val plugins: List<Action> = emptyList(),
     )
 
@@ -89,6 +90,13 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         }
 
         listRow(listRow, "desktop", R.drawable.ic_desktop, getString(R.string.menu_desktop_ua), state.desktopUa)
+        listRow(
+            listRow,
+            "reader",
+            R.drawable.ic_reader,
+            if (state.readerMode) "退出阅读" else "阅读模式",
+            null,
+        )
         listRow(
             listRow,
             "diag",

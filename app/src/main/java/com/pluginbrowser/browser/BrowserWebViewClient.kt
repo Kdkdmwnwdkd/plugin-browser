@@ -11,6 +11,9 @@ import com.pluginbrowser.data.SettingsRepository
 import com.pluginbrowser.net.GitHubChannel
 import com.pluginbrowser.net.NetTrace
 import com.pluginbrowser.plugin.PluginManager
+import com.pluginbrowser.site.SiteAction
+import com.pluginbrowser.site.SiteRuleEngine
+import com.pluginbrowser.site.SiteScripts
 import com.pluginbrowser.util.EventLog
 
 /**
@@ -35,6 +38,12 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
 
         /** GitHub 专用通道（自定义 DNS / 代理），Application 级单例 */
         val githubChannel: GitHubChannel
+
+        /** 站点适配规则（哪些站该拦跳转、该横屏、该隐藏 App 横幅） */
+        val siteRules: SiteRuleEngine
+
+        /** 拦掉了一次 App 跳转，交给界面提示用户「留在网页里了」 */
+        fun onAppJumpBlocked(host: String)
 
         fun onPageStarted(tab: Tab)
         fun onPageFinished(tab: Tab)
@@ -93,10 +102,22 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
             if (GitHubChannel.isGitHubHost(runCatching { request.url.host }.getOrNull())) {
                 owner.githubChannel.warmUp()
             }
+            // 自动播放这类只能在加载前改的设置，在这里先套好
+            owner.siteRules.applyTo(view, url)
             owner.onNavigationStarted(view, url)
             return false
         }
         if (url.startsWith("file://") || url.startsWith("about:")) return false
+
+        // 站点适配：这个站点配了「拦 App 跳转」，就把唤醒 App 的请求吞掉。
+        // 不拦的话 WebView 会把 intent:// 交给系统，用户直接被拽到应用商店，
+        // 再回来时浏览位置全丢——这类站点的网页版其实是能用的。
+        if (SiteRuleEngine.isAppWakeScheme(url) &&
+            owner.siteRules.has(view.url, SiteAction.BLOCK_APP_JUMP)
+        ) {
+            owner.onAppJumpBlocked(SiteRuleEngine.hostOf(view.url).orEmpty())
+            return true
+        }
 
         // 自定义 scheme（tel: / mailto: / intent: / 各家 App 的 deep link）
         return owner.openExternally(url)
@@ -118,6 +139,9 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         // 错误页是用 loadDataWithBaseURL 加载的，WebView 会额外报一次 about:blank。
         // 如果连它一起写进 tab.url，地址栏就变成 about:blank，重试也会去重试空白页。
         if (!url.startsWith("data:") && url != "about:blank") {
+            // 从阅读页点进了别的链接：阅读模式已经名存实亡，把标记撤掉，
+            // 否则菜单会一直显示「退出阅读」，点了却退不回去
+            if (tab.readerMode && url != tab.readerUrl) tab.readerMode = false
             tab.url = url
             tab.failedUrl = null
             tab.translated = false
@@ -139,6 +163,7 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         }
         // 主文档真正开跑的时刻：和上一次 NAV click 的差就是「系统 DNS + 排队」耗时
         EventLog.log("NAV", "start ${hostOf(url)}")
+        owner.siteRules.applyTo(view, url)
         owner.onPageStarted(tab)
     }
 
@@ -148,14 +173,16 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         EventLog.log("NAV", "done ${hostOf(url)}")
 
         // 记录历史（无痕标签不记录）
-        if (url.startsWith("http") && !tab.incognito) {
+        // 阅读模式那页的 base url 和原文一样，再记一次就是重复条目
+        if (url.startsWith("http") && !tab.incognito && !tab.readerMode) {
             owner.runIo {
                 owner.browserStore.addHistory(tab.title, url)
             }
         }
 
         // 注入 JS 插件（API 垫片 + 命中的用户脚本，按分块顺序执行）
-        if (url.startsWith("http")) {
+        // 阅读页是本地的干净正文，用户脚本按站点匹配进来的样式反而会把它改坏
+        if (url.startsWith("http") && !tab.readerMode) {
             owner.browserPluginManager.jsScriptFor(url).forEach { chunk ->
                 runCatching { view.evaluateJavascript(chunk, null) }
             }
@@ -164,7 +191,20 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         owner.browserPluginManager.enabledNativePlugins().forEach { it.onPageFinished(view, url) }
         // 二次注入：首帧时样式可能被页面脚本清掉，加载完再补一次
         injectAdBlockCss(view, url)
+        injectSiteGuards(view, url, tab)
         owner.onPageFinished(tab)
+    }
+
+    /**
+     * 站点适配的页面脚本：隐藏「打开 App」横幅、拦掉它们的点击。
+     *
+     * 阅读模式那一页不注——它是本地渲染的干净正文，页面里没有任何 App 浮层，
+     * 再注一遍只是白白跑一次 DOM 全量扫描。
+     */
+    private fun injectSiteGuards(view: WebView, url: String, tab: Tab) {
+        if (!url.startsWith("http") || tab.readerMode) return
+        if (!owner.siteRules.has(url, SiteAction.HIDE_APP_BANNER)) return
+        runCatching { view.evaluateJavascript(SiteScripts.APP_BANNER, null) }
     }
 
     /** 首帧可见前就把元素隐藏样式塞进去，避免广告闪一下再消失 */
@@ -185,6 +225,8 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
     private fun injectAdBlockCss(view: WebView, url: String) {
         if (!url.startsWith("http")) return
         val tab = owner.browserTabManager.findTab(view)
+        // 阅读页里没有广告，但元素隐藏规则是按站点写的，套上去会误伤正文
+        if (tab?.readerMode == true) return
         if (tab?.adCssInjected == true) return
         val plugin = owner.browserPluginManager.enabledAdBlocker() ?: return
         val js = runCatching { plugin.cosmeticScript(url) }.getOrNull() ?: return

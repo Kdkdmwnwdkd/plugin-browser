@@ -4,7 +4,9 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.pm.ActivityInfo
 import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.text.style.StyleSpan
 import android.text.style.ForegroundColorSpan
 import android.text.Spanned
@@ -58,6 +60,10 @@ import com.pluginbrowser.plugin.api.PluginMenuItem
 import com.pluginbrowser.plugin.js.JsBridge
 import com.pluginbrowser.plugin.store.PluginStoreFragment
 import com.pluginbrowser.settings.SettingsFragment
+import com.pluginbrowser.site.ReaderMode
+import com.pluginbrowser.site.SiteAction
+import com.pluginbrowser.site.SiteRuleEngine
+import com.pluginbrowser.site.SiteScripts
 import com.pluginbrowser.translate.TranslateManager
 import com.pluginbrowser.translate.TranslateSettingsFragment
 import com.pluginbrowser.ui.BookmarksFragment
@@ -111,6 +117,11 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
     private var customView: View? = null
+    /** 全屏视频是不是被站点规则锁成了横屏（只有锁过才需要还原） */
+    private var landscapeLocked = false
+    /** 阅读模式当前文章：调字号时不用重新提取 */
+    private var readerArticle: ReaderMode.Article? = null
+    private var readerScale = 1f
     private var pendingImageUrl: String? = null
     private var pendingLinkUrl: String? = null
     private var pendingDownload: PendingDownload? = null
@@ -304,7 +315,11 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     override fun onPause() {
-        currentWebView()?.onPause()
+        // 配了「后台播放」的站点（B站、YouTube）切出去别暂停：
+        // WebView.onPause() 会把媒体一起停掉，锁屏听播客/听课就断了
+        val backgroundPlay =
+            siteRules.has(tabManager.currentTab()?.url, SiteAction.BACKGROUND_PLAY)
+        if (!backgroundPlay) currentWebView()?.onPause()
         tabManager.saveSession()
         super.onPause()
     }
@@ -313,6 +328,19 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         tabManager.pauseAll()
         clearLoadTimeouts()
         cancelNavigateWatchdog()
+        // 全屏时锁过横屏的话，界面销毁前一定要放开：
+        // 转屏、被系统回收都会走到这里，不放就会留在一个转不回来的横屏上
+        if (landscapeLocked) {
+            landscapeLocked = false
+            runCatching {
+                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
+        }
+        if (customView != null) {
+            (customView?.parent as? ViewGroup)?.removeView(customView)
+            customView = null
+            showSystemBars()
+        }
         // 容器马上要销毁了，先把 WebView 摘下来，别让它抱着一个死掉的父 View
         if (::webContainer.isInitialized) tabManager.detachFrom(webContainer)
         if (::downloadPrompt.isInitialized) downloadPrompt.dismiss()
@@ -483,6 +511,76 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
     /* ---------------- 页内查找 ---------------- */
 
+    /* ---------------- 阅读模式 ---------------- */
+
+    /**
+     * 阅读模式：提取正文 → 用本地页面重渲染。
+     *
+     * 提取在页面上下文里做完（打分、清 junk、拼 HTML 都在 JS 里），
+     * 原生只负责渲染那一页，这样即使站点结构千差万别，也不用来回传 DOM。
+     */
+    private fun toggleReaderMode() {
+        val tab = tabManager.currentTab() ?: return
+        if (tab.readerMode) {
+            exitReaderMode()
+            return
+        }
+        if (!tab.usable) {
+            toast("页面已经关闭了")
+            return
+        }
+        if (!tab.url.startsWith("http")) {
+            toast("这个页面不支持阅读模式")
+            return
+        }
+        toast("正在提取正文…")
+        tab.webView.evaluateJavascript(SiteScripts.READER_EXTRACT) { raw ->
+            if (!isAdded) return@evaluateJavascript
+            val article = ReaderMode.parse(raw)
+            if (article == null) {
+                // 宁可明确说没找到，也不要渲染一页空白让人以为卡死
+                toast("没在这个页面找到正文，换个页面试试")
+                return@evaluateJavascript
+            }
+            readerArticle = article
+            readerScale = 1f
+            renderReader(tab, article)
+        }
+    }
+
+    private fun renderReader(tab: Tab, article: ReaderMode.Article) {
+        if (!tab.usable) return
+        val dark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+        tab.readerMode = true
+        tab.readerUrl = article.url
+        tab.webView.loadDataWithBaseURL(
+            article.url,
+            ReaderMode.html(article, readerScale, dark),
+            "text/html",
+            "utf-8",
+            null,
+        )
+        refreshUi()
+    }
+
+    private fun exitReaderMode() {
+        val tab = tabManager.currentTab() ?: return
+        val url = tab.readerUrl ?: tab.url
+        tab.readerMode = false
+        tab.readerUrl = null
+        readerArticle = null
+        if (tab.usable && url.startsWith("http")) tab.webView.loadUrl(url)
+        refreshUi()
+    }
+
+    private fun changeReaderFont(delta: Float) {
+        val tab = tabManager.currentTab() ?: return
+        val article = readerArticle ?: return
+        readerScale = (readerScale + delta).coerceIn(0.8f, 1.6f)
+        renderReader(tab, article)
+    }
+
     private fun setupFindBar() {
         findBar = view?.findViewById(R.id.find_bar) ?: return
         findInput = findBar.findViewById(R.id.find_input)
@@ -645,6 +743,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         if (!tabManager.isAttached(webContainer)) tabManager.attachTo(webContainer)
 
         runCatching { tab.webView.stopLoading() }
+        // 地址栏直接输网址不会经过 shouldOverrideUrlLoading，站点配置得在这里补一次
+        siteRules.applyTo(tab.webView, url)
         val ok = runCatching { tab.webView.loadUrl(url) }.isSuccess
         if (!ok) {
             onErrorPageNeeded(tab, android.webkit.WebViewClient.ERROR_UNKNOWN)
@@ -833,6 +933,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                 state = BrowserMenuSheet.State(
                     translated = tabManager.currentTab()?.translated == true,
                     desktopUa = settings.desktopUa,
+                    readerMode = tabManager.currentTab()?.readerMode == true,
                     plugins = pluginActions,
                 )
                 onAction = { id -> handleMenuAction(id) }
@@ -852,6 +953,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         when (action) {
             "refresh" -> reload()
             "translate" -> toggleTranslate()
+            "reader" -> toggleReaderMode()
             "find" -> showFindBar()
             "share" -> shareCurrentUrl()
             "add_bookmark" -> showAddBookmarkDialog()
@@ -1103,6 +1205,16 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         )
         addressBarRow.isVisible = false
         bottomBar.isVisible = false
+        // 视频站点：进全屏直接锁横屏。这是「适配」和「原样跑」差别最明显的一处——
+        // 不锁的话用户得先手动转手机，转完还要等一次重排
+        if (siteRules.has(tabManager.currentTab()?.url, SiteAction.FULLSCREEN_LANDSCAPE)) {
+            runCatching {
+                requireActivity().requestedOrientation =
+                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                landscapeLocked = true
+            }
+        }
+        hideSystemBars()
     }
 
     override fun onExitFullscreenRequest() {
@@ -1111,6 +1223,52 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         customView = null
         addressBarRow.isVisible = true
         bottomBar.isVisible = true
+        if (landscapeLocked) {
+            landscapeLocked = false
+            // UNSPECIFIED 才会回到「跟随系统旋转」，USER 会把用户自己的锁定也一起废掉
+            runCatching {
+                requireActivity().requestedOrientation =
+                    ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
+        }
+        showSystemBars()
+    }
+
+    private fun hideSystemBars() {
+        val window = runCatching { requireActivity().window }.getOrNull() ?: return
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            runCatching {
+                window.insetsController?.let {
+                    it.hide(android.view.WindowInsets.Type.systemBars())
+                    it.systemBarsBehavior =
+                        android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                }
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            runCatching {
+                window.decorView.systemUiVisibility = (
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    )
+            }
+        }
+    }
+
+    private fun showSystemBars() {
+        val window = runCatching { requireActivity().window }.getOrNull() ?: return
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            runCatching {
+                window.insetsController?.show(android.view.WindowInsets.Type.systemBars())
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            runCatching { window.decorView.systemUiVisibility = 0 }
+        }
     }
 
     private fun exitFullscreen() {
@@ -1259,6 +1417,19 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     override fun onInternalScheme(url: String): Boolean {
+        if (url.startsWith(ReaderMode.SCHEME)) {
+            when {
+                url.startsWith("${ReaderMode.SCHEME}/font") -> {
+                    val d = runCatching {
+                        Uri.parse(url).getQueryParameter("d")?.toFloat()
+                    }.getOrNull() ?: 0f
+                    changeReaderFont(if (d >= 0f) 0.08f else -0.08f)
+                }
+                // 退出 / 未知指令都回到原文，别把用户困在一个死页面上
+                else -> exitReaderMode()
+            }
+            return true
+        }
         if (url.startsWith(ErrorPages.RETRY_SCHEME)) {
             reload()
             return true
@@ -1434,6 +1605,19 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     override val browserTabManager: TabManager get() = tabManager
     override val githubChannel
         get() = com.pluginbrowser.PluginBrowserApp.from(requireContext()).gitHubChannel
+
+    override val siteRules: SiteRuleEngine by lazy { SiteRuleEngine(requireContext()) }
+
+    /** 拦掉一次 App 跳转：必须让用户知道是「拦了」而不是「点了没反应」 */
+    override fun onAppJumpBlocked(host: String) {
+        if (!isAdded) return
+        val engine = siteRules
+        val ruleName = engine.rulesFor("https://$host/").firstOrNull()?.name
+        toast(
+            if (ruleName != null) "已拦截「$ruleName」的 App 跳转，留在网页里"
+            else "已拦截跳转 App",
+        )
+    }
 
     /* ---------------- 当前标签切换 ---------------- */
 
