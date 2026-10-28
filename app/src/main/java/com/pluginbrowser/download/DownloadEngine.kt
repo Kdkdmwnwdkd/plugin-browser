@@ -15,17 +15,26 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.RandomAccessFile
+import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.LinkedBlockingDeque
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * 自己的下载引擎。
@@ -61,6 +70,8 @@ class DownloadEngine private constructor(private val context: Context) {
     private val queue = LinkedBlockingDeque<Long>()
     private val jobs = ConcurrentHashMap<Long, Job>()
     private val calls = ConcurrentHashMap<Long, okhttp3.Call>()
+    /** 分片模式下一个任务有多条连接，取消时要一起掐掉 */
+    private val multiCalls = ConcurrentHashMap<Long, MutableList<Call>>()
     private val cancelled = java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
 
     /** 本次会话刚下完的文件名，供通知提示用（打开过就清空） */
@@ -128,9 +139,11 @@ class DownloadEngine private constructor(private val context: Context) {
         cancelled.add(id)
         queue.remove(id)
         calls.remove(id)?.cancel()
+        multiCalls.remove(id)?.forEach { runCatching { it.cancel() } }
         jobs.remove(id)?.cancel()
         states.remove(id)
         partFile(id).delete()
+        metaFile(id).delete()
         pump()
     }
 
@@ -229,21 +242,279 @@ class DownloadEngine private constructor(private val context: Context) {
 
     private class Saved(val path: String, val size: Long)
 
+    /** 一个分片。[start, end] 都是闭区间，和 HTTP Range 的语义一致 */
+    private class Segment(val start: Long, val end: Long) {
+        val done = AtomicLong(0)
+    }
+
+    private class Probe(val total: Long, val rangeable: Boolean)
+
+    /**
+     * 下载入口：先决定「分片」还是「单连接」。
+     *
+     * 单连接在跨境链路上基本跑不过 1–2 MB/s，GitHub 的 release 包动辄几十上百 MB，
+     * 这是下载慢最直接的原因。分片的前提是服务端支持 Range，所以要先探一次。
+     */
     private suspend fun download(id: Long, item: DownloadItem): Saved {
         val part = partFile(id)
-        var offset = if (part.exists()) part.length() else 0L
-        if (offset > 0) states.compute(id) { _, old -> old?.copy(downloaded = offset) }
+        val meta = metaFile(id)
 
+        // 1. 上次就是按分片下的：必须继续按分片走。
+        //    退回单连接会把整段数据写到偏移 0，文件直接报废。
+        val saved = readMeta(meta)
+        if (saved != null) {
+            return try {
+                segmentedDownload(id, item, part, meta, saved.first, saved.second)
+            } catch (e: Exception) {
+                if (!currentCoroutineContext().isActive) throw e
+                // 有些 CDN 对单 IP 的并发连接限流，分段反而一路 429/503。
+                // 这种情况下如果还几乎没下到东西，退回单连接重来一次——
+                // 慢总比失败强。
+                val done = saved.second.sumOf { it.done.get() }
+                if (done < FALLBACK_MAX_BYTES) {
+                    runCatching { meta.delete() }
+                    runCatching { part.delete() }
+                    singleDownload(id, item, part, 0)
+                } else {
+                    throw e
+                }
+            }
+        }
+
+        // 2. 全新任务：探一次服务端支不支持分段
+        val legacy = if (part.exists()) part.length() else 0L
+        if (legacy == 0L) {
+            val probe = runCatching { probeRange(item) }.getOrNull()
+            if (probe != null && probe.rangeable && probe.total >= MIN_SPLIT_BYTES) {
+                val segs = planSegments(probe.total).map { Segment(it.first, it.second) }
+                if (segs.size > 1) {
+                    writeMeta(meta, probe.total, segs)
+                    return segmentedDownload(id, item, part, meta, probe.total, segs)
+                }
+            }
+        }
+
+        // 3. 老版本留下的半成品没有 meta，文件长度就是「顺序下到哪」。
+        //    这种不能改成分片——已有的是连续前缀，分片会从各个偏移同时写，中间就空了。
+        return singleDownload(id, item, part, legacy)
+    }
+
+    /* ---------------- 分片下载 ---------------- */
+
+    private suspend fun segmentedDownload(
+        id: Long,
+        item: DownloadItem,
+        part: File,
+        meta: File,
+        total: Long,
+        segs: List<Segment>,
+    ): Saved {
+        publish(id, segs.sumOf { it.done.get() }, total, 0)
+        val raf = RandomAccessFile(part, "rw")
+        val gate = AtomicLong(0)
+        try {
+            coroutineScope {
+                // 进度落盘与下载解耦：每 1.2 秒写一次 meta。
+                // 进程被杀最多重下 1.2 秒的量，比每个缓冲区都 fsync 划算得多。
+                val saver = launch {
+                    while (true) {
+                        delay(META_SAVE_MS)
+                        writeMeta(meta, total, segs)
+                    }
+                }
+                try {
+                    (0 until segs.size).map { index ->
+                        launch(Dispatchers.IO) {
+                            downloadSegment(id, item, raf, segs, index, total, gate)
+                        }
+                    }.joinAll()
+                } finally {
+                    saver.cancel()
+                    writeMeta(meta, total, segs)
+                }
+            }
+            val done = segs.sumOf { it.done.get() }
+            if (done != total) throw IOException("未下完（$done/$total）")
+            publish(id, total, total, 0)
+            val path = saveToDownloads(item.name, item.mime, part)
+            runCatching { meta.delete() }
+            return Saved(path, total)
+        } finally {
+            runCatching { raf.close() }
+        }
+    }
+
+    private suspend fun downloadSegment(
+        id: Long,
+        item: DownloadItem,
+        raf: RandomAccessFile,
+        segs: List<Segment>,
+        index: Int,
+        total: Long,
+        gate: AtomicLong,
+    ) {
+        val seg = segs[index]
+        val buffer = ByteArray(BUFFER_BYTES)
+        var attempt = 0
+
+        while (currentCoroutineContext().isActive) {
+            var pos = seg.start + seg.done.get()
+            if (pos > seg.end) return
+
+            val call = clientFor(item.url)
+                .newCall(baseRequest(item).header("Range", "bytes=$pos-${seg.end}").build())
+            registerCall(id, call)
+            try {
+                call.execute().use { response ->
+                    if (response.code != 206) throw IOException("服务器拒绝分段 ${response.code}")
+                    val (rangeStart, _) = parseContentRange(response.header("Content-Range"))
+                    if (rangeStart != pos) throw IOException("分段位置不符")
+                    val input = response.body?.byteStream() ?: throw IOException("响应为空")
+
+                    var lastAt = SystemClock.elapsedRealtime()
+                    var lastBytes = segs.sumOf { it.done.get() }
+
+                    while (currentCoroutineContext().isActive) {
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        // 位置写：多个分片共用一个 FileChannel，各写各的偏移，互不干扰
+                        raf.channel.write(ByteBuffer.wrap(buffer, 0, read), pos)
+                        pos += read
+                        seg.done.addAndGet(read.toLong())
+
+                        val now = SystemClock.elapsedRealtime()
+                        if (now - gate.get() >= PROGRESS_MS) {
+                            // CAS 抢一下，四个分片同时到点时只有一个真正去更新 UI 和数据库
+                            val prev = gate.get()
+                            if (gate.compareAndSet(prev, now)) {
+                                val done = segs.sumOf { it.done.get() }
+                                val speed = if (now > lastAt) {
+                                    (done - lastBytes) * 1000 / (now - lastAt)
+                                } else {
+                                    0L
+                                }
+                                publish(id, done, total, speed.coerceAtLeast(0))
+                                store.updateDownloadProgress(id, done, total)
+                                lastAt = now
+                                lastBytes = done
+                            }
+                        }
+                    }
+                }
+                if (seg.start + seg.done.get() > seg.end) return
+                throw IOException("连接提前结束")
+            } catch (e: Exception) {
+                // 用户取消导致的异常不算失败，直接往上抛
+                if (!currentCoroutineContext().isActive) throw e
+                attempt++
+                if (attempt >= SEGMENT_RETRY) throw e
+                delay(400L * attempt)
+            } finally {
+                unregisterCall(id, call)
+            }
+        }
+    }
+
+    private fun registerCall(id: Long, call: Call) {
+        multiCalls.computeIfAbsent(id) {
+            java.util.Collections.synchronizedList(mutableListOf<Call>())
+        }.add(call)
+    }
+
+    private fun unregisterCall(id: Long, call: Call) {
+        val list = multiCalls[id] ?: return
+        synchronized(list) { list.remove(call) }
+    }
+
+    /* ---------------- 分片元数据 ---------------- */
+
+    private fun metaFile(id: Long): File = File(partDir, "$id.meta")
+
+    private fun writeMeta(file: File, total: Long, segs: List<Segment>) {
+        runCatching {
+            val arr = JSONArray()
+            segs.forEach {
+                arr.put(JSONObject().put("s", it.start).put("e", it.end).put("d", it.done.get()))
+            }
+            val json = JSONObject().put("total", total).put("segs", arr).toString()
+            // 先写临时文件再改名：写到一半被杀时，旧 meta 仍然完整可读
+            val tmp = File(file.parentFile, file.name + ".tmp")
+            tmp.writeText(json)
+            if (!tmp.renameTo(file)) {
+                file.writeText(json)
+                tmp.delete()
+            }
+        }
+    }
+
+    private fun readMeta(file: File): Pair<Long, List<Segment>>? {
+        if (!file.exists()) return null
+        return runCatching {
+            val obj = JSONObject(file.readText())
+            val total = obj.optLong("total", -1L)
+            if (total <= 0) return null
+            val arr = obj.optJSONArray("segs") ?: return null
+            val segs = (0 until arr.length()).map {
+                val o = arr.getJSONObject(it)
+                Segment(o.getLong("s"), o.getLong("e")).also { s ->
+                    // 越界保护：meta 被改坏时宁可从 0 重来，也不要写错位置
+                    s.done.set(o.optLong("d", 0).coerceIn(0, s.end - s.start + 1))
+                }
+            }
+            if (segs.isEmpty()) return null
+            total to segs
+        }.getOrNull()
+    }
+
+    /** 服务端支不支持分段、总共多大。HEAD 不可用时退化成 1 字节的 Range 试探 */
+    private fun probeRange(item: DownloadItem): Probe {
         val client = clientFor(item.url)
-        val request = Request.Builder()
+        val head = runCatching {
+            client.newCall(baseRequest(item).head().build()).execute().use { response ->
+                if (!response.isSuccessful) return@use null
+                val len = response.header("Content-Length")?.toLongOrNull() ?: -1L
+                val accept = response.header("Accept-Ranges")?.contains("bytes", true) == true
+                Probe(len, accept)
+            }
+        }.getOrNull()
+
+        if (head != null && head.total > 0 && head.rangeable) return head
+
+        val ranged = runCatching {
+            client.newCall(baseRequest(item).header("Range", "bytes=0-0").build())
+                .execute().use { response ->
+                    if (response.code != 206) return@use Probe(-1L, false)
+                    val (_, total) = parseContentRange(response.header("Content-Range"))
+                    Probe(total, total > 0)
+                }
+        }.getOrNull()
+        return ranged ?: head ?: Probe(-1L, false)
+    }
+
+    private fun baseRequest(item: DownloadItem): Request.Builder =
+        Request.Builder()
             .url(item.url)
             .header("User-Agent", userAgent)
             .apply {
-                if (offset > 0) header("Range", "bytes=$offset-")
                 CookieManager.getInstance().getCookie(item.url)
                     ?.takeIf { it.isNotBlank() }
                     ?.let { header("Cookie", it) }
             }
+
+    /* ---------------- 单连接（不支持分段时） ---------------- */
+
+    private suspend fun singleDownload(
+        id: Long,
+        item: DownloadItem,
+        part: File,
+        legacyOffset: Long,
+    ): Saved {
+        var offset = legacyOffset
+        if (offset > 0) states.compute(id) { _, old -> old?.copy(downloaded = offset) }
+
+        val client = clientFor(item.url)
+        val request = baseRequest(item)
+            .apply { if (offset > 0) header("Range", "bytes=$offset-") }
             .build()
 
         val call = client.newCall(request)
@@ -255,17 +526,7 @@ class DownloadEngine private constructor(private val context: Context) {
             response.close()
             part.delete()
             offset = 0
-            val retry = client.newCall(
-                Request.Builder()
-                    .url(item.url)
-                    .header("User-Agent", userAgent)
-                    .apply {
-                        CookieManager.getInstance().getCookie(item.url)
-                            ?.takeIf { it.isNotBlank() }
-                            ?.let { header("Cookie", it) }
-                    }
-                    .build(),
-            )
+            val retry = client.newCall(baseRequest(item).build())
             calls[id] = retry
             response = retry.execute()
         }
@@ -437,6 +698,21 @@ class DownloadEngine private constructor(private val context: Context) {
     companion object {
         private const val MAX_CONCURRENT = 1
 
+        /** 小于这个尺寸不值得分片：多几次握手反而更慢 */
+        private const val MIN_SPLIT_BYTES = 8L * 1024 * 1024
+
+        /** 分片进度落盘间隔：进程被杀最多重下这么久的量 */
+        private const val META_SAVE_MS = 1_200L
+
+        /** UI 与数据库的刷新间隔 */
+        private const val PROGRESS_MS = 300L
+
+        private const val SEGMENT_RETRY = 3
+        private const val BUFFER_BYTES = 64 * 1024
+
+        /** 分段一失败就退回单连接的门槛：已下超过这个量就不折腾了，直接报错让用户重试 */
+        private const val FALLBACK_MAX_BYTES = 2L * 1024 * 1024
+
         @Volatile
         private var instance: DownloadEngine? = null
 
@@ -459,4 +735,33 @@ internal fun parseContentRange(value: String?): Pair<Long, Long> {
     val start = spec.substringBefore('-').trim().toLongOrNull() ?: -1L
     val total = spec.substringAfterLast('/', "").trim().toLongOrNull() ?: -1L
     return start to total
+}
+
+private const val PART_TARGET_BYTES = 4L * 1024 * 1024
+private const val PART_MIN_BYTES = 2L * 1024 * 1024
+
+/**
+ * 把 [total] 字节切成若干闭区间分片。
+ *
+ * 每段目标 4 MB，最多 4 路。为什么不是 8 路、16 路：
+ * 手机上的下载几乎都经过同一条代理或同一个基站出口，再多连接只会互相排队，
+ * 还容易触发服务端/代理的单 IP 并发限制。4 路在实测里已经能吃掉大部分等待。
+ */
+internal fun planSegments(
+    total: Long,
+    maxParts: Int = 4,
+    targetBytes: Long = PART_TARGET_BYTES,
+    minBytes: Long = PART_MIN_BYTES,
+): List<Pair<Long, Long>> {
+    if (total <= 0) return emptyList()
+    var parts = (total / targetBytes).toInt().coerceAtMost(maxParts).coerceAtLeast(1)
+    while (parts > 1 && total / parts < minBytes) parts--
+    if (parts <= 1) return listOf(0L to total - 1)
+    val size = total / parts
+    return (0 until parts).map { i ->
+        val start = i * size
+        // 最后一段吃掉除不尽的余数，保证 [0, total-1] 无缝覆盖
+        val end = if (i == parts - 1) total - 1 else start + size - 1
+        start to end
+    }
 }

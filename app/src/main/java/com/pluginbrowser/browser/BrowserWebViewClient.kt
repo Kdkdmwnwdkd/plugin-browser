@@ -9,7 +9,9 @@ import android.webkit.WebViewClient
 import com.pluginbrowser.data.BrowserStore
 import com.pluginbrowser.data.SettingsRepository
 import com.pluginbrowser.net.GitHubChannel
+import com.pluginbrowser.net.NetTrace
 import com.pluginbrowser.plugin.PluginManager
+import com.pluginbrowser.util.EventLog
 
 /**
  * 浏览器 WebViewClient：负责 URL 拦截、页面事件分发、历史记录与 JS 插件注入。
@@ -135,12 +137,15 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
                 runCatching { view.evaluateJavascript(chunk, null) }
             }
         }
+        // 主文档真正开跑的时刻：和上一次 NAV click 的差就是「系统 DNS + 排队」耗时
+        EventLog.log("NAV", "start ${hostOf(url)}")
         owner.onPageStarted(tab)
     }
 
     override fun onPageFinished(view: WebView, url: String) {
         val tab = owner.browserTabManager.findTab(view) ?: return
         tab.progress = 100
+        EventLog.log("NAV", "done ${hostOf(url)}")
 
         // 记录历史（无痕标签不记录）
         if (url.startsWith("http") && !tab.incognito) {
@@ -197,18 +202,64 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         val plugins = owner.browserPluginManager.enabledNativePlugins()
         for (i in plugins.indices) {
             val resp = plugins[i].shouldInterceptRequest(view, request)
-            if (resp != null) return resp
+            if (resp != null) {
+                NetTrace.record(
+                    host = request.url.host,
+                    path = request.url.path,
+                    via = NetTrace.VIA_PLUGIN,
+                    ms = -1,
+                    note = "插件接管",
+                    main = request.isForMainFrame,
+                )
+                return resp
+            }
         }
 
-        // 广告拦完之后再看要不要走 GitHub 通道：被拦掉的请求不该再花流量
-        return owner.githubChannel.intercept(request)
+        // 广告拦完之后再看要不要走 GitHub 通道：被拦掉的请求不该再花流量。
+        // 这里顺手把决策结果喂给诊断面板——「为什么这个资源没加速」以前只能猜。
+        val channel = owner.githubChannel
+        val host = request.url.host
+        val started = android.os.SystemClock.elapsedRealtime()
+        val resp = channel.intercept(request)
+        val cost = android.os.SystemClock.elapsedRealtime() - started
+        val note = channel.takeNote().orEmpty()
+        // 只记 GitHub 域和主文档：普通站点整页十几条三方请求会把列表冲得没法看
+        if (channel.handles(host) || request.isForMainFrame) {
+            val code = if (note.startsWith("ok ")) {
+                note.split(' ', limit = 3).getOrNull(1)?.toIntOrNull() ?: -1
+            } else {
+                -1
+            }
+            NetTrace.record(
+                host = host,
+                path = request.url.path,
+                via = if (resp != null) NetTrace.VIA_CHANNEL else NetTrace.VIA_SYSTEM,
+                ms = cost,
+                code = code,
+                note = note,
+                main = request.isForMainFrame,
+            )
+        }
+        return resp
     }
 
     override fun onRenderProcessGone(
         view: WebView,
         detail: android.webkit.RenderProcessGoneDetail?,
     ): Boolean {
-        val tab = owner.browserTabManager.findTab(view) ?: return true
+        val crashed = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            detail?.didCrash() ?: false
+        } else {
+            false
+        }
+        val tab = owner.browserTabManager.findTab(view)
+        // 这条以前只 toast 一句，日志里什么都不留。
+        // 「卡着卡着就回桌面」最缺的就是这一行。
+        EventLog.log(
+            "CRASH",
+            "renderer gone crashed=$crashed host=${hostOf(tab?.url)} tabs=${owner.browserTabManager.tabs.size}",
+        )
+        if (tab == null) return true
         owner.onRenderProcessGone(tab)
         // 返回 true 表示已处理，避免系统直接杀掉整个应用
         return true
@@ -222,7 +273,16 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         // 只处理主文档错误
         if (!request.isForMainFrame) return
         val tab = owner.browserTabManager.findTab(view) ?: return
+        EventLog.log("NAV", "error code=${error.errorCode} ${hostOf(request.url.toString())}")
         owner.onErrorPageNeeded(tab, error.errorCode)
+    }
+
+    private fun hostOf(url: String?): String {
+        if (url.isNullOrBlank()) return "-"
+        return runCatching {
+            val u = android.net.Uri.parse(url)
+            u.host ?: u.scheme ?: "-"
+        }.getOrDefault("-")
     }
 
     private companion object {

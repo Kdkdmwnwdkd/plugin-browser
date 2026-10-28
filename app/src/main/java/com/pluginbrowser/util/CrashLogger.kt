@@ -31,7 +31,13 @@ class CrashLogger(private val context: Context) : Thread.UncaughtExceptionHandle
         val file = File(context.filesDir, "crash.log")
         if (file.exists() && file.length() > 200 * 1024) file.delete()
         val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
-        file.appendText("=== $stamp ===\n${Log.getStackTraceString(e)}\n")
+        // 堆栈只回答「炸在哪一行」，回答不了「死之前发生了什么」。
+        // 把最近的事件流水一起落进来，一份文件就能看完来龙去脉。
+        val trail = runCatching {
+            EventLog.recent(80).joinToString("\n")
+        }.getOrDefault("")
+        val head = if (trail.isBlank()) "" else "\n--- 崩溃前事件 ---\n$trail\n--- 堆栈 ---\n"
+        file.appendText("=== $stamp ===$head${Log.getStackTraceString(e)}\n")
     }
 
     companion object {
@@ -83,7 +89,17 @@ class CrashLogger(private val context: Context) : Thread.UncaughtExceptionHandle
             if (!wasRunning) return null
             if (prevShown == fingerprint) return null
             return if (log.isNullOrBlank()) {
-                "上次没有留下堆栈。进程是被系统直接回收的，通常意味着内存不够（同时开的标签太多，或某个页面太重）。"
+                // 没有堆栈 ≠ 没问题。把事件流水的尾巴一起带上，才看得出是内存塌了、
+                // 还是某个页面刚打开就没了。
+                val tail = runCatching {
+                    EventLog.dump().lines().filter { it.isNotBlank() }.takeLast(18).joinToString("\n")
+                }.getOrDefault("")
+                if (tail.isBlank()) {
+                    "上次没有任何记录，进程被系统直接结束（通常是内存不足）。"
+                } else {
+                    "上次没有留下堆栈，说明进程是被系统结束的（多半是内存不够）。\n" +
+                        "结束前最后几行：\n$tail"
+                }
             } else {
                 summarize(log)
             }

@@ -91,6 +91,13 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         listRow(listRow, "desktop", R.drawable.ic_desktop, getString(R.string.menu_desktop_ua), state.desktopUa)
         listRow(
             listRow,
+            "diag",
+            R.drawable.ic_pulse,
+            getString(R.string.diag_title),
+            null,
+        )
+        listRow(
+            listRow,
             "add_bookmark",
             R.drawable.ic_bookmark_border,
             getString(R.string.menu_add_bookmark),

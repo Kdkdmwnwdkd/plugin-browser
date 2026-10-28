@@ -264,4 +264,33 @@
     <string name="menu_plugins_short">插件</string>
     <string name="menu_desktop_on">已开启</string>
     <string name="menu_desktop_off">已关闭</string>
+
+    <!-- 网络诊断 -->
+    <string name="menu_diag_short">诊断</string>
+    <string name="diag_title">网络诊断</string>
+    <string name="diag_subtitle">最近 %1$d 条请求</string>
+    <string name="diag_copy">复制</string>
+    <string name="diag_copied">诊断信息已复制</string>
+    <string name="diag_clear">清空</string>
+    <string name="diag_probe">测试连接</string>
+    <string name="diag_probing">测试中…</string>
+    <string name="diag_on">开</string>
+    <string name="diag_off">关</string>
+    <string name="diag_section_route">线路</string>
+    <string name="diag_section_requests">最近请求</string>
+    <string name="diag_route_warm">预热</string>
+    <string name="diag_warm_ok">已确认可用</string>
+    <string name="diag_warm_unknown">未确认（主文档暂不接管）</string>
+    <string name="diag_route_proxy">代理</string>
+    <string name="diag_proxy_none">未设置（直连）</string>
+    <string name="diag_route_doh">DoH</string>
+    <string name="diag_route_accel">GitHub 加速</string>
+    <string name="diag_route_pages">网页走通道</string>
+    <string name="diag_route_cache">磁盘缓存</string>
+    <string name="diag_cache_empty">空</string>
+    <string name="diag_route_hit">通道命中</string>
+    <string name="diag_hit_none">还没有请求</string>
+    <string name="diag_hit_value">最近 %2$d 条里 %1$d 条走通道</string>
+    <string name="diag_empty">还没有记录。打开一个 GitHub 页面，再回来看看。</string>
+    <string name="diag_hint">「系」表示交回系统内核，「通」表示走了独立通道。回落原因写在每条记录下面。</string>
 </resources>

@@ -876,6 +876,14 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                     )
                 }
             }
+            "diag" -> {
+                if (requireActivity().supportFragmentManager.findFragmentByTag(TAG_DIAG) == null) {
+                    DiagnosticsFragment().show(
+                        requireActivity().supportFragmentManager,
+                        TAG_DIAG,
+                    )
+                }
+            }
             "downloads" -> openScreen(DownloadsFragment())
             "plugins" -> openScreen(PluginStoreFragment())
             "settings" -> openScreen(SettingsFragment())
@@ -1564,6 +1572,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     companion object {
         private const val TAG_TABS = "tab_switcher"
         private const val TAG_SNIFFER = "resource_sniffer"
+        private const val TAG_DIAG = "net_diagnostics"
         private const val TAG_MENU = "browser_menu"
         private const val PROGRESS_ANIM_MS = 160L
         /** 首帧迟迟不出现才判定打不开（跨境首连十几秒是常态，别太早翻脸） */

@@ -1,13 +1,13 @@
 {
-  "versionCode": 32,
-  "versionName": "2.4.4",
-  "size": 8612419,
-  "sha256": "6c4dcaccc54f0c0dd3b582cb070b390be40a626a95c717e8a47e4929f1688c3e",
-  "notes": "2.4.4 修「地址栏显示 A 站、页面却是 B 站」和「点设置闪退」\n\n【标签串台】\n上一版让点击链接时立刻回填地址栏，但回调里用的是「当前标签」，\n后台标签自己重定向或自动刷新时，就会把当前标签的地址改掉。\n表现：从标签切换器切到 GitHub，地址栏是 github.com，画面却还是首页。\n现在改成按发起导航的那个 WebView 找回它自己的标签，后台标签只更新数据、不碰界面。\n\n【点设置闪退】\n设置页是 replace 掉整个浏览界面打开的，几处会炸：\n· 普通 commit 在 Activity 刚存过状态时直接抛异常把 App 带走 → 改用 commitAllowingStateLoss\n· 更新下载完成后用 requireContext()，此时页面可能已经关了 → 改用可空 context，取不到就安静跳过\n· 打开设置时先把 WebView 从容器上摘下来，不再让页面挂在一个正在销毁的父 View 上\n· 首帧/收尾定时器、看门狗、错误页全部加了「WebView 还活着吗」的判断\n\n【登录】\ngithub.com/session、/login、/signup 这些认证路径现在无论开关如何都交回系统内核，\n避免登录提交被中转后变成空白页。\n\n【日志】\n设置 → 关于 → 异常日志：可以直接查看并复制上次崩溃的信息。\n",
+  "versionCode": 33,
+  "versionName": "2.5.0",
+  "size": 8659291,
+  "sha256": "101f49413a91cc2c1882b6a21741fa3cdfe3577b53e8d9c0078db8c700520344",
+  "notes": "2.5.0 让「慢」变得看得见，让下载真正跑起来\n\n【网络诊断】菜单 → 诊断\n把每个 GitHub 请求摊开：走独立通道还是交回系统、耗时多少、状态码、为什么没接管。\n以前排查慢只能靠猜和试，现在能直接看到瓶颈在哪一层。\n附带：通道预热状态、代理与 DoH 配置、磁盘缓存占用、最近 50 条请求的通道命中率。\n「测试连接」会把 DNS + 连接 + TLS 的实际耗时打出来，复制按钮一键带走全部信息。\n\n【下载 4 路分片】\n以前是单连接，跨境链路上限就是 1-2 MB/s。现在服务端支持 Range 时自动切 4 路并发，\n各写各的偏移，进度合并显示。GitHub 的 release 包在这个链路上能快好几倍。\n断点续传升级到分片级：每 1.2 秒把已下偏移落盘，进程被杀也只重下最后一小段。\n服务端对并发限流（429/503）时自动退回单连接，慢也比失败强。\n小于 8MB 的文件仍然单连接，多几次握手反而更浪费时间。\n\n【崩溃现场】\n新增事件时间线：导航开始/结束/失败、渲染进程崩溃、系统内存压力等级、标签增删，\n外加每 30 秒一条心跳（Java 堆、native 堆、系统可用内存、标签数）。\n系统用 SIGKILL 杀掉进程时不会留堆栈，但会先走几轮 onTrimMemory——\n这条爬升曲线就是能拿到的唯一证据。\n设置 → 关于 → 运行日志：崩溃堆栈与最近事件一起看、一起复制。\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.4/Kite-2.4.4-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.4/Kite-2.4.4-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.4/Kite-2.4.4-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.5.0/Kite-2.5.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.5.0/Kite-2.5.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.5.0/Kite-2.5.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

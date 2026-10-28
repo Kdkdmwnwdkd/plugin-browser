@@ -246,13 +246,21 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
         findPreference<Preference>("crash_log")?.setOnPreferenceClickListener {
             val ctx = requireContext()
-            val log = com.pluginbrowser.util.CrashLogger.read(ctx)
-            if (log.isNullOrBlank()) {
+            val crash = com.pluginbrowser.util.CrashLogger.read(ctx)
+            val events = com.pluginbrowser.util.EventLog.dump()
+            val text = buildString {
+                if (!crash.isNullOrBlank()) {
+                    append("== 崩溃堆栈 ==\n").append(crash.takeLast(4000)).append("\n\n")
+                }
+                if (events.isNotBlank()) {
+                    append("== 事件时间线 ==\n").append(events.takeLast(4000))
+                }
+            }.trim()
+            if (text.isEmpty()) {
                 Toast.makeText(ctx, "还没有记录到异常", Toast.LENGTH_SHORT).show()
             } else {
-                val text = log.takeLast(4000)
                 com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
-                    .setTitle("异常日志")
+                    .setTitle("运行日志")
                     .setMessage(text)
                     .setPositiveButton("复制") { _, _ ->
                         val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)

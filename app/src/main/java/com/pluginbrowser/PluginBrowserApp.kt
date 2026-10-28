@@ -7,6 +7,7 @@ import com.pluginbrowser.download.DownloadTracker
 import com.pluginbrowser.net.GitHubChannel
 import com.pluginbrowser.plugin.PluginManager
 import com.pluginbrowser.util.CrashLogger
+import com.pluginbrowser.util.EventLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,6 +28,9 @@ class PluginBrowserApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        // 事件时间线必须最先起：后面任何一步出问题，都得有人记下来
+        EventLog.init(this)
+        EventLog.startHeartbeat()
         CrashLogger.install(this)
         pluginManager = PluginManager(this, appScope)
         gitHubChannel = GitHubChannel(this, SettingsRepository(this))
@@ -36,6 +40,29 @@ class PluginBrowserApp : Application() {
         DownloadTracker.get(this).register()
         // 启动即预热 GitHub 通道：DNS 和 TLS 先行，用户真去点的时候就不用再等这一两秒
         gitHubChannel.warmUp()
+        EventLog.log("APP", "init done, warmUp dispatched")
+    }
+
+    /**
+     * 系统内存压力回调。
+     *
+     * 这是「卡退」最直接的线索来源：LMK 动手之前一定会先走几轮 trim，
+     * 等级一路往上爬（RUNNING_LOW → RUNNING_CRITICAL → COMPLETE），
+     * 等真被杀掉时，日志里就有完整的压力爬升曲线。
+     */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        val name = when (level) {
+            TRIM_MEMORY_RUNNING_MODERATE -> "RUNNING_MODERATE"
+            TRIM_MEMORY_RUNNING_LOW -> "RUNNING_LOW"
+            TRIM_MEMORY_RUNNING_CRITICAL -> "RUNNING_CRITICAL"
+            TRIM_MEMORY_UI_HIDDEN -> "UI_HIDDEN"
+            TRIM_MEMORY_BACKGROUND -> "BACKGROUND"
+            TRIM_MEMORY_MODERATE -> "MODERATE"
+            TRIM_MEMORY_COMPLETE -> "COMPLETE"
+            else -> "LEVEL_$level"
+        }
+        EventLog.log("TRIM", name)
     }
 
     companion object {

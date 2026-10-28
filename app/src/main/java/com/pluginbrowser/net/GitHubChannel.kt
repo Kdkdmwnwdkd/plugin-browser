@@ -71,6 +71,23 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
     @Volatile
     private var clientKey: String = ""
 
+    /**
+     * 最近一次 intercept 的决策说明。
+     *
+     * 用 ThreadLocal 而不是普通字段：intercept 是同步调用，从进到出都在同一个
+     * 拦截线程上，调用方紧接着 takeNote() 就能拿到「这一条」的原因，
+     * 不会被并发请求互相覆盖。用完即清，不占内存。
+     */
+    private val decision = ThreadLocal<String?>()
+
+    /** 取走并清空本次请求的决策说明（诊断面板用） */
+    fun takeNote(): String? = decision.get().also { decision.remove() }
+
+    private fun decline(reason: String): WebResourceResponse? {
+        decision.set(reason)
+        return null
+    }
+
     /** DoH 请求必须用普通 DNS 解析，否则自己解析自己，递归打转 */
     private val dohClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -186,17 +203,18 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
      * 尝试接管一个请求。返回 null 表示交给 WebView 原生栈。
      */
     fun intercept(request: WebResourceRequest): WebResourceResponse? {
+        decision.set(null)
         // 这里是全站每个请求的必经之路，域名判定放最前面：
         // 非 GitHub 的请求在一次 endsWith 之后就返回了，不碰任何配置和请求头
         val uri = request.url
         val host = uri.host
-        if (!handles(host)) return null
+        if (!handles(host)) return decline("非 GitHub 域")
 
-        if (!settings.githubAccel) return null
+        if (!settings.githubAccel) return decline("加速已关闭")
         // 登录 / 注册 / 改密码这条链路上全是 POST + 302 + 轮换的会话 Cookie，
         // 任何一个环节被中转一次都可能让「登录后跳转」变成空白页，
         // 所以无论哪个开关，认证路径一律交回系统内核
-        if (isAuthPath(uri.path)) return null
+        if (isAuthPath(uri.path)) return decline("认证路径交回内核")
         // 接管范围：
         //   · 静态资源域（assets / raw / avatars / camo）——永远接，缓存和自定义 DNS 在这里最值；
         //   · 网页本身（主文档 GET）——只在预热确认这条路通、或者用户配了代理时接。
@@ -204,20 +222,22 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
         //     但没确认能连通就抢着接，只会白等一个 connectTimeout 再回落，反而更慢。
         //   · 登录 / 接口 / 页面里的动态片段——默认交回原生栈，它们依赖 Cookie 轮换和 CSRF 令牌。
         if (!shouldHandle(host, settings.githubCatchPages)) {
-            if (!request.isForMainFrame) return null
-            if (!canCatchMainDoc()) return null
+            if (!request.isForMainFrame) return decline("不在接管范围")
+            if (!canCatchMainDoc()) return decline("主文档：尚未确认线路可用")
         }
-        if (!request.method.equals("GET", ignoreCase = true)) return null
+        if (!request.method.equals("GET", ignoreCase = true)) return decline("非 GET")
         // 分段请求（视频、大文件续传）不接手：206 + Content-Range 交给原生栈更稳
-        if (request.requestHeaders.keys.any { it.equals("Range", ignoreCase = true) }) return null
-        if (System.currentTimeMillis() < blockedUntil) return null
+        if (request.requestHeaders.keys.any { it.equals("Range", ignoreCase = true) }) {
+            return decline("分段请求")
+        }
+        if (System.currentTimeMillis() < blockedUntil) return decline("熔断中")
 
         val url = uri.toString()
         // shouldInterceptRequest 跑在 Chromium 的拦截线程池上，而这里是一次同步请求：
         // 线程被占住期间，这个线程什么都干不了。代理抖动时若十几个资源同时卡住，
         // 线程池会被吃光，连网页自身的请求也只能排队——表现就是「首屏秒开，
         // 往下翻永远转圈」。所以只允许少量请求同时走我们这条通道，其余直接回落原生栈。
-        if (inFlight.get() >= MAX_IN_FLIGHT) return null
+        if (inFlight.get() >= MAX_IN_FLIGHT) return decline("并发已满 ${inFlight.get()}/$MAX_IN_FLIGHT")
 
         val builder = Request.Builder().url(url)
         request.requestHeaders.forEach { (rawKey, value) ->
@@ -239,7 +259,7 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
             call.execute()
         } catch (e: Exception) {
             noteFailure()
-            return null
+            return decline("请求失败 ${e.javaClass.simpleName}")
         } finally {
             // 槽位只覆盖「拿到响应头」这一段；响应体由 WebView 边读边消费，不再占用线程
             inFlight.decrementAndGet()
@@ -255,20 +275,20 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
         // 多一跳，但地址栏、前进后退、缓存校验都还对得上。
         if (response.code in 300..399) {
             response.close()
-            return null
+            return decline("${response.code} 重定向交回内核")
         }
 
         val body = response.body
         if (body == null) {
             response.close()
-            return null
+            return decline("无响应体")
         }
 
         val contentType = response.header("Content-Type").orEmpty()
         // 没有 Content-Type 就猜不准，猜错会把 HTML 当二进制存下来——宁可不接管
         if (contentType.isBlank()) {
             response.close()
-            return null
+            return decline("缺少 Content-Type")
         }
         val mime = contentType.substringBefore(';').trim().ifEmpty { mimeOf(uri.path.orEmpty()) }
         val charset = charsetFor(mime, contentType)
@@ -295,8 +315,8 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
             )
         }.getOrElse {
             runCatching { response.close() }
-            null
-        }
+            decline("响应头不兼容")
+        }.also { if (it != null) decision.set("ok ${response.code} ${mime}") }
     }
 
     /* ---------------- DNS ---------------- */

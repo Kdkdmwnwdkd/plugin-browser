@@ -10,6 +10,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.fragment.app.FragmentActivity
 import com.pluginbrowser.data.SettingsRepository
+import com.pluginbrowser.util.EventLog
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -42,6 +43,11 @@ class TabManager(
 
     private val settings = SettingsRepository(activity)
     private val sessionPrefs = activity.getSharedPreferences("pb_session", Context.MODE_PRIVATE)
+
+    init {
+        // 心跳要能报出「当时开了几个标签」，这是判断内存压力的关键分母
+        EventLog.tabCountProvider = { tabs.size }
+    }
 
     /* ---------------- 标签操作 ---------------- */
 
@@ -99,6 +105,11 @@ class TabManager(
             listener.onCurrentTabChanged(tab)
         }
         listener.onTabsChanged()
+        EventLog.log(
+            "TAB",
+            "new #${System.identityHashCode(tab)} total=${tabs.size} " +
+                "incog=$incognito url=${if (incognito) "-" else hostOf(url)}",
+        )
         if (!url.isNullOrBlank()) wv.loadUrl(url)
         return tab
     }
@@ -161,6 +172,7 @@ class TabManager(
 
     /** 内存吃紧时只留当前标签，其余全部降级 */
     fun trimInactive() {
+        EventLog.log("TAB", "trimInactive total=${tabs.size}")
         tabs.forEach { if (it !== currentTab()) demote(it) }
     }
 
@@ -168,6 +180,7 @@ class TabManager(
         if (index !in tabs.indices) return
         val tab = tabs[index]
         tab.alive = false
+        EventLog.log("TAB", "close #${System.identityHashCode(tab)} left=${tabs.size - 1}")
         (tab.webView.parent as? ViewGroup)?.removeView(tab.webView)
         runCatching { tab.webView.destroy() }
         tabs.removeAt(index)
@@ -300,6 +313,15 @@ class TabManager(
 
     fun isHomeUrl(url: String): Boolean =
         url.isBlank() || url == settings.homeUrl || url.startsWith("file:///android_asset/home.html")
+
+    /** 日志只留域名：完整 URL 里可能带 token、会话 ID */
+    private fun hostOf(url: String?): String {
+        if (url.isNullOrBlank()) return "blank"
+        return runCatching {
+            val u = android.net.Uri.parse(url)
+            u.host ?: u.scheme ?: "-"
+        }.getOrDefault("-")
+    }
 
     companion object {
         const val DESKTOP_UA =
