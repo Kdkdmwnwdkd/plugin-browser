@@ -66,6 +66,9 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
      * 同一份崩溃只弹一次，避免每次启动都挡一下。
      */
     private fun maybeShowLastCrash() {
+        // 每个进程只查一次：旋转屏幕会重建 Activity，不能每次重建都弹一遍
+        if (crashCheckedInProcess) return
+        crashCheckedInProcess = true
         val summary = com.pluginbrowser.util.CrashLogger.lastRunCrash(this) ?: return
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(R.string.crash_title)
@@ -289,5 +292,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
         private const val SIDE_LEFT = 1
         private const val SIDE_RIGHT = 2
         private const val ACTION_NONE = "none"
+
+        /** 崩溃提示每个进程只弹一次（Activity 重建不算新进程） */
+        private var crashCheckedInProcess = false
     }
 }

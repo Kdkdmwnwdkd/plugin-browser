@@ -210,16 +210,19 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         clearLoadTimeouts()
 
         val firstPaint = Runnable {
+            // WebView 可能已经跟着标签一起销毁了，这时候再碰它就不是「没反应」而是直接崩
+            if (!tab.usable) return@Runnable
             if (tab.failedUrl == null && tab.url.isNotBlank() &&
                 !tab.committed && tab.progress <= 10
             ) {
-                tab.webView.stopLoading()
+                runCatching { tab.webView.stopLoading() }
                 onErrorPageNeeded(tab, android.webkit.WebViewClient.ERROR_TIMEOUT)
             }
         }
         val settle = Runnable {
+            if (!tab.usable) return@Runnable
             if (tab.failedUrl == null && tab.progress < 100) {
-                tab.webView.stopLoading()
+                runCatching { tab.webView.stopLoading() }
                 tab.progress = 100
                 if (tab === tabManager.currentTab()) refreshUi()
             }
@@ -310,6 +313,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         tabManager.pauseAll()
         clearLoadTimeouts()
         cancelNavigateWatchdog()
+        // 容器马上要销毁了，先把 WebView 摘下来，别让它抱着一个死掉的父 View
+        if (::webContainer.isInitialized) tabManager.detachFrom(webContainer)
         if (::downloadPrompt.isInitialized) downloadPrompt.dismiss()
         suggestionRunnable?.let { suggestionHandler.removeCallbacks(it) }
         super.onDestroyView()
@@ -667,6 +672,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
             override fun run() {
                 if (tab.failedUrl != null) return
+                if (!tab.usable) return
                 if (tab !== tabManager.currentTab()) return
                 // 首帧都画出来了就不叫「打不开」，剩下的交给 60 秒收尾定时器
                 if (tab.committed) return
@@ -701,12 +707,17 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     /** 重试过一次还是没动静：给错误页，至少能一键重来，而不是无限转圈 */
     private fun showStalledError(tab: Tab) {
         cancelNavigateWatchdog()
+        if (!tab.usable) return
         runCatching { tab.webView.stopLoading() }
         onErrorPageNeeded(tab, android.webkit.WebViewClient.ERROR_TIMEOUT)
     }
 
     private fun onReloadClicked() {
         val tab = tabManager.currentTab() ?: return
+        if (!tab.usable) {
+            reload()
+            return
+        }
         if (tab.progress in 1..99) {
             tab.webView.stopLoading()
         } else {
@@ -722,7 +733,12 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             tab.committed = false
             tab.progress = START_PROGRESS
             refreshUi()
-            tab.webView.loadUrl(target)
+            if (!tab.usable) {
+                // 这个标签的 WebView 已经销毁，换一个能加载的再来
+                navigateTo(target)
+                return
+            }
+            runCatching { tab.webView.loadUrl(target) }
             armNavigateWatchdog(tab, target)
         }
     }
@@ -867,10 +883,18 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     private fun openScreen(fragment: Fragment) {
-        requireActivity().supportFragmentManager.beginTransaction()
-            .replace(R.id.main_container, fragment)
-            .addToBackStack(null)
-            .commit()
+        // commitAllowingStateLoss：菜单是从底部弹层里点的，弹层收起、Activity 刚好
+        // 走到 onSaveInstanceState 时，普通 commit 会直接抛
+        // 「Can not perform this action after onSaveInstanceState」把整个 App 带走。
+        // 打开设置页这种事晚一点生效无所谓，不能因此崩掉。
+        runCatching {
+            requireActivity().supportFragmentManager.beginTransaction()
+                .replace(R.id.main_container, fragment)
+                .addToBackStack(null)
+                .commitAllowingStateLoss()
+        }.onFailure {
+            toast("打开失败，请返回后重试")
+        }
     }
 
     private fun openTabSwitcher() {
@@ -1129,16 +1153,21 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
      * 不经过地址栏的 navigateTo，所以以前既没有进度反馈、也没有看门狗，
      * 一旦系统 DNS 卡住，界面会停在首页一动不动好几秒——用户只能以为「没点上」。
      */
-    override fun onNavigationStarted(url: String) {
-        val tab = tabManager.currentTab() ?: return
+    override fun onNavigationStarted(webView: android.webkit.WebView, url: String) {
+        // 一定要按 WebView 找回它自己的标签：后台标签也会跳转（重定向、自动刷新），
+        // 以前这里是拿「当前标签」套用，结果就是地址栏显示 github.com、页面却是首页
+        val tab = tabManager.findTab(webView) ?: return
         if (!tab.usable) return
         if (tab.url == url && tab.progress in 1..99) return
         tab.failedUrl = null
         tab.url = url
         tab.committed = false
         tab.progress = START_PROGRESS
-        refreshUi()
-        armNavigateWatchdog(tab, url)
+        // 后台标签只更新数据，不碰界面
+        if (tab === tabManager.currentTab()) {
+            refreshUi()
+            armNavigateWatchdog(tab, url)
+        }
     }
 
     override fun onPageStarted(tab: Tab) {
@@ -1172,6 +1201,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     override fun onErrorPageNeeded(tab: Tab, errorCode: Int) {
+        // 标签已经关掉/WebView 已销毁：连「显示错误页」这件事都做不了，别硬来
+        if (!tab.usable) return
         val current = tab.url
         // tab.url 有可能已经被错误页自己的 about:blank 覆盖过，优先用记下来的失败地址
         val failed = if (current.isBlank() || current == "about:blank") {
@@ -1182,7 +1213,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         tab.failedUrl = failed
         runCatching { tab.webView.stopLoading() }
         val html = ErrorPages.html(errorCode, failed, errorHintFor(failed))
-        tab.webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
+        runCatching { tab.webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null) }
         if (tab === tabManager.currentTab()) refreshUi()
     }
 

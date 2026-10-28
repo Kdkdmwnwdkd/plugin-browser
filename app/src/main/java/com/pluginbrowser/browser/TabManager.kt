@@ -216,6 +216,22 @@ class TabManager(
     }
 
     /**
+     * 把 WebView 从容器里摘下来（不销毁）。
+     *
+     * 打开设置、插件商店这类页面是 replace 掉整个 BrowserFragment，容器会被回收。
+     * 如果 WebView 还挂在那个正在销毁的 ViewGroup 上，它就同时持有一个死掉的父容器，
+     * 回来重新 addView 时轻则空白、重则崩在 ViewRootImpl 里。
+     */
+    fun detachFrom(container: ViewGroup) {
+        tabs.forEach { tab ->
+            if (tab.isCreated && tab.webView.parent === container) {
+                runCatching { container.removeView(tab.webView) }
+            }
+        }
+        runCatching { container.removeAllViews() }
+    }
+
+    /**
      * WebView 的 prefers-color-scheme 只认自己的 Configuration，不跟随 AppCompatDelegate。
      * App 强制浅色、系统却是深色时，会出现「浏览器 UI 浅色、页面深色」的矛盾，
      * 所以手动给它一个与 App 主题一致的 context。

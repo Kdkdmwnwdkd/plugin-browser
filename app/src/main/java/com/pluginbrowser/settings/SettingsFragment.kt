@@ -188,7 +188,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
             requireActivity().supportFragmentManager.beginTransaction()
                 .replace(R.id.main_container, com.pluginbrowser.plugin.store.PluginStoreFragment())
                 .addToBackStack(null)
-                .commit()
+                .commitAllowingStateLoss()
             true
         }
 
@@ -196,7 +196,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
             requireActivity().supportFragmentManager.beginTransaction()
                 .replace(R.id.main_container, GestureSettingsFragment())
                 .addToBackStack(null)
-                .commit()
+                .commitAllowingStateLoss()
             true
         }
 
@@ -206,7 +206,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 requireActivity().supportFragmentManager.beginTransaction()
                     .replace(R.id.main_container, TranslateSettingsFragment())
                     .addToBackStack(null)
-                    .commit()
+                    .commitAllowingStateLoss()
                 true
             }
         }
@@ -242,6 +242,28 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 Toast.makeText(requireContext(), summary, Toast.LENGTH_LONG).show()
                 true
             }
+        }
+
+        findPreference<Preference>("crash_log")?.setOnPreferenceClickListener {
+            val ctx = requireContext()
+            val log = com.pluginbrowser.util.CrashLogger.read(ctx)
+            if (log.isNullOrBlank()) {
+                Toast.makeText(ctx, "还没有记录到异常", Toast.LENGTH_SHORT).show()
+            } else {
+                val text = log.takeLast(4000)
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+                    .setTitle("异常日志")
+                    .setMessage(text)
+                    .setPositiveButton("复制") { _, _ ->
+                        val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                            as android.content.ClipboardManager
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("crash", text))
+                        Toast.makeText(ctx, "已复制", Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton("关闭", null)
+                    .show()
+            }
+            true
         }
     }
 
@@ -350,26 +372,30 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 // 回调在 IO 线程，转回主线程更新进度
                 bar.post {
                     bar.progress = percent
-                    status.text = getString(R.string.update_downloading, percent)
+                    status.text = runCatching {
+                        getString(R.string.update_downloading, percent)
+                    }.getOrDefault("$percent%")
                 }
             }
             dialog.dismiss()
             result.onSuccess { file ->
-                if (!isAdded) return@onSuccess
-                val started = UpdateManager.install(requireContext(), file)
+                // 下载可能要几十秒，这期间用户完全可能退出设置页甚至退出 App。
+                // 这里以前直接用 requireContext()，一旦 detached 就是
+                // 「Fragment not attached to a context」——闪退就是这么来的
+                val ctx = context ?: return@onSuccess
+                val started = runCatching { UpdateManager.install(ctx, file) }.getOrDefault(false)
                 Toast.makeText(
-                    requireContext(),
+                    ctx,
                     if (started) R.string.update_install_hint else R.string.update_permission_hint,
                     Toast.LENGTH_LONG,
                 ).show()
             }.onFailure { error ->
-                if (isAdded) {
-                    Toast.makeText(
-                        requireContext(),
-                        getString(R.string.update_download_failed, error.message ?: ""),
-                        Toast.LENGTH_LONG,
-                    ).show()
-                }
+                val ctx = context ?: return@onFailure
+                Toast.makeText(
+                    ctx,
+                    ctx.getString(R.string.update_download_failed, error.message ?: ""),
+                    Toast.LENGTH_LONG,
+                ).show()
             }
         }
     }

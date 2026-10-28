@@ -68,6 +68,26 @@ class GitHubChannelTest {
     }
 
     @Test
+    fun `登录链路一律不接管`() {
+        // 这些路径上全是 POST + 302 + 轮换的会话 Cookie，中转一次就容易登录失败
+        assertTrue(GitHubChannel.isAuthPath("/session"))
+        assertTrue(GitHubChannel.isAuthPath("/sessions"))
+        assertTrue(GitHubChannel.isAuthPath("/session/verify"))
+        assertTrue(GitHubChannel.isAuthPath("/login"))
+        assertTrue(GitHubChannel.isAuthPath("/login/oauth/authorize"))
+        assertTrue(GitHubChannel.isAuthPath("/signup"))
+        assertTrue(GitHubChannel.isAuthPath("/password_reset"))
+        assertTrue(GitHubChannel.isAuthPath("/account_verifications"))
+
+        // 普通页面、仓库页、release 直链照常走通道
+        assertFalse(GitHubChannel.isAuthPath("/"))
+        assertFalse(GitHubChannel.isAuthPath("/Kdkdmwnwdkd/plugin-browser"))
+        assertFalse(GitHubChannel.isAuthPath("/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.4/x.apk"))
+        assertFalse(GitHubChannel.isAuthPath(null))
+        assertFalse(GitHubChannel.isAuthPath(""))
+    }
+
+    @Test
     fun `代理串解析`() {
         assertNull(GitHubChannel.proxyOf(""))
         assertNull(GitHubChannel.proxyOf("   "))

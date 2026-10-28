@@ -147,5 +147,10 @@
             android:key="about"
             android:summary="@string/settings_about_summary"
             android:title="@string/settings_about" />
+
+        <Preference
+            android:key="crash_log"
+            android:title="异常日志"
+            android:summary="上次异常退出时记录的信息，可以复制出来" />
     </PreferenceCategory>
 </PreferenceScreen>

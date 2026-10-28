@@ -42,8 +42,11 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
          * 这条回调存在的意义只有一个：让界面**立刻**有反应。
          * WebView 从「调用 loadUrl」到「onPageStarted」之间可能隔着好几秒的系统 DNS，
          * 这期间地址栏、进度条全都纹丝不动，用户看到的就是「点了没反应」。
+         *
+         * 必须带上发起导航的 WebView：后台标签也会继续跳转（重定向、自动刷新），
+         * 拿「当前标签」去套用后台标签的地址，地址栏就会显示 A 站、页面却是 B 站。
          */
-        fun onNavigationStarted(url: String)
+        fun onNavigationStarted(webView: WebView, url: String)
         /** 进度被这里改写时（例如首帧可见后推高进度）需要刷新一次界面 */
         fun onProgressChanged(tab: Tab, progress: Int)
         fun onErrorPageNeeded(tab: Tab, errorCode: Int)
@@ -88,7 +91,7 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
             if (GitHubChannel.isGitHubHost(runCatching { request.url.host }.getOrNull())) {
                 owner.githubChannel.warmUp()
             }
-            owner.onNavigationStarted(url)
+            owner.onNavigationStarted(view, url)
             return false
         }
         if (url.startsWith("file://") || url.startsWith("about:")) return false

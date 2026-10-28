@@ -202,7 +202,8 @@ class TabSwitcherFragment : BottomSheetDialogFragment() {
                 else com.google.android.material.R.attr.colorOutlineVariant,
             )
 
-            val bitmap = capture(tab.webView)
+            // 已销毁的 WebView 再取绘制缓存，轻则空白，重则直接崩在 native 层
+            val bitmap = if (tab.usable) capture(tab.webView) else null
             if (bitmap != null) {
                 holder.thumbnail.setImageBitmap(bitmap)
                 holder.thumbnail.scaleType = ImageView.ScaleType.CENTER_CROP

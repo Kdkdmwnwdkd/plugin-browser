@@ -1,13 +1,13 @@
 {
-  "versionCode": 31,
-  "versionName": "2.4.3",
-  "size": 8610179,
-  "sha256": "20582bd731f8b9e1d1cd734affc687967eda3c689a3652466a11b7fd629bfe89",
-  "notes": "2.4.3 GitHub 首屏加速 + 崩溃不再「无声消失」\n\n【GitHub 慢的根子】\n点开后先在系统 DNS 上卡好几秒，页面才有反应。现在改成：\n· 启动就把 github.com 的 DNS 和 TLS 连接预热好，真正点开时直接复用\n· 首页本身也走独立通道（此前只加速静态资源，最慢的那一步反而没管）\n· DoH 解析范围加上 github.com / githubassets.com，绕开被污染的解析结果\n· 多个 IP 轮流作为起点，避免每次都撞在最慢的那个节点上\n· 点击后地址栏和进度条立刻有反应，不再「点了像没点上」\n\n【卡退】\n· 现在会记录并提示上次异常退出：下次打开弹一次说明，可一键复制详情\n· 后台标签的渲染进程自动降级，系统内存紧张时不会再优先把整个浏览器回收\n· 标签上限 20 → 8，超过后回收最早的非当前标签\n· 修了渲染进程崩溃后重复建标签、以及重建时误销毁全部 WebView 的问题\n",
+  "versionCode": 32,
+  "versionName": "2.4.4",
+  "size": 8612419,
+  "sha256": "6c4dcaccc54f0c0dd3b582cb070b390be40a626a95c717e8a47e4929f1688c3e",
+  "notes": "2.4.4 修「地址栏显示 A 站、页面却是 B 站」和「点设置闪退」\n\n【标签串台】\n上一版让点击链接时立刻回填地址栏，但回调里用的是「当前标签」，\n后台标签自己重定向或自动刷新时，就会把当前标签的地址改掉。\n表现：从标签切换器切到 GitHub，地址栏是 github.com，画面却还是首页。\n现在改成按发起导航的那个 WebView 找回它自己的标签，后台标签只更新数据、不碰界面。\n\n【点设置闪退】\n设置页是 replace 掉整个浏览界面打开的，几处会炸：\n· 普通 commit 在 Activity 刚存过状态时直接抛异常把 App 带走 → 改用 commitAllowingStateLoss\n· 更新下载完成后用 requireContext()，此时页面可能已经关了 → 改用可空 context，取不到就安静跳过\n· 打开设置时先把 WebView 从容器上摘下来，不再让页面挂在一个正在销毁的父 View 上\n· 首帧/收尾定时器、看门狗、错误页全部加了「WebView 还活着吗」的判断\n\n【登录】\ngithub.com/session、/login、/signup 这些认证路径现在无论开关如何都交回系统内核，\n避免登录提交被中转后变成空白页。\n\n【日志】\n设置 → 关于 → 异常日志：可以直接查看并复制上次崩溃的信息。\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.3/Kite-2.4.3-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.3/Kite-2.4.3-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.3/Kite-2.4.3-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.4/Kite-2.4.4-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.4/Kite-2.4.4-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.4.4/Kite-2.4.4-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

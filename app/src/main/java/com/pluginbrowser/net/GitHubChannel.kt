@@ -193,6 +193,10 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
         if (!handles(host)) return null
 
         if (!settings.githubAccel) return null
+        // 登录 / 注册 / 改密码这条链路上全是 POST + 302 + 轮换的会话 Cookie，
+        // 任何一个环节被中转一次都可能让「登录后跳转」变成空白页，
+        // 所以无论哪个开关，认证路径一律交回系统内核
+        if (isAuthPath(uri.path)) return null
         // 接管范围：
         //   · 静态资源域（assets / raw / avatars / camo）——永远接，缓存和自定义 DNS 在这里最值；
         //   · 网页本身（主文档 GET）——只在预热确认这条路通、或者用户配了代理时接。
@@ -617,6 +621,18 @@ class GitHubChannel(context: Context, private val settings: SettingsRepository) 
             val port = if (uri.port > 0) uri.port else if (socks) 1080 else 7890
             val type = if (socks) Proxy.Type.SOCKS else Proxy.Type.HTTP
             return Proxy(type, InetSocketAddress.createUnresolved(host, port))
+        }
+
+        /**
+         * 认证相关的路径。这些请求必须由 WebView 自己发：
+         * 服务端会在 302 里塞新会话、带 CSRF 的一次性令牌，中转一次就拿不到了。
+         */
+        fun isAuthPath(path: String?): Boolean {
+            if (path.isNullOrEmpty()) return false
+            val p = path.lowercase()
+            return p == "/session" || p == "/sessions" || p.startsWith("/session/") ||
+                p.startsWith("/login") || p.startsWith("/signup") ||
+                p.startsWith("/password") || p.startsWith("/account_verifications")
         }
 
         /** 只认 GitHub 自己的域名，别把 `github.com.evil.tld` 之类也算进来 */
