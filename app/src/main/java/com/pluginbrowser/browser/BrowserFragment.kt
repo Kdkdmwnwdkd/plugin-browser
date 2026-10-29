@@ -363,6 +363,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         currentWebView()?.onResume()
         refreshUi()
         showHandoffBar()
+        // 从设置页回来时手势开关可能变了，重新算一次边缘归属
+        syncGestureExclusion()
     }
 
     override fun onPause() {
@@ -1102,6 +1104,31 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         }
     }
 
+    /**
+     * 供 MainActivity 判断这条边缘手势现在做不做得了。
+     *
+     * 做不了就不声明手势排除区，让系统的返回手势正常接管 ——
+     * 总比「从边缘滑进去、屏幕上什么都不发生」好。
+     */
+    fun canPerformGestureAction(action: String): Boolean {
+        val wv = currentWebView() ?: return false
+        return when (action) {
+            "back" -> wv.canGoBack()
+            "forward" -> wv.canGoForward()
+            "reload", "home", "new_tab", "scroll_top", "scroll_bottom" -> true
+            "close_tab" -> tabManager.tabs.size > 1
+            else -> false
+        }
+    }
+
+    /** 手势跟手时被平移的那一层：整个网页容器跟着走，地址栏和底栏不动 */
+    fun gestureTargetView(): View? = view?.findViewById(R.id.web_container)
+
+    /** 页面状态变化后，让 MainActivity 重新决定边缘区归谁 */
+    private fun syncGestureExclusion() {
+        (activity as? MainActivity)?.refreshGestureExclusion()
+    }
+
     private fun currentWebView(): WebView? {
         val tab = tabManager.currentTab() ?: return null
         return if (tab.isCreated) tab.webView else null
@@ -1826,7 +1853,11 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         clearLoadTimeouts()
         // 页面主体已经结束，剩下的零散资源不该再让进度条吊着
         if (tab.progress < 100) tab.progress = 100
-        if (tab === tabManager.currentTab()) refreshUi()
+        if (tab === tabManager.currentTab()) {
+            refreshUi()
+            // 能不能前进/后退变了，边缘区该归谁也得跟着变
+            syncGestureExclusion()
+        }
         // 跳转后旧的高亮会失效，若查找栏还开着就重新搜一次
         if (::findBar.isInitialized && findBar.isVisible && findQuery.isNotBlank()) {
             startFind(findQuery)
@@ -2158,8 +2189,21 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         return false
     }
 
+    /**
+     * 后台 IO：只允许做纯数据操作（写历史、落库、读文件），**不许碰任何 View**。
+     *
+     * 这里原来挂在 viewLifecycleOwner 上，是个会要命的错误：
+     * onPageFinished 是 WebView 线程的回调，页面加载完成的那一刻 Fragment 的 view
+     * 完全可能已经销毁了（标签被关、返回栈弹出、App 退到后台被回收）。
+     * 此时取 viewLifecycleOwner 会直接抛
+     * IllegalStateException: Can't access the Fragment View's LifecycleOwner ...
+     * 而这个异常跑在主线程的消息循环里，没有任何 catch，整个进程当场挂掉。
+     * 用户看到的就是「页面加载到一半，浏览器自己没了」。
+     *
+     * 写历史跟界面生死无关，改用应用级作用域，谁先死都不影响它。
+     */
     override fun runIo(block: suspend () -> Unit) {
-        viewLifecycleOwner.lifecycleScope.launch { block() }
+        PluginBrowserApp.appScope.launch { block() }
     }
 
     /* ---------------- Owner 接口实现 ---------------- */
@@ -2192,6 +2236,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         if (!isAdded || view == null) return
         tabManager.attachTo(webContainer)
         refreshUi()
+        // 换了标签，前进/后退能力跟着换，边缘归属也要重算
+        syncGestureExclusion()
     }
 
     /* ---------------- 界面刷新 ---------------- */

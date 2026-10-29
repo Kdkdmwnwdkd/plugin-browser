@@ -11,5 +11,7 @@ local.properties
 *.apk
 *.aab
 *.keystore
+*.jks
+keystore/
 !gradle/wrapper/gradle-wrapper.jar
 !dist/*.apk

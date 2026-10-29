@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebSettings
@@ -107,6 +108,13 @@ class TabManager(
         wv.setDownloadListener { dlUrl, userAgent, cd, mime, len ->
             onDownloadHandler?.invoke(dlUrl, userAgent, cd, mime, len)
         }
+        // 系统自带的滚动条是「WebView 套壳」最显眼的标志：网页右侧挂一条灰条，
+        // 跟应用的配色完全不搭，页面一动就闪。Chrome、夸克这些都不显示它
+        wv.isVerticalScrollBarEnabled = false
+        wv.isHorizontalScrollBarEnabled = false
+        // 只有内容真能滚时才给回弹。否则在不足一屏的页面上拖一下会抖，
+        // 看着像没做好
+        wv.overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
         // 站点适配里必须「加载前」生效的那部分。放在 loadUrl 之前：
         // 自动播放策略是文档创建时读取的，页面跑起来再改对当前页无效
         siteRules.applyTo(wv, url)

@@ -90,7 +90,12 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         /** 证书异常（过期、域名不匹配、自签名） */
         fun onWebSslError(host: String, error: SslError, handler: SslErrorHandler)
 
-        /** 在协程作用域执行（记录历史等） */
+        /**
+         * 在应用级协程作用域执行后台任务（记录历史等）。
+         *
+         * 契约：block 里**不得访问任何 View 或 Fragment 成员**。
+         * 它可能在 Fragment 视图已经销毁之后才跑，碰 UI 就会崩。
+         */
         fun runIo(block: suspend () -> Unit)
     }
 
@@ -196,6 +201,16 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
     }
 
     override fun onPageFinished(view: WebView, url: String) {
+        // WebView 的回调跑在主线程的 Handler 消息里，这里抛出的任何异常都没有人接，
+        // 唯一的结局就是整个进程被杀——用户看到「浏览器自己没了」，还带不走任何现场。
+        // 一次收尾工作没做完（历史少记一条、样式少注一次）远好过一次崩溃，所以整段兜住。
+        runCatching { handlePageFinished(view, url) }
+            .onFailure {
+                EventLog.log("NAV", "onPageFinished 异常 ${it.javaClass.simpleName}: ${it.message}")
+            }
+    }
+
+    private fun handlePageFinished(view: WebView, url: String) {
         val tab = owner.browserTabManager.findTab(view) ?: return
         tab.progress = 100
         EventLog.log("NAV", "done ${hostOf(url)}")
