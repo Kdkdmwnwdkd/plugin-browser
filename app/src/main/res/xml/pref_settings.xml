@@ -21,6 +21,14 @@
 
     <PreferenceCategory android:title="浏览">
 
+        <ListPreference
+            android:defaultValue="100"
+            android:entries="@array/text_zoom_entries"
+            android:entryValues="@array/text_zoom_values"
+            android:key="page_text_zoom"
+            android:summary="当前 %s。字太小多半是页面按 980px 排版又被整体缩小，调大一档就不用每次捏合"
+            android:title="网页字号" />
+
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="javascript"
@@ -164,6 +172,6 @@
         <Preference
             android:key="crash_log"
             android:title="异常日志"
-            android:summary="上次异常退出时记录的信息，可以复制出来" />
+            android:summary="上次异常退出时记录的信息，可复制、可清空" />
     </PreferenceCategory>
 </PreferenceScreen>

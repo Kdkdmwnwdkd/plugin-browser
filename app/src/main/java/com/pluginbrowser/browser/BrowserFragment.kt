@@ -202,30 +202,37 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private val backCallback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
             val tab = tabManager.currentTab()
-            val url = tab?.let { it.failedUrl ?: it.url }.orEmpty()
+            val wv = currentWebView()
             when {
                 customView != null -> exitFullscreen()
-                // 错误页优先判断。
-                // 之前这条排在「空白/首页」后面，而错误页的失败地址有可能就是
-                // about:blank（页面还没起来就挂了），isHomeUrl 一认，返回键直接把
-                // App 关掉——用户点了个打不开的链接，回头整个浏览器没了。
-                tab?.failedUrl != null -> {
-                    val wv = currentWebView()
-                    if (wv?.canGoBack() == true) wv.goBack() else navigateTo(settings.homeUrl)
-                }
-                // 首页（或空标签）按返回就退出，不要停在一片空白上
-                url.isBlank() || tabManager.isHomeUrl(url) -> {
+
+                // 只要网页还能后退，就先退回上一页。这一条必须排在最前面：
+                // 旧代码先用 tab.url 判断「是不是首页」，而 tab.url 是异步更新的，
+                // 刚点进站点的几百毫秒里它可能还是空串或上一页的地址，
+                // 一旦被判成首页就直接 finish()，用户看到的就是「点个链接，返回，App 没了」。
+                wv?.canGoBack() == true -> wv.goBack()
+
+                // 退无可退，但人还停在一个网页上：回首页，而不是退出。
+                // 让「退出」永远是最后一步，且必须是从首页再按一次。
+                !isAtHome(tab, wv) -> navigateTo(settings.homeUrl)
+
+                else -> {
                     isEnabled = false
                     requireActivity().finish()
                 }
-                currentWebView()?.canGoBack() == true -> currentWebView()?.goBack()
-                else -> {
-                    isEnabled = false
-                    requireActivity().onBackPressedDispatcher.onBackPressed()
-                    isEnabled = true
-                }
             }
         }
+    }
+
+    /**
+     * 判断「是不是已经站在首页」。
+     *
+     * 以 WebView 自己的 url 为准，tab.url 只作兜底——前者是真实加载的地址，
+     * 后者是随回调更新的副本，两者在导航途中经常对不上。
+     */
+    private fun isAtHome(tab: Tab?, wv: WebView?): Boolean {
+        val url = wv?.url?.takeIf { it.isNotBlank() } ?: tab?.url.orEmpty()
+        return tabManager.isHomeUrl(url)
     }
 
     /**
@@ -281,6 +288,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     /* ---------------- 生命周期 ---------------- */
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        activeRef = java.lang.ref.WeakReference(this)
         webViewClient = BrowserWebViewClient(this)
         webChromeClient = BrowserWebChromeClient(this)
         suggestionAdapter = SuggestionAdapter(requireContext())
@@ -1056,6 +1064,13 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
      * 返回 false 表示这个动作当前做不了（比如没有可后退的历史），
      * 调用方会把事件继续交给页面，避免"划了没反应还吃掉手势"。
      */
+    /** 把新的全局字号套到所有已经打开的标签上（设置页改完立刻生效） */
+    fun applyTextZoom(zoom: Int) {
+        tabManager.tabs.forEach { tab ->
+            runCatching { tab.webView.settings.textZoom = zoom }
+        }
+    }
+
     fun performGestureAction(action: String): Boolean {
         val webView = currentWebView()
         return when (action) {
@@ -2391,6 +2406,16 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private fun toast(resId: Int) = Toast.makeText(requireContext(), resId, Toast.LENGTH_SHORT).show()
 
     companion object {
+        /**
+         * 当前挂着的浏览器页面，弱引用。
+         *
+         * 给设置页用：改字号这类设置要立刻作用到已经打开的标签上，
+         * 否则用户改完回去一看没变化，会认为开关坏了。
+         */
+        private var activeRef: java.lang.ref.WeakReference<BrowserFragment>? = null
+
+        fun active(): BrowserFragment? = activeRef?.get()
+
         /** 能当「网址」看的 scheme；其余一律按「应用链接」显示，不暴露参数串 */
         private val WEB_SCHEMES = setOf("http", "https", "file", "about", "data", "pb")
         private const val TAG_TABS = "tab_switcher"

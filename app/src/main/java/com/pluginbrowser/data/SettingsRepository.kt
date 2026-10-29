@@ -58,6 +58,17 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_GITHUB_CATCH_PAGES, false)
         set(value) = prefs.edit().putBoolean(KEY_GITHUB_CATCH_PAGES, value).apply()
 
+    /**
+     * 全局网页字号（百分比）。
+     *
+     * 那些没有 viewport 的页面会被按 980px 排版再整体缩小，正文落到 6~8px，
+     * 靠捏合放大一次只能管一屏，翻页又得重来。给一个一次调好、全站生效的字号。
+     * 按站点单独设过的字号优先级更高，会在 SitePreferences.applyTo 里覆盖。
+     */
+    var pageTextZoom: Int
+        get() = prefs.getString(KEY_TEXT_ZOOM, null)?.toIntOrNull()?.coerceIn(50, 200) ?: 100
+        set(value) = prefs.edit().putString(KEY_TEXT_ZOOM, value.toString()).apply()
+
     /** 代理地址，如 127.0.0.1:7890 / socks5://127.0.0.1:1080；留空表示直连 */
     var proxyUrl: String
         get() = prefs.getString(KEY_PROXY_URL, "").orEmpty()
@@ -153,6 +164,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_UA_PRESET = "ua_preset"
         private const val KEY_GITHUB_ACCEL = "github_accel"
         private const val KEY_GITHUB_CATCH_PAGES = "github_catch_pages"
+        private const val KEY_TEXT_ZOOM = "page_text_zoom"
         private const val KEY_PROXY_URL = "proxy_url"
         private const val KEY_DOH = "doh_enabled"
         private const val KEY_ASK_DOWNLOAD = "ask_before_download"

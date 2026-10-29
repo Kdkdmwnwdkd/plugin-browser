@@ -1,13 +1,13 @@
 {
-  "versionCode": 40,
-  "versionName": "2.8.2",
-  "size": 8797764,
-  "sha256": "e65ca4110afefa673dbda13c0ab73708ba30d017b6854f7760ccb9084e66dfb1",
-  "notes": "2.8.2：一次页面加载完成，就能把整个浏览器带走\n\n这一版修的是你发来的那份崩溃堆栈，不是猜的。\n\n【崩溃到底是什么】\n堆栈很干净，只有一条路径：\n\n  BrowserWebViewClient.onPageFinished  →  BrowserFragment.runIo\n\nrunIo 当时的实现是 viewLifecycleOwner.lifecycleScope.launch { ... }。\n而 onPageFinished 是 WebView 在主线程消息循环里回调的。页面加载完成的那一瞬间，\nFragment 的 view 完全可能已经不在了——你切了标签、按了返回、App 退到后台。\n这时候取 viewLifecycleOwner，框架直接抛：\n\n  IllegalStateException: Can't access the Fragment View's LifecycleOwner\n  for BrowserFragment ... when getView() is null\n\n主线程上没有 try/catch 接着，进程当场死。你的日志里 45 秒崩了 4 次\n（21:24:08 / 21:24:13 / 21:24:49 和被截断的那次），全是同一个调用栈。\n\n这就是「有时莫名退出去」的直接原因之一。之前我把这个现象一直归到边缘手势上，\n方向是偏的。\n\n【改了三处】\n1. 写历史改用应用级协程作用域。记一条历史跟界面生死无关，不该绑在 View 上。\n2. onPageFinished 整段 runCatching 兜住。就算将来别处还有空指针，也只丢一次收尾\n   （少记一条历史、少注一次样式），不会再杀进程；异常会写进事件日志。\n3. Manifest 补 largeHeap。你的日志是 java=19/256MB，11GB 内存的机器只给了 256MB\n   堆上限，多标签和长页面会更容易被 GC 拖住。\n\n【同时带上 2.8.1】\n2.8.1 你还没装，一并发了：\n\n· 边缘手势跟系统返回抢同一块地。App 的判定宽度是 22dp，Android 10+ 的系统返回\n  手势占用边缘约 20dp，两条手势完全重叠，谁先判定谁赢，于是「有时候一划就退出」。\n  现在会动态声明 systemGestureExclusionRects（只在当前页真的能后退/前进时才占位），\n  并且改成跟手——越过 touchSlop 就把网页实时平移，松手按位移和速度决定执行还是弹回，\n  不再是一划就判定。\n· WebView 关掉横竖滚动条；回弹改成「内容能滚才回弹」，短页面不再有那种拉一下弹回来的\n  橡皮筋感。\n\n【关于你日志里另外两件事】\n· github.com 在 20:17:13 发起导航后，13 秒内没有任何 NAV done，直到你把标签关掉。\n  这不是渲染卡住，是这个网络没到 GitHub。浏览器没法凭空变出通道，我能做的是\n  超时后明确告诉你连不上，而不是让你对着白屏等——这条还没做，下一步改。\n· 你的机器是 Android 16 / SDK 36 / WebView 140，体检「实测全部通过」。\n  我手上只有一台 WebView 83 的模拟机，差距很大，所以别拿模拟器的表现当准。\n\n签名未变（771ee50c…），可直接覆盖安装。\n",
+  "versionCode": 41,
+  "versionName": "2.8.3",
+  "size": 8803324,
+  "sha256": "c8160bc89fec328e5945dab1b5a7871f67955087e81525050edbec2bda77f385",
+  "notes": "2.8.3：返回键把浏览器关掉、字小得看不清、日志清不掉\n\n三件事，都是你点了名的。\n\n【一、按返回不是回上一页，而是退出 App】\n旧代码判断的顺序是先看 tab.url 是不是首页，再看能不能后退。\n问题在于 tab.url 是随回调异步更新的副本：你点进一个站点的头几百毫秒里，\n它可能还是空串、或者还停在上一页的地址。这时候一按返回，被当成「已经在首页」，\n直接 finish()——浏览器就这么没了。\n\n现在的顺序是：\n  1. 网页能后退 → 后退（永远优先，不看任何缓存字段）\n  2. 退无可退，但人还停在网页上 → 回首页\n  3. 已经站在首页 → 才退出\n\n而且「是不是首页」判的是 WebView 自己的 url，不是 tab.url。\n\n模拟器上验过两遍：\n  · 打开一个加载失败、没有任何历史的页面，按返回 → 回到首页，App 还在\n  · 在首页再按一次返回 → 退出（符合预期，不再有「莫名退出」）\n\n【二、字小得看不清，也放不大】\n根子在两处，以前一处都没处理：\n  · 页面没有 viewport meta 时，useWideViewPort + loadWithOverviewMode 会按 980px\n    排版再整体缩到屏幕宽。桌面版原样缩小，正文落到 6~8px。\n  · 有 viewport 的国内站点，很多写着 user-scalable=no、maximum-scale=1。\n    这是站点怕缩放出排版问题，代价是用户连放大看清都做不到。\n\n改法：\n  · 新增「设置 → 浏览 → 网页字号」，100 / 115 / 130 / 150 四档，全局生效，\n    改完立刻套到所有已打开的标签，不用退回去重开页面。\n  · 加载完成后注入脚本：有的 viewport 只解禁缩放字段，width 一点不动；\n    没有 viewport 的补一个 width=device-width 试排，300ms 后如果页面被撑出\n    明显横向滚动，说明它本来就没打算做移动端，立刻撤回，保持原来的桌面缩放。\n  · 桌面版模式下不注入——那时你要的就是完整的桌面网站。\n\n实测：150% 下首页标题和图标文字都放大了，「哔哩哔哩」会换行，这是变大的代价，\n调回 115% 就正常。\n\n【三、异常日志只能看和复制，清不掉】\n文件是纯追加的，只增不减，新旧崩溃混在一起。你看日志时看到的那四条\n是 10-28 21:24 的记录，2.8.2 早就没崩了，但文件里一直躺着，每次打开都像又炸了。\n\n现在：\n  · 对话框三个按钮：清空 / 关闭 / 复制（清空真的删文件，验证过）\n  · 每条记录前面带版本号，形如「=== 2026-10-29 21:00:00 · v2.8.3(41) ===」，\n    一眼能看出是哪一版崩的\n\n【没验证到的一条】\nviewport 注入在真实网站上的观感，我没法在模拟器上验——这台模拟器连百度都打不开，\n一条外网都走不通。脚本本身有「撑破就回滚」的保护，但排版好不好看，得你在真机上扫一眼。\n如果某个站点被改得更难看了，告诉我域名，我把它加进白名单不再动。\n\n签名未变（771ee50c…），直接覆盖安装。\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.8.2/Kite-2.8.2-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.8.2/Kite-2.8.2-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.8.2/Kite-2.8.2-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.8.3/Kite-2.8.3-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.8.3/Kite-2.8.3-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.8.3/Kite-2.8.3-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

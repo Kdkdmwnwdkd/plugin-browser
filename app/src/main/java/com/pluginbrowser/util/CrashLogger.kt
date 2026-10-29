@@ -37,8 +37,16 @@ class CrashLogger(private val context: Context) : Thread.UncaughtExceptionHandle
             EventLog.recent(80).joinToString("\n")
         }.getOrDefault("")
         val head = if (trail.isBlank()) "" else "\n--- 崩溃前事件 ---\n$trail\n--- 堆栈 ---\n"
-        file.appendText("=== $stamp ===$head${Log.getStackTraceString(e)}\n")
+        // 带上版本号：同一份文件里会堆着好几个版本的崩溃，不带版本就分不清
+        // 「这次崩了」还是「上个月崩的」，看日志的人（还是我自己）会被旧记录骗
+        file.appendText("=== $stamp · ${versionTag()} ===$head${Log.getStackTraceString(e)}\n")
     }
+
+    private fun versionTag(): String = runCatching {
+        @Suppress("DEPRECATION")
+        val info = context.packageManager.getPackageInfo(context.packageName, 0)
+        "v${info.versionName}(${info.versionCode})"
+    }.getOrDefault("v?")
 
     companion object {
         private const val KEY_RUNNING = "run_running"

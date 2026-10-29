@@ -99,6 +99,18 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
+        // 字号存在 settings 自己的 prefs 里，进页面时把当前值同步到控件上，
+        // 否则这里会一直显示 XML 里的默认项，跟实际生效的值对不上
+        findPreference<ListPreference>("page_text_zoom")?.apply {
+            value = settings.pageTextZoom.toString()
+            setOnPreferenceChangeListener { _, newValue ->
+                val zoom = (newValue as String).toIntOrNull() ?: 100
+                settings.pageTextZoom = zoom
+                com.pluginbrowser.browser.BrowserFragment.active()?.applyTextZoom(zoom)
+                true
+            }
+        }
+
         findPreference<SwitchPreferenceCompat>("javascript")?.setOnPreferenceChangeListener { _, newValue ->
             settings.javascriptEnabled = newValue as Boolean
             true
@@ -278,6 +290,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
                     .setTitle("运行日志")
                     .setMessage(text)
+                    // 日志是只追加的文件，旧记录会一直留在里面。
+                    // 之前只能看和复制，越积越多，也分不清哪条是这一版崩的，
+                    // 每次打开都以为又炸了。给一个真正的出口。
+                    .setNeutralButton("清空") { _, _ ->
+                        com.pluginbrowser.util.CrashLogger.clear(ctx)
+                        com.pluginbrowser.util.EventLog.clear()
+                        Toast.makeText(ctx, "已清空运行日志", Toast.LENGTH_SHORT).show()
+                    }
                     .setPositiveButton("复制") { _, _ ->
                         val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
                             as android.content.ClipboardManager

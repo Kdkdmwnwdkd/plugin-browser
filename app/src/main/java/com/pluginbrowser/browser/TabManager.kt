@@ -89,6 +89,10 @@ class TabManager(
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
+            // 全局字号。按站点单独设过的会在 SitePreferences.applyTo 里再覆盖回来。
+            // 没有这一条，那些按 980px 排版的页面在手机上正文只有 6~8px，放大得靠捏合，
+            // 捏合一次只放大一屏，翻页又得重来。
+            textZoom = settings.pageTextZoom
             setSupportMultipleWindows(true)
             // 弹窗必须由用户手势触发，避免广告页无手势批量开标签
             javaScriptCanOpenWindowsAutomatically = false

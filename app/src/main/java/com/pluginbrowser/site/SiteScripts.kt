@@ -104,6 +104,74 @@ object SiteScripts {
 """.trimIndent()
 
     /**
+     * 让页面按手机屏幕排版，并把缩放权还给用户。
+     *
+     * 国内站点有两个通病，合起来就是「字小得看不清、还捏不大」：
+     *
+     *  1. 页面压根没有 viewport meta。WebView 的 useWideViewPort + loadWithOverviewMode
+     *     会把页面按 980px 排版，再整体缩到屏幕宽——桌面版原样缩小，正文只剩 6~8px。
+     *  2. 有 viewport 的，往往写着 user-scalable=no、maximum-scale=1。
+     *     这是站点怕用户缩放出排版问题，但代价是用户连放大看清都做不到。
+     *
+     * 做法分两种，都不粗暴：
+     *  · 已有 viewport：只把禁缩放的字段改回允许，width 一点不动（动了就重排，风险大）。
+     *  · 没有 viewport：补一个 width=device-width 试一次；300ms 后如果页面被撑出
+     *    明显横向滚动，说明它本来就没打算做移动端，立刻撤回，保持原来的桌面缩放。
+     *
+     * 必须可重复执行：每次 onPageFinished 都会注一次。
+     */
+    val VIEWPORT_FIX: String = """
+(function () {
+  try {
+    var head = document.head || document.documentElement;
+    if (!head) return 'no-head';
+    var vp = document.querySelector('meta[name="viewport"]');
+
+    function unlock(el) {
+      var c = el.getAttribute('content') || '';
+      var fixed = c
+        .replace(/user-scalable\s*=\s*(no|0)/gi, 'user-scalable=yes')
+        .replace(/maximum-scale\s*=\s*[\d.]+/gi, 'maximum-scale=5.0');
+      /* 只有 maximum-scale 没有 user-scalable 的，补一句明确允许 */
+      if (/maximum-scale/i.test(fixed) && !/user-scalable/i.test(fixed)) {
+        fixed += ', user-scalable=yes';
+      }
+      if (fixed !== c) el.setAttribute('content', fixed);
+    }
+
+    if (vp) {
+      unlock(vp);
+      return 'unlocked';
+    }
+
+    /* 已经试过并判定「不适合移动版」的，这次不再试，省一次重排 */
+    if (window.__pbVpGaveUp === location.href) return 'skip';
+
+    var m = document.createElement('meta');
+    m.setAttribute('name', 'viewport');
+    m.setAttribute('content',
+      'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes');
+    m.setAttribute('data-pb-injected', '1');
+    head.appendChild(m);
+
+    setTimeout(function () {
+      try {
+        var de = document.documentElement;
+        /* 横向被撑开说明这站是固定宽度的桌面版，硬套只会更难用 */
+        if (de.scrollWidth > (window.innerWidth || 360) * 1.15) {
+          m.parentNode && m.parentNode.removeChild(m);
+          window.__pbVpGaveUp = location.href;
+        }
+      } catch (e) {}
+    }, 300);
+    return 'injected';
+  } catch (e) {
+    return 'err';
+  }
+})()
+""".trimIndent()
+
+    /**
      * 收集页面里的图片。
      *
      * 只收 http(s) 的绝对地址，data: 的 base64 内联图（图标、占位图）一概跳过——

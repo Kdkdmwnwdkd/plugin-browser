@@ -236,7 +236,20 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         injectAdBlockCss(view, url)
         injectBlockedElements(view, url)
         injectSiteGuards(view, url, tab)
+        injectViewportFix(view, url, tab)
         owner.onPageFinished(tab)
+    }
+
+    /**
+     * 把排版和缩放权还给用户。
+     *
+     * 桌面版模式不注：那时用户明确要的是 980px 的完整网站，
+     * 再强行套移动 viewport 等于把页面拆了。
+     */
+    private fun injectViewportFix(view: WebView, url: String, tab: Tab) {
+        if (!url.startsWith("http") || tab.readerMode) return
+        if (owner.browserSettings.desktopUa) return
+        runCatching { view.evaluateJavascript(SiteScripts.VIEWPORT_FIX, null) }
     }
 
     /**
