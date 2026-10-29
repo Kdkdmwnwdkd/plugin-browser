@@ -125,46 +125,97 @@ object SiteScripts {
   try {
     var head = document.head || document.documentElement;
     if (!head) return 'no-head';
-    var vp = document.querySelector('meta[name="viewport"]');
 
     function unlock(el) {
       var c = el.getAttribute('content') || '';
       var fixed = c
         .replace(/user-scalable\s*=\s*(no|0)/gi, 'user-scalable=yes')
-        .replace(/maximum-scale\s*=\s*[\d.]+/gi, 'maximum-scale=5.0');
+        .replace(/maximum-scale\s*=\s*[\d.]+/gi, 'maximum-scale=5.0')
+        .replace(/minimum-scale\s*=\s*[\d.]+/gi, 'minimum-scale=0.25');
       /* 只有 maximum-scale 没有 user-scalable 的，补一句明确允许 */
       if (/maximum-scale/i.test(fixed) && !/user-scalable/i.test(fixed)) {
         fixed += ', user-scalable=yes';
       }
       if (fixed !== c) el.setAttribute('content', fixed);
+      return fixed;
     }
+
+    /*
+     * 还有一层不在 viewport 里：样式表写 touch-action:none / pan-y 时，
+     * 双指手势在浏览器默认行为之前就被吃掉，viewport 改得再对也捏不动。
+     * 用 auto 而不是 manipulation——后者会顺手把双击缩放也禁掉，
+     * 而双击放大恰恰是手机上最省事的那一手。
+     */
+    function unlockTouch() {
+      try {
+        if (document.getElementById('__pbTouchFix')) return;
+        var s = document.createElement('style');
+        s.id = '__pbTouchFix';
+        s.textContent =
+          'html,body{touch-action:auto !important;-ms-touch-action:auto !important}';
+        (document.head || document.documentElement).appendChild(s);
+      } catch (e) {}
+    }
+
+    var vp = document.querySelector('meta[name="viewport"]');
+    var result;
 
     if (vp) {
+      result = 'unlocked';
       unlock(vp);
-      return 'unlocked';
+    } else {
+      /* 已经试过并判定「不适合移动版」的，这次不再试，省一次重排 */
+      if (window.__pbVpGaveUp === location.href) return 'skip';
+      var m = document.createElement('meta');
+      m.setAttribute('name', 'viewport');
+      m.setAttribute('content',
+        'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes');
+      m.setAttribute('data-pb-injected', '1');
+      head.appendChild(m);
+      result = 'injected';
+
+      setTimeout(function () {
+        try {
+          var de = document.documentElement;
+          /* 横向被撑开说明这站是固定宽度的桌面版，硬套只会更难用 */
+          if (de.scrollWidth > (window.innerWidth || 360) * 1.15) {
+            m.parentNode && m.parentNode.removeChild(m);
+            window.__pbVpGaveUp = location.href;
+          }
+        } catch (e) {}
+      }, 300);
     }
 
-    /* 已经试过并判定「不适合移动版」的，这次不再试，省一次重排 */
-    if (window.__pbVpGaveUp === location.href) return 'skip';
+    unlockTouch();
 
-    var m = document.createElement('meta');
-    m.setAttribute('name', 'viewport');
-    m.setAttribute('content',
-      'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes');
-    m.setAttribute('data-pb-injected', '1');
-    head.appendChild(m);
+    /*
+     * 站点常在首屏渲染完、路由切换、懒加载之后重写 viewport，把刚改的覆盖回去。
+     * 只在 onPageFinished 改一次是不够的——实测模拟页每秒重写一次，3 秒后
+     * 就又变回 user-scalable=no 了，用户这时去捏合当然不动。
+     *
+     * 所以观察器不主动断开：它只监听 head 里的属性/节点变化，页面重写一次就
+     * 纠正一次，开销可以忽略（不是轮询）。页面整体销毁时随 DOM 一起回收。
+     * unlock 内部有「值没变就不写」的判断，不会被自己的写入再次触发成死循环。
+     */
+    try {
+      if (window.MutationObserver && !window.__pbVpObs) {
+        var root = document.head || document.documentElement;
+        var ob = new MutationObserver(function () {
+          var cur = document.querySelector('meta[name="viewport"]');
+          if (cur) unlock(cur);
+        });
+        ob.observe(root, {
+          attributes: true,
+          attributeFilter: ['content'],
+          childList: true,
+          subtree: true
+        });
+        window.__pbVpObs = ob;
+      }
+    } catch (e) {}
 
-    setTimeout(function () {
-      try {
-        var de = document.documentElement;
-        /* 横向被撑开说明这站是固定宽度的桌面版，硬套只会更难用 */
-        if (de.scrollWidth > (window.innerWidth || 360) * 1.15) {
-          m.parentNode && m.parentNode.removeChild(m);
-          window.__pbVpGaveUp = location.href;
-        }
-      } catch (e) {}
-    }, 300);
-    return 'injected';
+    var now = document.querySelector('meta[name="viewport"]');
+    return result + '|' + (now ? now.getAttribute('content') : 'none');
   } catch (e) {
     return 'err';
   }

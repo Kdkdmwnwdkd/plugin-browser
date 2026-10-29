@@ -31,8 +31,38 @@ class TabManager(
         fun onCurrentTabChanged(tab: Tab?)
     }
 
-    /** 由 BrowserFragment 注入：WebView 创建后配置客户端与 Bridge */
+    /**
+     * 由 BrowserFragment 注入：WebView 创建后配置客户端与 Bridge。
+     *
+     * 赋值时必须补配已有标签。冷启动从外部链接进来（微博、微信里点「用青鸢打开」）
+     * 的时序是：MainActivity.onCreate 先处理 VIEW intent → newTab，
+     * 而 Fragment 的 onViewCreated 排在后面。两边一错开，这里还是 null，
+     * WebView 就带着系统默认的 android.webkit.WebViewClient 跑起来了——
+     * 页面能正常显示，但历史、广告过滤、缩放修复、站点脚本一个都收不到回调。
+     * 用户看到的就是「这一页字特别小、还捏不大」。
+     */
     var webViewConfigurator: ((Tab, WebView) -> Unit)? = null
+        set(value) {
+            field = value
+            if (value == null || pendingConfig.isEmpty()) return
+            pendingConfig.toList().forEach { tab ->
+                pendingConfig.remove(tab)
+                if (!tab.usable) return@forEach
+                runCatching { value(tab, tab.webView) }
+                // onPageStarted 已经错过了，tab.url / 进度得手动补上，
+                // 否则地址栏空白、进度条一直挂在 0
+                runCatching {
+                    val live = tab.webView.url
+                    if (!live.isNullOrBlank() && !live.startsWith("about:")) tab.url = live
+                    tab.progress = tab.webView.progress
+                }
+            }
+        }
+
+    /** 配置器到位前就建好的标签，等它到位再补 */
+    private val pendingConfig = java.util.Collections.newSetFromMap(
+        java.util.WeakHashMap<Tab, Boolean>(),
+    )
 
     /**
      * 页面内的两个交互回调。
@@ -93,6 +123,12 @@ class TabManager(
             // 没有这一条，那些按 980px 排版的页面在手机上正文只有 6~8px，放大得靠捏合，
             // 捏合一次只放大一屏，翻页又得重来。
             textZoom = settings.pageTextZoom
+            // Android 11 起这三项默认全关，结果就是 file:///sdcard/xxx.html 直接报
+            // ERR_ACCESS_DENIED——用户从文件管理器点「用青鸢打开」只能看到一张错误页。
+            // 只放开「读」这一层：allowFileAccessFromFileURLs 与 universal 保持关闭，
+            // 所以 file 页面拿不到其他本地文件，也不会绕过同源去请求网络。
+            allowFileAccess = true
+            allowContentAccess = true
             setSupportMultipleWindows(true)
             // 弹窗必须由用户手势触发，避免广告页无手势批量开标签
             javaScriptCanOpenWindowsAutomatically = false
@@ -124,7 +160,8 @@ class TabManager(
         siteRules.applyTo(wv, url)
         sitePrefs.applyTo(wv, url)
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, settings.thirdPartyCookies)
-        webViewConfigurator?.invoke(tab, wv)
+        val cfg = webViewConfigurator
+        if (cfg != null) cfg(tab, wv) else pendingConfig.add(tab)
         tab.webView = wv
 
         tabs.add(tab)
@@ -210,6 +247,7 @@ class TabManager(
         if (index !in tabs.indices) return
         val tab = tabs[index]
         tab.alive = false
+        pendingConfig.remove(tab)
         EventLog.log("TAB", "close #${System.identityHashCode(tab)} left=${tabs.size - 1}")
         (tab.webView.parent as? ViewGroup)?.removeView(tab.webView)
         runCatching { tab.webView.destroy() }

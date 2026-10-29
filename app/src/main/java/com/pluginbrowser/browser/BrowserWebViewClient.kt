@@ -168,7 +168,8 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
-        val tab = owner.browserTabManager.findTab(view) ?: return
+        val tab = owner.browserTabManager.findTab(view)
+        if (tab == null) return
         // 错误页是用 loadDataWithBaseURL 加载的，WebView 会额外报一次 about:blank。
         // 如果连它一起写进 tab.url，地址栏就变成 about:blank，重试也会去重试空白页。
         if (!url.startsWith("data:") && url != "about:blank") {
@@ -211,7 +212,8 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
     }
 
     private fun handlePageFinished(view: WebView, url: String) {
-        val tab = owner.browserTabManager.findTab(view) ?: return
+        val tab = owner.browserTabManager.findTab(view)
+        if (tab == null) return
         tab.progress = 100
         EventLog.log("NAV", "done ${hostOf(url)}")
 
@@ -236,7 +238,7 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         injectAdBlockCss(view, url)
         injectBlockedElements(view, url)
         injectSiteGuards(view, url, tab)
-        injectViewportFix(view, url, tab)
+        injectViewportFix(view, url, tab, verbose = true)
         owner.onPageFinished(tab)
     }
 
@@ -246,10 +248,19 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
      * 桌面版模式不注：那时用户明确要的是 980px 的完整网站，
      * 再强行套移动 viewport 等于把页面拆了。
      */
-    private fun injectViewportFix(view: WebView, url: String, tab: Tab) {
+    private fun injectViewportFix(view: WebView, url: String, tab: Tab, verbose: Boolean = false) {
         if (!url.startsWith("http") || tab.readerMode) return
         if (owner.browserSettings.desktopUa) return
-        runCatching { view.evaluateJavascript(SiteScripts.VIEWPORT_FIX, null) }
+        runCatching {
+            view.evaluateJavascript(SiteScripts.VIEWPORT_FIX) { r ->
+                // 把「这一站改成了什么」记进事件日志。
+                // 以前注入失败是静悄悄的，用户说「这站放不大」，我只能靠猜是哪一环断了。
+                if (verbose) {
+                    val host = SiteRuleEngine.hostOf(url) ?: "?"
+                    EventLog.log("VP", "$host -> ${r?.trim()?.trim('"')}")
+                }
+            }
+        }
     }
 
     /**
@@ -278,6 +289,9 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         }
         injectAdBlockCss(view, url)
         injectBlockedElements(view, url)
+        // 首帧就把缩放权拿回来。等到 onPageFinished 才动手，站点已经用自己的
+        // viewport 排完版了，用户在那几百毫秒里捏合会觉得「怎么捏都不动」。
+        if (tab != null) injectViewportFix(view, url, tab)
     }
 
     /**
