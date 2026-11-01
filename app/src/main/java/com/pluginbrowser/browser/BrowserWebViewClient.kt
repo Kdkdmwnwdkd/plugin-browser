@@ -239,7 +239,21 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         injectBlockedElements(view, url)
         injectSiteGuards(view, url, tab)
         injectViewportFix(view, url, tab, verbose = true)
+        injectNight(view, url, tab)
         owner.onPageFinished(tab)
+    }
+
+    /**
+     * 网页夜间。
+     *
+     * 首帧和加载完成各注一次：首帧注是为了不白闪一下，
+     * 加载完成再补是因为有些站点会在 DOMContentLoaded 之后重设 body 背景。
+     * 阅读模式那页不注——它自己就按深色模式渲染，再反色会把配图中的颜色搞反。
+     */
+    private fun injectNight(view: WebView, url: String, tab: Tab) {
+        if (!url.startsWith("http") || tab.readerMode) return
+        if (!owner.browserSettings.nightMode) return
+        runCatching { view.evaluateJavascript(SiteScripts.NIGHT_ON, null) }
     }
 
     /**
@@ -292,6 +306,7 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         // 首帧就把缩放权拿回来。等到 onPageFinished 才动手，站点已经用自己的
         // viewport 排完版了，用户在那几百毫秒里捏合会觉得「怎么捏都不动」。
         if (tab != null) injectViewportFix(view, url, tab)
+        if (tab != null) injectNight(view, url, tab)
     }
 
     /**

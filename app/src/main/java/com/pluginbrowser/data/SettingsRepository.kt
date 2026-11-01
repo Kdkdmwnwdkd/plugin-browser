@@ -35,6 +35,16 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_THEME, "system")!!
         set(value) = prefs.edit().putString(KEY_THEME, value).apply()
 
+    /**
+     * 网页夜间：给页面整体套一层反色滤镜。
+     *
+     * 存成全局而不是每标签一个，是因为用户夜里浏览时不会希望「切个标签突然变白」。
+     * 打开新页面时由 WebViewClient 按这个值补注入。
+     */
+    var nightMode: Boolean
+        get() = prefs.getBoolean(KEY_NIGHT, false)
+        set(value) = prefs.edit().putBoolean(KEY_NIGHT, value).apply()
+
     /** 浏览器标识：default / quark / baidu。部分站点只对特定浏览器返回直链 */
     var uaPreset: String
         get() = prefs.getString(KEY_UA_PRESET, "default")!!
@@ -161,6 +171,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_TPC = "third_party_cookies"
         private const val KEY_DESKTOP_UA = "desktop_ua"
         private const val KEY_THEME = "theme"
+        private const val KEY_NIGHT = "night_mode"
         private const val KEY_UA_PRESET = "ua_preset"
         private const val KEY_GITHUB_ACCEL = "github_accel"
         private const val KEY_GITHUB_CATCH_PAGES = "github_catch_pages"

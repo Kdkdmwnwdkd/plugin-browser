@@ -31,6 +31,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         val translated: Boolean = false,
         val desktopUa: Boolean = false,
         val readerMode: Boolean = false,
+        val nightMode: Boolean = false,
         val plugins: List<Action> = emptyList(),
     )
 
@@ -153,6 +154,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
             if (state.readerMode) "退出阅读" else "阅读模式",
             null,
         )
+        listRow(listRow, "night", R.drawable.ic_night, "网页夜间", state.nightMode)
         listRow(listRow, "images", R.drawable.ic_image, "保存图片", null)
         listRow(listRow, "block_element", R.drawable.ic_block, "屏蔽页面元素", null)
         listRow(

@@ -30,6 +30,21 @@ class KiteWebView(context: Context) : WebView(context) {
     /** 选中文字后点了扩展项；text 是已经还原过转义的正文字符串 */
     var onSelectionAction: ((SelectionAction, String) -> Unit)? = null
 
+    /**
+     * 长按命中链接或图片。
+     *
+     * 返回 true 表示这一下已经被接管；返回 false 时把事件交回 WebView，
+     * 长按普通文字仍然走系统的选词菜单——选词是刚需，不能被自定义菜单顶掉。
+     */
+    var onLongPressHit: ((HitTestResult) -> Boolean)? = null
+
+    init {
+        setOnLongClickListener {
+            val hit = hitTestResult ?: return@setOnLongClickListener false
+            onLongPressHit?.invoke(hit) ?: false
+        }
+    }
+
     override fun startActionMode(callback: ActionMode.Callback?, type: Int): ActionMode? {
         if (callback == null) return super.startActionMode(null, type)
         return super.startActionMode(Wrapper(callback), type)

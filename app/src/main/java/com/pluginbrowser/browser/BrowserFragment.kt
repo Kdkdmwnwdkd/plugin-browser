@@ -1192,6 +1192,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                     translated = tabManager.currentTab()?.translated == true,
                     desktopUa = settings.desktopUa,
                     readerMode = tabManager.currentTab()?.readerMode == true,
+                    nightMode = settings.nightMode,
                     plugins = pluginActions,
                 )
                 onAction = { id -> handleMenuAction(id) }
@@ -1212,6 +1213,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             "refresh" -> reload()
             "translate" -> toggleTranslate()
             "reader" -> toggleReaderMode()
+            "night" -> toggleNightMode()
             "find" -> showFindBar()
             "share" -> shareCurrentUrl()
             "add_bookmark" -> showAddBookmarkDialog()
@@ -1286,6 +1288,140 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             putExtra(Intent.EXTRA_TEXT, url)
         }
         startActivity(Intent.createChooser(intent, getString(R.string.share_via)))
+    }
+
+    /**
+     * 网页夜间：换成开关后立刻对所有已打开的标签生效，不用刷新。
+     *
+     * 存全局而不是按标签存——夜里切标签，新标签突然白一下很刺眼。
+     * 新打开的页面由 WebViewClient 在加载完成时按这个值补注入。
+     */
+    private fun toggleNightMode() {
+        val on = !settings.nightMode
+        settings.nightMode = on
+        val js = if (on) SiteScripts.NIGHT_ON else SiteScripts.NIGHT_OFF
+        tabManager.tabs.forEach { tab ->
+            if (!tab.usable) return@forEach
+            runCatching { tab.webView.evaluateJavascript(js, null) }
+        }
+        toast(if (on) "网页夜间已开启" else "网页夜间已关闭")
+        refreshUi()
+    }
+
+    /* ---------------- 长按菜单 ---------------- */
+
+    /**
+     * 长按命中链接或图片时弹菜单。
+     *
+     * 只有「确实有东西可操作」才接管：命中普通文字必须立刻返回 false，
+     * 让 WebView 自己走选词——选词是手机上最高频的动作，不能被自定义菜单抢掉。
+     * 图片锚点（图包在链接里）按图片处理：用户长按一张可点的图，十次有九次是想存图。
+     */
+    private fun handleLongPress(hit: WebView.HitTestResult): Boolean {
+        val extra = hit.extra
+        if (extra.isNullOrBlank() || !extra.startsWith("http")) return false
+        return when (hit.type) {
+            WebView.HitTestResult.IMAGE_TYPE,
+            WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
+                showImageMenu(extra)
+                true
+            }
+            WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
+                showLinkMenu(extra)
+                true
+            }
+            else -> false
+        }
+    }
+
+    private fun showLinkMenu(url: String) {
+        showContextMenu(
+            heading = runCatching { Uri.parse(url).host }.getOrNull() ?: url,
+            items = listOf(
+                ContextMenuSheet.Item("open_new_tab", R.drawable.ic_open_in_new, "在新标签页打开"),
+                ContextMenuSheet.Item("copy_link", R.drawable.ic_link, "复制链接地址"),
+                ContextMenuSheet.Item("share_link", R.drawable.ic_share, "分享链接"),
+            ),
+        ) { id ->
+            when (id) {
+                "open_new_tab" -> tabManager.newTab(url = url)
+                "copy_link" -> copyText("链接", url)
+                "share_link" -> shareText(url)
+            }
+        }
+    }
+
+    private fun showImageMenu(url: String) {
+        showContextMenu(
+            heading = runCatching { Uri.parse(url).host }.getOrNull() ?: "图片",
+            items = listOf(
+                ContextMenuSheet.Item("save_image", R.drawable.ic_download, "保存图片"),
+                ContextMenuSheet.Item("copy_image", R.drawable.ic_link, "复制图片地址"),
+                ContextMenuSheet.Item("open_image", R.drawable.ic_open_in_new, "在新标签页打开"),
+                ContextMenuSheet.Item("share_image", R.drawable.ic_share, "分享图片链接"),
+            ),
+        ) { id ->
+            when (id) {
+                "save_image" -> saveImageUrl(url)
+                "copy_image" -> copyText("图片地址", url)
+                "open_image" -> tabManager.newTab(url = url)
+                "share_image" -> shareText(url)
+            }
+        }
+    }
+
+    private fun showContextMenu(
+        heading: String?,
+        items: List<ContextMenuSheet.Item>,
+        pick: (String) -> Unit,
+    ) {
+        if (requireActivity().supportFragmentManager.findFragmentByTag(ContextMenuSheet.TAG) != null) return
+        runCatching {
+            ContextMenuSheet().apply {
+                this.heading = heading
+                this.items = items
+                this.onPick = pick
+            }.show(requireActivity().supportFragmentManager, ContextMenuSheet.TAG)
+        }
+    }
+
+    /** Android 13 起系统自己有剪贴板浮层，再弹一个 toast 就是两条提示叠在一起 */
+    private fun copyText(label: String, text: String) {
+        val cm = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        cm.setPrimaryClip(ClipData.newPlainText(label, text))
+        if (android.os.Build.VERSION.SDK_INT < 33) toast("已复制$label")
+    }
+
+    private fun shareText(text: String) {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        startActivity(Intent.createChooser(intent, getString(R.string.share_via)))
+    }
+
+    /**
+     * 单张图片直接进下载队列。
+     *
+     * 走的是和「保存图片」同一套引擎（分片下载 + 落相册），
+     * 这样长按存图在弱网下也能续传，不会因为一张几 MB 的图失败就白点。
+     */
+    private fun saveImageUrl(url: String) {
+        val ctx = requireContext().applicationContext
+        val engine = DownloadEngine.get(ctx)
+        viewLifecycleOwner.lifecycleScope.launch {
+            val ok = runCatching {
+                engine.enqueue(PageImages.fileNameOf(url, 0), url, PageImages.mimeOf(url), -1)
+            }.isSuccess
+            runCatching {
+                if (ok) {
+                    DownloadService.start(ctx)
+                    toast("已加入下载队列")
+                } else {
+                    toast("加入队列失败，换个方式试试")
+                }
+            }
+        }
     }
 
     /* ---------------- 书签 ---------------- */
@@ -1845,6 +1981,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         (wv as? KiteWebView)?.onSelectionAction = { action, text ->
             manager.selectionActionHandler?.invoke(action, text)
         }
+        (wv as? KiteWebView)?.onLongPressHit = { hit -> handleLongPress(hit) }
         registerForContextMenu(wv)
     }
 

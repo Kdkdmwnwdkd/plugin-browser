@@ -280,6 +280,36 @@ object SiteScripts {
 """.trimIndent()
 
     /**
+     * 网页夜间：整体反色 + 色相转回，图片和视频再反一次恢复原色。
+     *
+     * 为什么不用「逐个元素改背景色」：那要遍历整棵 DOM，中文资讯页动辄几千节点，
+     * 一场遍历就是几百毫秒，期间页面是花的；反色是一次合成层操作，代价接近零。
+     * 代价是品牌色会变成互补色——夜里先保证看得清字。
+     *
+     * 用 id 当哨兵：重复注入直接返回，免得叠两层滤镜（叠两层等于没开）。
+     */
+    val NIGHT_ON: String = """
+(function () {
+  if (document.getElementById('__pb_night')) return 'on';
+  var st = document.createElement('style');
+  st.id = '__pb_night';
+  st.textContent = 'html{background:#fff !important;filter:invert(1) hue-rotate(180deg) !important;}' +
+    'img,picture,video,canvas,svg,embed,object,[style*="background-image"]{' +
+    'filter:invert(1) hue-rotate(180deg) !important;}';
+  (document.head || document.documentElement).appendChild(st);
+  return 'on';
+})()
+""".trimIndent()
+
+    val NIGHT_OFF: String = """
+(function () {
+  var st = document.getElementById('__pb_night');
+  if (st && st.parentNode) st.parentNode.removeChild(st);
+  return 'off';
+})()
+""".trimIndent()
+
+    /**
      * 正文提取。返回值就是结果：evaluateJavascript 会把它当成字符串再编码一层，
      * 所以这里返回 JSON.stringify 的结果，原生侧解码两次拿到对象。
      *
