@@ -2,8 +2,10 @@ package com.pluginbrowser.translate
 
 import android.os.Bundle
 import android.text.InputType
+import android.util.TypedValue
 import android.view.View
 import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.widget.doAfterTextChanged
@@ -28,7 +30,7 @@ class TranslateSettingsFragment : Fragment(R.layout.fragment_translate_settings)
 
     private val settings by lazy { TranslateSettings(requireContext()) }
 
-    private var provider: TranslateProvider = TranslateProvider.BAIDU
+    private var provider: TranslateProvider = TranslateProvider.TENCENT
     private var target: TranslateTarget = TranslateTarget.ZH
 
     private val inputs = linkedMapOf<TranslateProvider.Field, TextInputEditText>()
@@ -110,6 +112,24 @@ class TranslateSettingsFragment : Fragment(R.layout.fragment_translate_settings)
         }
 
         (providerHelp as android.widget.TextView).text = provider.help
+
+        // 没有字段的供应商（内置免费源）如果什么都不放，设置页上方会空出一块，
+        // 看起来像加载失败。补一句说明，让人知道"这样就是对的"。
+        if (provider.fields.isEmpty()) {
+            fieldsContainer.addView(
+                TextView(requireContext()).apply {
+                    text = getString(R.string.translate_no_config_needed)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                    setPadding(0, dp(2), 0, dp(10))
+                    setTextColor(
+                        com.google.android.material.color.MaterialColors.getColor(
+                            this,
+                            com.google.android.material.R.attr.colorPrimary,
+                        ),
+                    )
+                },
+            )
+        }
     }
 
     private fun persist() {

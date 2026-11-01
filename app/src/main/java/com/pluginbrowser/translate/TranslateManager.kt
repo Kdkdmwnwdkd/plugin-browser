@@ -26,6 +26,11 @@ class TranslateManager(context: Context) {
 
     fun providerLabel(): String = settings.provider.label
 
+    /** 一键切到内置免费源。用户没配过任何密钥时就该走这条路，而不是被推去注册账号 */
+    fun useBuiltIn() {
+        settings.provider = TranslateProvider.TENCENT
+    }
+
     suspend fun translatePage(
         webView: WebView,
         onProgress: (done: Int, total: Int) -> Unit,
@@ -82,8 +87,40 @@ class TranslateManager(context: Context) {
             }
 
             Result.success(applied)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // 用户中途点了取消。这不是失败，别弹「翻译失败：Job was cancelled」
+            throw e
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(friendly(e))
+        }
+    }
+
+    /**
+     * 把底层异常翻成人话。
+     *
+     * 不做这层转换的话，用户看到的是这样一坨：
+     * 「翻译失败：javax.net.ssl.SSLHandshakeException: java.security.cert.
+     * CertificateExpiredException: Certificate expired at Wed Oct 11 …」
+     * 一长串英文，既看不懂也做不了任何事。而真实原因往往简单得离谱——
+     * 手机日期停在两年前，或者根本没连上网。
+     */
+    private fun friendly(e: Exception): Exception {
+        val all = buildString {
+            var t: Throwable? = e
+            var guard = 0
+            while (t != null && guard++ < 6) {
+                append(t.message.orEmpty()).append(' ')
+                t = t.cause
+            }
+        }.lowercase()
+        return when {
+            all.contains("certificate expired") || all.contains("certificateexpire") ->
+                IOException("手机的系统时间不对——翻译服务返回的证书显示已经过期。把日期时间改回「自动」再试")
+            all.contains("unable to resolve host") || all.contains("unknownhost") ->
+                IOException("连不上翻译服务，检查一下网络")
+            all.contains("timeout") || all.contains("timed out") ->
+                IOException("翻译服务响应超时，稍后再试")
+            else -> e
         }
     }
 
@@ -120,6 +157,8 @@ class TranslateManager(context: Context) {
     private fun requestGap(): Long = when (settings.provider) {
         TranslateProvider.BAIDU -> 1_100L
         TranslateProvider.LIBRE -> 400L
+        // 内置免费源是别人的公开接口，别把节奏压到贴着人家底线跑
+        TranslateProvider.TENCENT -> 320L
         else -> 250L
     }
 

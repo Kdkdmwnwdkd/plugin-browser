@@ -1,13 +1,13 @@
 {
-  "versionCode": 46,
-  "versionName": "2.9.3",
-  "size": 9002145,
-  "sha256": "8186d531936abb4f1dea2c9873e5a3b0ce658a7a0623b1bf423125c110819895",
-  "notes": "2.9.3：图片一张都不下，想看的点一下\n\n无图模式。三档：始终加载 / 仅 Wi-Fi 加载 / 不加载。\n\n【为什么是在请求层拦】\n\n最常见的那种「无图模式」是把 img 藏起来或者设成 1 像素，图片照样下载完，\n只是你看不见——那不叫省流量，那叫省眼睛。地铁里、月底流量快见底的时候，\n要的是那几百 KB 根本不发出去。\n\n所以拦截点放在 shouldInterceptRequest：这是唯一能在请求发出之前叫停的位置。\n命中的请求直接返回一张 1 像素透明 GIF。\n\n为什么返回图片而不是 204 / 空响应：部分站点给 img 挂了 onerror 兜底，\n空响应会触发它们疯狂重试，反倒更费流量。给它一张合法的透明图，什么都不发生。\n\n【为什么不直接用 loadsImagesAutomatically】\n\nWebView 自带这个开关，一行就关掉全部图片，确实真省流量。\n但它是「全有或全无」：关掉之后没有哪张图能被单独放出来，\n用户想看一眼封面只能先关模式、再整页刷新，看完再开回来。\n\n现在点一下被挡住的图，就只加载这一张，别的还是灰的。\n做法是页面把地址回传给原生进白名单，下一次同地址请求放行。\n没有在 URL 后面挂参数再在拦截里剥掉——那样得自己重建整个请求，\nCookie、Referer、UA、压缩协商全要手工搬一遍，出问题的面比省下的代码大。\n\n【占位长什么样】\n\n灰底 + 一个居中的图片图标，尺寸沿用图片原来的占位高度。\n第一版是直接留白，结果正文里凭空空出一大块，看起来像排版坏了。\n现在一眼能看出「这里本来有张图，是我不让它下」。\n\n顺带处理了三件实际会踩的事：\n\n  · 懒加载站点\n    src 常年是 data: 占位图，真实地址在 data-src / data-original / data-lazy-src 上。\n    取地址时按懒加载属性优先，先碰到 http(s) 的才算。\n\n  · picture / source\n    只清 img 的 src 不够，source 的 srcset 还会让浏览器自己去挑一张下。\n    一并摘掉。\n\n  · 动态插入的图\n    瀑布流、无限滚动是一次次 append 出来的，只在加载完成时扫一遍会漏。\n    挂一个 MutationObserver 盯着。\n\n【仅 Wi-Fi 用的是「计费网络」而不是「是不是 Wi-Fi」】\n\n手机热点、按流量计费的家庭宽带，都会被判成计费网络——那正是用户说\n「别耗我流量」时想省的那一类。\n\n【两个刻意的例外】\n\n  · 主文档永远不拦\n    判断失手把 HTML 换成 1 像素 GIF，用户看到的就是白屏。\n\n  · 站点里单独设过「加载图片」的，听站点的\n    那个开关是用户明确表过态的，被全局无图盖掉就等于它是假的。\n\n【入口】\n\n功能面板新增一行「无图模式 · 当前档位」，点开是三选一；\n设置 → 浏览 → 无图模式 也有同一份，改完立即刷新当前页。\n\n【验证】\n\n模拟器 Android 11，本地起页面测了四种状态：\n\n  · 始终加载 → 图片正常\n  · 不加载 → 三张图全部变灰块，正文排版不动\n  · 点第一张 → 只有它恢复，下面那张还是灰的\n  · 切回始终加载 → 刷新后全部恢复\n\n页面脚本另外用 jsdom 跑了 16 条断言（占位、懒加载取址、picture、\n动态插入、点击放行、二次点击不拦、关闭后还原）。\n类型判断补了 7 个单元测试，合计 85 个全过。\n签名未变（771ee50c…），覆盖安装即可。\n\n【已知边界】\n\n  · iframe 里的图会被拦，但拿不到占位——那片区域是空白\n  · 背景图、图标、雪碧图一并挡掉，这是无图模式该有的样子，只是有些页面会难看\n  · 极少数站点用 canvas 画图，拦不到\n  · 点图片会阻止原本的链接跳转（第一意图是看图；再点一次就正常跳）\n",
+  "versionCode": 47,
+  "versionName": "2.9.4",
+  "size": 8836674,
+  "sha256": "39eca34328ceccd8d4916e159face3ead8720666b4f087e7ef5ac916679c4c1b",
+  "notes": "2.9.4：翻译不用再申请 key 了\n\n之前四家翻译引擎全要自己去弄密钥：注册账号、实名认证、找控制台、\n复制一长串字符、粘进来还得小心全角空格。走完这一趟的人才有资格点「翻译」——\n大多数人走到第二步就放弃了，所以这个功能对绝大多数用户等于不存在。\n\n现在默认走内置免费源，装上就能翻，不需要填任何东西。\n\n【为什么选腾讯交互翻译】\n\n整页翻译要的是「一次给我几十段、顺序不能乱」。很多免费接口一次只收一句，\n翻一篇文章要发几十个请求，慢且容易被限流。这个接口收 text_list，\n一次回等长数组，正好对上 2.9.0 之后整页翻译的分批逻辑。\n\n另外两点：国内直连，不用挂代理；中英日韩四种目标语言都在。\n\nclient_key 只是格式合法的标识串，服务端不校验来源，每次安装随机生成一个，\n不硬编码别人的。\n\n【没有 key 的代价】\n\n不承诺额度，也不承诺哪天不关。所以它只是「默认」，不是「唯一」——\n设置里原来那四家一个没删，要质量或要稳定随时换，只改一个下拉框。\n\n【顺手改的三件】\n\n· 翻译进度框现在能取消\n  长文章几十段、免费源还要按段限速，翻完可能要十几秒。原来这个框\n  点不掉也戳不穿，中途想停下来只能退到后台——给人的感觉就是卡死了。\n  取消会真的中断请求，不会继续偷偷跑完再提示。\n\n· 错误提示改成说人话\n  原来失败弹的是「javax.net.ssl.SSLHandshakeException:\n  java.security.cert.CertificateExpiredException: Certificate expired at ...」，\n  一长串英文堆在 toast 里。现在分成三类：手机系统时间不对（证书过期）、\n  连不上、超时，各自给一句能照着做的事。\n\n  （这条是实测时真撞上的：模拟器时钟停在两年后，所有 HTTPS 全部失败，\n  而界面上完全看不出是时间的问题。）\n\n· 功能面板顺序\n  无图模式和阅读模式提到最上面。面板内容超一屏，底部几行要滚动才看得到，\n  而这两个是日常最常改的开关；桌面版 UA 反而用得少，沉下去。\n\n【验证】\n\n模拟器 Android 11，本地放了一篇 18 段的英文文章，逐段检查：\n\n· 未经任何配置，点「翻译」直接出中文，没有弹配置引导\n· 18 段分成两批（11 段 + 7 段），各自返回，译文按原顺序回填\n· 标题、小标题、正文、列表项、引用块都翻到了，排版不变\n· 再点一次是「还原原文」，能干净地退回英文\n· 单测 91 个全过（新增 6 个，钉住「默认必须是内置源」这条，\n  免得哪天有人觉得百度是主力又把它改回默认）\n\n【已知边界】\n\n· 免费源不保证额度与稳定，量大或要求高就换回带 key 的\n· byline 里的「By」也会被一起翻成「通过」，这是逐段翻译的固有代价\n· 页面类型判断不了时会连代码块一起翻，不常见但会遇到\n· 超长页面分批时每批之间限速 320ms，越长的页面等得越久，这是刻意的\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.3/Kite-2.9.3-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.3/Kite-2.9.3-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.3/Kite-2.9.3-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.4/Kite-2.9.4-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.4/Kite-2.9.4-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.4/Kite-2.9.4-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

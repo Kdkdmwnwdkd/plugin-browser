@@ -13,6 +13,16 @@ enum class TranslateProvider(
     val fields: List<Field>,
     val help: String,
 ) {
+    /**
+     * 内置免费源。没有配置项——这是它存在的全部理由。
+     *
+     * 之前四家全要自己去申请 key：注册、实名、找控制台、复制一长串，
+     * 走完这一趟的人才有资格用「翻译」这个按钮。绝大多数人走到第二步就放弃了。
+     */
+    TENCENT("tencent", "内置免费（腾讯）", emptyList(),
+        "无需配置，装上就能用。走腾讯交互翻译的公开接口，不保证额度与服务稳定性；" +
+            "对质量或速度有要求时再换下面任意一家。"),
+
     BAIDU("baidu", "百度大模型翻译", listOf(
         Field("appid", "APPID", "控制台 → 开发者信息，17 位数字"),
         Field("secret", "密钥", "同页的「密钥」，不是 API Key。建议长按粘贴而不是手打", secret = true),
@@ -41,8 +51,14 @@ enum class TranslateProvider(
     )
 
     companion object {
+        /**
+         * 默认走内置免费源。
+         *
+         * 默认值决定新用户第一次点「翻译」看到什么：落到百度就是弹一句
+         * 「请先去申请 key」，落到这里就是真的翻出来。要翻墙、要注册的东西不能当默认。
+         */
         fun of(id: String?): TranslateProvider =
-            entries.firstOrNull { it.id == id } ?: BAIDU
+            entries.firstOrNull { it.id == id } ?: TENCENT
     }
 }
 

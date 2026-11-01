@@ -83,6 +83,7 @@ import com.pluginbrowser.translate.TranslateSettingsFragment
 import com.pluginbrowser.ui.BookmarksFragment
 import com.pluginbrowser.util.AddressSubmit
 import com.pluginbrowser.util.UrlUtils
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -519,8 +520,11 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         if (!translateManager.isConfigured()) {
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.translate_need_config)
-                .setMessage(R.string.translate_need_config_msg)
-                .setNegativeButton(R.string.cancel, null)
+                .setMessage(getString(R.string.translate_need_config_msg, translateManager.providerLabel()))
+                .setNegativeButton(R.string.translate_use_builtin) { _, _ ->
+                    translateManager.useBuiltIn()
+                    toggleTranslate()
+                }
                 .setPositiveButton(R.string.translate_go_settings) { _, _ ->
                     openScreen(TranslateSettingsFragment())
                 }
@@ -540,14 +544,17 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         val content = layoutInflater.inflate(R.layout.dialog_translate_progress, null)
         val status = content.findViewById<TextView>(R.id.translate_status)
         val bar = content.findViewById<ProgressBar>(R.id.translate_progress)
+        // 长文章几十段、内置免费源还要按段限速，整页翻完可能要十几秒。
+        // 原来这个框点不掉也戳不穿，中途想停下来只能退到后台——给人的感觉是卡死了。
+        var job: Job? = null
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.menu_translate)
             .setView(content)
-            .setCancelable(false)
+            .setNegativeButton(R.string.cancel) { _, _ -> job?.cancel() }
             .create()
         dialog.show()
 
-        lifecycleScope.launch {
+        job = lifecycleScope.launch {
             val result = translateManager.translatePage(webView) { done, total ->
                 bar.progress = if (total == 0) 0 else done * 100 / total
                 status.text = getString(R.string.translate_progress, done, total)

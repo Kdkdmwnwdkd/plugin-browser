@@ -28,12 +28,77 @@ object Translators {
             settings.value(provider, provider.fields.first { it.key == key })
 
         return when (provider) {
+            TranslateProvider.TENCENT -> tencent(texts, target)
             TranslateProvider.BAIDU -> baidu(field("appid"), field("secret"), texts, target)
             TranslateProvider.CAIYUN -> caiyun(field("token"), texts, target)
             TranslateProvider.OPENAI -> openAi(field("base"), field("key"), field("model"), texts, target)
             TranslateProvider.LIBRE -> libre(field("url"), field("key"), texts, target)
         }
     }
+
+    /* ---------------- 内置免费：腾讯交互翻译 ---------------- */
+
+    /**
+     * 腾讯交互翻译的公开接口，Edge/QQ 浏览器那类「内置翻译」走的也是它。
+     *
+     * 它接受一个 text_list，一次返回等长数组——这正是整页翻译需要的形态，
+     * 不像那些只能一次一句的接口，翻一篇文章要发几十个请求。
+     *
+     * client_key 只是个格式合法的标识串（浏览器名 + 版本 + 随机后缀），
+     * 服务端不校验来源，所以每次安装随机生成一个即可，不必硬编码别人的。
+     */
+    private fun tencent(texts: List<String>, target: TranslateTarget): List<String> {
+        val body = JSONObject()
+            .put(
+                "header",
+                JSONObject()
+                    .put("fn", "auto_translation")
+                    .put("client_key", tencentClientKey()),
+            )
+            .put("type", "plain")
+            .put("model_category", "normal")
+            .put("text_domain", "")
+            .put("source", JSONObject().put("lang", "auto").put("text_list", JSONArray(texts)))
+            .put("target", JSONObject().put("lang", target.code))
+
+        val resp = postJson(
+            TENCENT_URL,
+            body.toString(),
+            mapOf("Referer" to "https://transmart.qq.com/"),
+        )
+        val json = JSONObject(resp)
+        val code = json.optJSONObject("header")?.optString("ret_code").orEmpty()
+        if (code != "succ") {
+            throw IOException("腾讯翻译返回失败（${code.ifBlank { "无返回码" }}）：${resp.take(200)}")
+        }
+        val array = json.optJSONArray("auto_translation")
+            ?: throw IOException("腾讯翻译返回缺少译文：${resp.take(200)}")
+        val out = ArrayList<String>(array.length())
+        for (i in 0 until array.length()) out.add(array.optString(i))
+        if (out.size != texts.size) {
+            throw IOException("腾讯翻译返回段数不一致（${out.size}/${texts.size}）")
+        }
+        // 同一句重复出现的段落，服务端偶尔会回空串。空串会把原文抹掉，
+        // 这里退回原文——宁可留一行没翻的，也不能让整段消失。
+        return out.mapIndexed { index, s -> s.ifBlank { texts[index] } }
+    }
+
+    private fun tencentClientKey(): String {
+        val key = synchronized(TENCENT_KEY_LOCK) {
+            tencentKey ?: run {
+                val suffix = (1..16).map { HEX[(Math.random() * 16).toInt()] }.joinToString("")
+                "browser-chrome-120.0.0.0-$suffix".also { tencentKey = it }
+            }
+        }
+        return key
+    }
+
+    private const val TENCENT_URL = "https://transmart.qq.com/api/imt"
+    private const val HEX = "0123456789abcdef"
+    private val TENCENT_KEY_LOCK = Any()
+
+    @Volatile
+    private var tencentKey: String? = null
 
     /* ---------------- 百度大模型翻译 ---------------- */
 

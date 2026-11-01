@@ -179,7 +179,9 @@
     <string name="translate_failed">翻译失败：%1$s</string>
     <string name="translate_restored">已还原原文</string>
     <string name="translate_need_config">还没有配置翻译服务</string>
-    <string name="translate_need_config_msg">去设置里选一个供应商，填入密钥即可。以后想换供应商也在这里改，不需要重新装包。</string>
+    <string name="translate_need_config_msg">当前选的「%1$s」还缺密钥。可以直接用内置免费源——不需要注册、不需要填任何东西。</string>
+    <string name="translate_use_builtin">用内置免费源</string>
+    <string name="translate_no_config_needed">这一项不需要填写任何内容，直接选目标语言就能用。</string>
     <string name="translate_go_settings">去设置</string>
     <string name="settings_plugins">插件管理</string>
     <string name="settings_plugins_summary">查看、开关或导入插件（含内置的阅读模式、夜间模式）</string>

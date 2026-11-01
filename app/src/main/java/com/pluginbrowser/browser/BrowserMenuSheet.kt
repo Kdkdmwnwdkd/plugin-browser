@@ -148,7 +148,10 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
             state.plugins.forEach { cell(pluginRow, it) }
         }
 
-        listRow(listRow, "desktop", R.drawable.ic_desktop, getString(R.string.menu_desktop_ua), state.desktopUa)
+        // 列表区会超出一屏，靠前的才是「一眼能看见、不用往下翻」的位置。
+        // 无图模式和阅读模式是日常最常改的两个开关，所以排在最上面；
+        // 桌面版 UA 属于偶尔用一次，沉到后面去。
+        listRow(listRow, "image_mode", R.drawable.ic_image_off, "无图模式 · ${state.imageLabel}", null)
         listRow(
             listRow,
             "reader",
@@ -157,9 +160,9 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
             null,
         )
         listRow(listRow, "night", R.drawable.ic_night, "网页夜间", state.nightMode)
-        listRow(listRow, "image_mode", R.drawable.ic_image_off, "无图模式 · ${state.imageLabel}", null)
         listRow(listRow, "images", R.drawable.ic_image, "保存图片", null)
         listRow(listRow, "block_element", R.drawable.ic_block, "屏蔽页面元素", null)
+        listRow(listRow, "desktop", R.drawable.ic_desktop, getString(R.string.menu_desktop_ua), state.desktopUa)
         listRow(
             listRow,
             "diag",

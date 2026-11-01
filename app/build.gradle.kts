@@ -11,8 +11,8 @@ android {
         applicationId = "com.pluginbrowser"
         minSdk = 24
         targetSdk = 34
-        versionCode = 46
-        versionName = "2.9.3"
+        versionCode = 47
+        versionName = "2.9.4"
     }
 
     signingConfigs {
