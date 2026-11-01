@@ -56,6 +56,19 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_AUTO_HIDE_TOOLBAR, true)
         set(value) = prefs.edit().putBoolean(KEY_AUTO_HIDE_TOOLBAR, value).apply()
 
+    /**
+     * 无图模式：always / wifi / never。
+     *
+     * 拦截在请求层，不在 CSS 层——把图片藏起来流量照样走完，那不叫省流量。
+     * 存全局而不是按站点：用户开这个模式通常是因为「这个月流量快没了」，
+     * 而不是「这个站我不要图」，逐站去设反而漏。
+     */
+    var imageMode: String
+        get() = prefs.getString(KEY_IMAGE_MODE, IMAGE_ALWAYS)!!
+        set(value) =
+            prefs.edit().putString(KEY_IMAGE_MODE, value.takeIf { it in IMAGE_MODES } ?: IMAGE_ALWAYS)
+                .apply()
+
     /** 浏览器标识：default / quark / baidu。部分站点只对特定浏览器返回直链 */
     var uaPreset: String
         get() = prefs.getString(KEY_UA_PRESET, "default")!!
@@ -166,6 +179,11 @@ class SettingsRepository(context: Context) {
     companion object {
         const val DEFAULT_HOME = "file:///android_asset/home.html"
 
+        const val IMAGE_ALWAYS = "always"
+        const val IMAGE_WIFI = "wifi"
+        const val IMAGE_NEVER = "never"
+        private val IMAGE_MODES = setOf(IMAGE_ALWAYS, IMAGE_WIFI, IMAGE_NEVER)
+
         const val UA_QUARK =
             "Mozilla/5.0 (Linux; U; Android 13; zh-CN; SM-G9910 Build/TP1A.220624.014) " +
                 "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/111.0.0.0 " +
@@ -184,6 +202,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_THEME = "theme"
         private const val KEY_NIGHT = "night_mode"
         private const val KEY_AUTO_HIDE_TOOLBAR = "auto_hide_toolbar"
+        private const val KEY_IMAGE_MODE = "image_mode"
         private const val KEY_UA_PRESET = "ua_preset"
         private const val KEY_GITHUB_ACCEL = "github_accel"
         private const val KEY_GITHUB_CATCH_PAGES = "github_catch_pages"

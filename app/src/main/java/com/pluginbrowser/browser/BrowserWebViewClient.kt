@@ -51,6 +51,9 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         /** 用户自己点出来的元素屏蔽规则 */
         val elementBlocker: com.pluginbrowser.site.ElementBlocker
 
+        /** 无图模式：在请求层挡掉图片，并负责单张放行 */
+        val imageGate: ImageGate
+
         /** 拦掉了一次 App 跳转，交给界面提示用户「留在网页里了」 */
         fun onAppJumpBlocked(host: String)
 
@@ -243,17 +246,11 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         injectSiteGuards(view, url, tab)
         injectViewportFix(view, url, tab, verbose = true)
         injectNight(view, url, tab)
+        injectImages(view, url, tab)
         injectScrollReport(view, url, tab)
         owner.onPageFinished(tab)
     }
 
-    /**
-     * 网页夜间。
-     *
-     * 首帧和加载完成各注一次：首帧注是为了不白闪一下，
-     * 加载完成再补是因为有些站点会在 DOMContentLoaded 之后重设 body 背景。
-     * 阅读模式那页不注——它自己就按深色模式渲染，再反色会把配图中的颜色搞反。
-     */
     /**
      * 滚动位置上报。
      *
@@ -267,6 +264,26 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         runCatching { view.evaluateJavascript(SiteScripts.SCROLL_REPORT, null) }
     }
 
+    /**
+     * 无图模式的页面侧：占位块 + 单张点击放行。
+     *
+     * 关掉档位时要反向注一次把图放回去，所以这里不是「开了才注」，
+     * 而是「每次加载都告诉页面当前该开还是该关」——页面脚本自己带哨兵，
+     * 重复注入是空操作。
+     */
+    private fun injectImages(view: WebView, url: String, tab: Tab) {
+        if (!url.startsWith("http") || tab.readerMode) return
+        val js = if (owner.imageGate.saving) SiteScripts.IMAGE_BLOCK else SiteScripts.IMAGE_UNBLOCK
+        runCatching { view.evaluateJavascript(js, null) }
+    }
+
+    /**
+     * 网页夜间。
+     *
+     * 首帧和加载完成各注一次：首帧注是为了不白闪一下，
+     * 加载完成再补是因为有些站点会在 DOMContentLoaded 之后重设 body 背景。
+     * 阅读模式那页不注——它自己就按深色模式渲染，再反色会把配图中的颜色搞反。
+     */
     private fun injectNight(view: WebView, url: String, tab: Tab) {
         if (!url.startsWith("http") || tab.readerMode) return
         if (!owner.browserSettings.nightMode) return
@@ -324,6 +341,7 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         // viewport 排完版了，用户在那几百毫秒里捏合会觉得「怎么捏都不动」。
         if (tab != null) injectViewportFix(view, url, tab)
         if (tab != null) injectNight(view, url, tab)
+        if (tab != null) injectImages(view, url, tab)
         if (tab != null) injectScrollReport(view, url, tab)
     }
 
@@ -360,6 +378,10 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
     ): WebResourceResponse? {
         // 嗅探媒体资源（内部只做后缀判断，开销很小）
         ResourceSniffer.record(request.url.toString())
+
+        // 无图模式排在最前：一张图都别让它发出去，也就省得后面的插件和通道白忙。
+        // 这里不写 NetTrace：一个页面上百张图，写进去只会把诊断面板冲成清一色的「无图」。
+        if (owner.imageGate.shouldBlock(request)) return ImageGate.blankResponse()
 
         val plugins = owner.browserPluginManager.enabledNativePlugins()
         for (i in plugins.indices) {

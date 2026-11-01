@@ -97,6 +97,14 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     /* ---------------- 依赖 ---------------- */
 
     private val settings by lazy { SettingsRepository(requireContext()) }
+
+    /**
+     * 无图模式。整个浏览器共用一份：白名单是「用户刚点开看的那张图」，
+     * 跟着页面走而不是跟着标签走，切换标签回来还在。
+     */
+    override val imageGate: ImageGate by lazy {
+        ImageGate(requireContext(), settings) { host -> sitePreferences.images(host) == true }
+    }
     private val store by lazy { BrowserStore(requireContext()) }
     private val pluginManager: PluginManager
         get() = PluginBrowserApp.from(requireContext()).pluginManager
@@ -1289,6 +1297,18 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         showToolbars()
     }
 
+    /** 设置页改完无图档位：清白名单，按新档位重画一次，再刷当前页 */
+    fun onImageModeChanged() {
+        if (!isAdded) return
+        imageGate.reset()
+        val js = if (imageGate.saving) SiteScripts.IMAGE_BLOCK else SiteScripts.IMAGE_UNBLOCK
+        tabManager.tabs.forEach { tab ->
+            if (!tab.usable) return@forEach
+            runCatching { tab.webView.evaluateJavascript(js, null) }
+        }
+        reload()
+    }
+
     private fun applyChromeVisibility(hide: Boolean) {
         if (hide == chromeHidden) return
         val root = view as? ConstraintLayout ?: return
@@ -1344,6 +1364,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                     desktopUa = settings.desktopUa,
                     readerMode = tabManager.currentTab()?.readerMode == true,
                     nightMode = settings.nightMode,
+                    imageLabel = imageModeLabel(),
                     plugins = pluginActions,
                 )
                 onAction = { id -> handleMenuAction(id) }
@@ -1365,6 +1386,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             "translate" -> toggleTranslate()
             "reader" -> toggleReaderMode()
             "night" -> toggleNightMode()
+            "image_mode" -> showImageModeDialog()
             "find" -> showFindBar()
             "share" -> shareCurrentUrl()
             "add_bookmark" -> showAddBookmarkDialog()
@@ -1457,6 +1479,58 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         }
         toast(if (on) "网页夜间已开启" else "网页夜间已关闭")
         refreshUi()
+    }
+
+    /* ---------------- 无图模式 ---------------- */
+
+    private fun imageModeLabel(): String = when (settings.imageMode) {
+        SettingsRepository.IMAGE_NEVER -> "不加载"
+        SettingsRepository.IMAGE_WIFI -> "仅 Wi-Fi"
+        else -> "关闭"
+    }
+
+    /**
+     * 三档而不是开关：地铁里想全关、在家想「Wi-Fi 下随便看」，
+     * 这两种需求都很常见，只给一个开关会逼人反复进出菜单。
+     */
+    private fun showImageModeDialog() {
+        val modes = arrayOf(
+            SettingsRepository.IMAGE_ALWAYS,
+            SettingsRepository.IMAGE_WIFI,
+            SettingsRepository.IMAGE_NEVER,
+        )
+        val labels = arrayOf("始终加载", "仅 Wi-Fi 加载", "不加载（省流量）")
+        val current = modes.indexOf(settings.imageMode).coerceIn(0, modes.size - 1)
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("无图模式")
+            .setSingleChoiceItems(labels, current) { dialog, which ->
+                dialog.dismiss()
+                applyImageMode(modes[which])
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun applyImageMode(mode: String) {
+        if (settings.imageMode == mode) return
+        settings.imageMode = mode
+        imageGate.reset()
+        val saving = imageGate.saving
+        val js = if (saving) SiteScripts.IMAGE_BLOCK else SiteScripts.IMAGE_UNBLOCK
+        tabManager.tabs.forEach { tab ->
+            if (!tab.usable) return@forEach
+            runCatching { tab.webView.evaluateJavascript(js, null) }
+        }
+        toast(
+            when {
+                mode == SettingsRepository.IMAGE_ALWAYS -> "已恢复加载图片"
+                mode == SettingsRepository.IMAGE_WIFI && saving -> "当前在移动网络，图片暂不加载"
+                mode == SettingsRepository.IMAGE_WIFI -> "已在 Wi-Fi 下，图片照常加载"
+                else -> "无图模式已开启，图片不再下载"
+            },
+        )
+        // 已经发出并拿到 1 像素 GIF 的那些图，白名单救不回来，只能重新取一遍
+        reload()
     }
 
     /* ---------------- 长按菜单 ---------------- */
@@ -2130,6 +2204,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         )
         wv.addJavascriptInterface(bridge, JsBridge.JS_NAME)
         wv.addJavascriptInterface(ElementPickerBridge(tabManager), "__pbPicker")
+        // 只暴露一个 allow(url)：页面能做的只有「把某张图放行」，没有别的口子
+        wv.addJavascriptInterface(ImageGateBridge(imageGate), "__pbImg")
         val manager = tabManager
         (wv as? KiteWebView)?.onSelectionAction = { action, text ->
             manager.selectionActionHandler?.invoke(action, text)

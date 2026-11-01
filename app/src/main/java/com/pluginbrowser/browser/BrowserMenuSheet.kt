@@ -32,6 +32,8 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         val desktopUa: Boolean = false,
         val readerMode: Boolean = false,
         val nightMode: Boolean = false,
+        /** 无图模式的当前档位文案（关闭 / 仅 Wi-Fi / 不加载） */
+        val imageLabel: String = "关闭",
         val plugins: List<Action> = emptyList(),
     )
 
@@ -155,6 +157,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
             null,
         )
         listRow(listRow, "night", R.drawable.ic_night, "网页夜间", state.nightMode)
+        listRow(listRow, "image_mode", R.drawable.ic_image_off, "无图模式 · ${state.imageLabel}", null)
         listRow(listRow, "images", R.drawable.ic_image, "保存图片", null)
         listRow(listRow, "block_element", R.drawable.ic_block, "屏蔽页面元素", null)
         listRow(

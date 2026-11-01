@@ -104,6 +104,18 @@
         <item>baidu</item>
     </string-array>
 
+    <string-array name="image_mode_entries">
+        <item>始终加载</item>
+        <item>仅 Wi-Fi 加载</item>
+        <item>不加载（省流量）</item>
+    </string-array>
+
+    <string-array name="image_mode_values">
+        <item>always</item>
+        <item>wifi</item>
+        <item>never</item>
+    </string-array>
+
     <string-array name="text_zoom_entries">
         <item>标准（100%）</item>
         <item>大一点（115%）</item>

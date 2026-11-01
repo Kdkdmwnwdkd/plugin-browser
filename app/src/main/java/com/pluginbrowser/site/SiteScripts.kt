@@ -356,6 +356,140 @@ object SiteScripts {
 """.trimIndent()
 
     /**
+     * 无图模式的页面侧：给被挡住的图一个体面的占位，并允许点一下单独放行。
+     *
+     * 真正省流量的是原生侧的 shouldInterceptRequest（返回 1 像素 GIF），
+     * 这里负责两件原生做不到的事：
+     * 1) 把「1 像素透明」变成看得懂的灰色占位块，而不是让正文里凭空塌出空白；
+     * 2) 用户点哪张就把哪张的地址回传给原生加白，只加载这一张。
+     *
+     * 懒加载站点的 src 常年是 data: 占位图，真实地址在 data-src / data-original 上，
+     * 所以取地址时按「懒加载属性优先」的顺序找，先碰到 http(s) 的才算。
+     */
+    val IMAGE_BLOCK: String = """
+(function () {
+  if (window.__pbImgSave) return 'already';
+  window.__pbImgSave = true;
+  var BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  var ICON = "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Cpath d='M3 16l5-5 4 4 3-3 6 6'/%3E%3C/svg%3E\")";
+  var st = document.createElement('style');
+  st.id = '__pb_img_css';
+  st.textContent = 'img[data-pb-img]{background-color:rgba(128,128,128,.15)!important;' +
+    'background-image:' + ICON + '!important;background-repeat:no-repeat!important;' +
+    'background-position:center!important;background-size:28px 28px!important;' +
+    'min-height:28px;}';
+  (document.head || document.documentElement).appendChild(st);
+
+  function realSrc(img) {
+    var list = [
+      img.getAttribute('data-pb-src'),
+      img.getAttribute('data-src'),
+      img.getAttribute('data-original'),
+      img.getAttribute('data-lazy-src'),
+      img.getAttribute('data-actualsrc'),
+      img.getAttribute('src'),
+      img.currentSrc
+    ];
+    for (var i = 0; i < list.length; i++) {
+      var s = list[i];
+      if (s && /^https?:\/\//i.test(s)) return s;
+    }
+    return '';
+  }
+
+  function fix(img) {
+    if (!img || img.__pbImgDone || img.tagName !== 'IMG') return;
+    var src = realSrc(img);
+    if (!src) return;
+    img.__pbImgDone = true;
+    img.setAttribute('data-pb-src', src);
+    img.setAttribute('data-pb-img', '1');
+    img.removeAttribute('srcset');
+    img.removeAttribute('sizes');
+    if (img.getAttribute('src') && img.getAttribute('src') !== BLANK) {
+      img.setAttribute('src', BLANK);
+    }
+    var pic = img.parentNode;
+    if (pic && pic.tagName === 'PICTURE') {
+      var sources = pic.getElementsByTagName('source');
+      for (var i = 0; i < sources.length; i++) sources[i].removeAttribute('srcset');
+    }
+  }
+
+  function sweep(root) {
+    if (!root || !root.querySelectorAll) return;
+    var list = root.querySelectorAll('img');
+    for (var i = 0; i < list.length; i++) fix(list[i]);
+  }
+
+  sweep(document);
+  try {
+    var ob = new MutationObserver(function (records) {
+      for (var i = 0; i < records.length; i++) {
+        var added = records[i].addedNodes;
+        for (var j = 0; j < added.length; j++) {
+          var n = added[j];
+          if (n.nodeType !== 1) continue;
+          if (n.tagName === 'IMG') fix(n);
+          else sweep(n);
+        }
+      }
+    });
+    ob.observe(document.documentElement || document, { childList: true, subtree: true });
+    window.__pbImgOb = ob;
+  } catch (e) {}
+
+  // 捕获阶段拦点击：图片多半包在链接里，不拦就会「想看图反而跳走了」。
+  // 只处理确实被我们挡过的那张，其余点击一律放过。
+  document.addEventListener('click', function (e) {
+    var el = e.target;
+    while (el && el.nodeType === 1) {
+      if (el.tagName === 'IMG' && el.getAttribute('data-pb-img')) {
+        var src = el.getAttribute('data-pb-src');
+        if (!src) return;
+        e.preventDefault();
+        e.stopPropagation();
+        try { if (window.__pbImg) window.__pbImg.allow(src); } catch (x) {}
+        el.removeAttribute('data-pb-img');
+        el.removeAttribute('data-pb-src');
+        el.setAttribute('src', src);
+        return;
+      }
+      el = el.parentNode;
+    }
+  }, true);
+  return 'on';
+})()
+""".trimIndent()
+
+    /**
+     * 关掉无图：把还压着的图一次性放回去。
+     *
+     * 已经拿到 1 像素 GIF 的那些，原生白名单管不着（请求早就结束了），
+     * 所以这里直接把真实地址写回 src，让浏览器重新取一次。
+     */
+    val IMAGE_UNBLOCK: String = """
+(function () {
+  if (!window.__pbImgSave) return 'off';
+  window.__pbImgSave = false;
+  try { if (window.__pbImgOb) window.__pbImgOb.disconnect(); } catch (e) {}
+  window.__pbImgOb = null;
+  var css = document.getElementById('__pb_img_css');
+  if (css && css.parentNode) css.parentNode.removeChild(css);
+  var list = document.querySelectorAll('img[data-pb-img]');
+  for (var i = 0; i < list.length; i++) {
+    var img = list[i];
+    var src = img.getAttribute('data-pb-src');
+    img.removeAttribute('data-pb-img');
+    img.removeAttribute('data-pb-src');
+    img.__pbImgDone = false;
+    if (src) img.setAttribute('src', src);
+  }
+  return 'off';
+})()
+""".trimIndent()
+
+    /**
      * 正文提取。返回值就是结果：evaluateJavascript 会把它当成字符串再编码一层，
      * 所以这里返回 JSON.stringify 的结果，原生侧解码两次拿到对象。
      *

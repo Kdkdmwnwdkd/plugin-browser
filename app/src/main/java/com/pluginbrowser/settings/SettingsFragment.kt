@@ -111,6 +111,17 @@ class SettingsFragment : PreferenceFragmentCompat() {
             }
         }
 
+        // 无图模式也存在 settings 自己的 prefs 里，同样要先把当前值同步过来，
+        // 否则改过一次再进来，界面上还是 XML 里那个「始终加载」
+        findPreference<ListPreference>("image_mode")?.apply {
+            value = settings.imageMode
+            setOnPreferenceChangeListener { _, newValue ->
+                settings.imageMode = newValue as String
+                com.pluginbrowser.browser.BrowserFragment.active()?.onImageModeChanged()
+                true
+            }
+        }
+
         // 关掉开关时如果工具栏正收着，立刻叫回来。
         // 不然用户关了它、回到网页，眼前还是一片没有地址栏的样子，只会以为开关没生效
         findPreference<androidx.preference.SwitchPreferenceCompat>("auto_hide_toolbar")?.apply {

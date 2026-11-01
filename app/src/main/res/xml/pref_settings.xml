@@ -29,6 +29,15 @@
             android:summary="当前 %s。字太小多半是页面按 980px 排版又被整体缩小，调大一档就不用每次捏合"
             android:title="网页字号" />
 
+        <ListPreference
+            android:defaultValue="always"
+            android:entries="@array/image_mode_entries"
+            android:entryValues="@array/image_mode_values"
+            android:key="image_mode"
+            android:summary="在请求层直接挡掉图片，流量一点都不走。「仅 Wi-Fi」在移动网络下等同于不加载；无图时点一下图片可以单独看"
+            android:title="无图模式"
+            app:useSimpleSummaryProvider="true" />
+
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="javascript"
