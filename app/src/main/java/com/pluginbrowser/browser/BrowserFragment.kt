@@ -134,7 +134,6 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     /** 全屏视频是不是被站点规则锁成了横屏（只有锁过才需要还原） */
     private var landscapeLocked = false
     /** 阅读模式当前文章：调字号时不用重新提取 */
-    private var readerArticle: ReaderMode.Article? = null
     private var readerScale = 1f
     /** 刚跳去过外部 App 的地址，用于「再打开」 */
     private var handoffTarget: String? = null
@@ -205,6 +204,11 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             val wv = currentWebView()
             when {
                 customView != null -> exitFullscreen()
+
+                // 阅读模式是一层独立的本地页面，按返回应该先回到原文。
+                // 以前这里落到下面的 canGoBack 分支，页面确实退回去了，
+                // 但 tab.readerMode 没人复位——这个标签之后的注入就一直是哑的。
+                tab?.readerMode == true -> exitReaderMode()
 
                 // 只要网页还能后退，就先退回上一页。这一条必须排在最前面：
                 // 旧代码先用 tab.url 判断「是不是首页」，而 tab.url 是异步更新的，
@@ -731,7 +735,6 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                 toast("没在这个页面找到正文，换个页面试试")
                 return@evaluateJavascript
             }
-            readerArticle = article
             readerScale = 1f
             renderReader(tab, article)
         }
@@ -758,16 +761,37 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         val url = tab.readerUrl ?: tab.url
         tab.readerMode = false
         tab.readerUrl = null
-        readerArticle = null
-        if (tab.usable && url.startsWith("http")) tab.webView.loadUrl(url)
+        val wv = tab.webView
+        if (!tab.usable) {
+            refreshUi()
+            return
+        }
+        // 阅读页是压在原文之上的一层，历史里就排在原文后面。
+        // 退回历史能原样恢复原文的滚动位置；重新 loadUrl 会从页面顶部重新解析一遍，
+        // 等于「刚读到一半，调个字号/退出阅读，回到开头」。
+        val list = runCatching { wv.copyBackForwardList() }.getOrNull()
+        val prev = runCatching {
+            if (list != null && list.currentIndex > 0) list.getItemAtIndex(list.currentIndex - 1) else null
+        }.getOrNull()
+        if (prev?.url == url && wv.canGoBack()) {
+            wv.goBack()
+        } else if (url.startsWith("http")) {
+            wv.loadUrl(url)
+        }
         refreshUi()
     }
 
     private fun changeReaderFont(delta: Float) {
         val tab = tabManager.currentTab() ?: return
-        val article = readerArticle ?: return
+        if (!tab.readerMode) return
         readerScale = (readerScale + delta).coerceIn(0.8f, 1.6f)
-        renderReader(tab, article)
+        // 只改 :root 上的字号变量，页面里的 em 会跟着变。
+        // 以前是整页重新 loadDataWithBaseURL——每点一次 A+ 就闪一下并且跳回顶部。
+        val px = 17.0f * readerScale
+        tab.webView.evaluateJavascript(
+            "(function(){document.documentElement.style.setProperty('--fs','" + px + "px');return 'ok';})()",
+            null,
+        )
     }
 
     private fun setupFindBar() {

@@ -1,13 +1,13 @@
 {
-  "versionCode": 42,
-  "versionName": "2.8.4",
-  "size": 8950939,
-  "sha256": "d8a9df61f46f06b2090ed4592334790c2f2eb71e833b5a9a0084f58b3f9d3812",
-  "notes": "2.8.4：从微博点进来就打不开？问题比缩放严重\n\n你演示的微博页面放不大，我查下去发现根因不在缩放本身。\n\n【真正的问题：从外部链接进来的页面，整套注入都是哑的】\n\n冷启动点「用青鸢打开」时的执行顺序是：\n\n  1. MainActivity.onCreate 先处理外部链接，建标签、开页面\n  2. Fragment 的 onViewCreated 排在后面，这时才装上各种页面回调\n\n中间这段空档里建出来的 WebView，挂的是系统默认的 WebViewClient。\n页面能正常显示，但页面加载开始、加载完成这两个回调，一个都不会回到\n青鸢这边。于是这些全部静默失效：\n\n  · 浏览历史不记\n  · 广告过滤不注入\n  · 站点脚本不跑\n  · 缩放修复不执行（就是你看到的「微博捏不大」）\n  · 进度条不动\n\n而手动输网址打开的页面一切正常——所以你才会觉得「有的站行，微博不行」。\n\n修法：配置器晚到时，回头把已经建好的标签补挂上，并把地址、进度同步过来。\n\n【缩放：三层都解开了】\n\n  1. viewport 里的 user-scalable=no、maximum-scale=1 改成允许\n  2. 站点在页面跑起来后重写 viewport（微博就这么干）——改成整页生命周期\n     持续纠正，它改一次我改一次，不再是只管首屏 3 秒\n  3. 样式表里的 touch-action:none / pan-y 一并解开，否则双指手势在\n     浏览器默认行为之前就被吃掉，viewport 改得再对也捏不动\n\n注入结果会写进事件日志（VP 行），长这样：\n\n  VP | weibo.com -> unlocked|width=device-width,...,user-scalable=yes\n\n以后哪个站还是放不大，把这行发我，一眼就能看出断在哪一层。\n\n【顺带修的】\n\nfile:// 打开本地页面原来直接报 ERR_ACCESS_DENIED（Android 11 起 WebView\n默认禁止读文件），现在放开了读权限，但不允许 file 页面跨源读其他文件。\n\n【验证情况】\n\n模拟器上用一个「固定 1200px 宽 + 每秒重写 viewport」的页面复现了微博的\n行为：修复前注入标记是 N（根本没跑），修复后日志显示 viewport 被改成\nuser-scalable=yes，且页面每秒改回去、每次都被拉回来。\n外部链接冷启动、正常启动两条路径都跑过，78 个单元测试全过。\n\n签名未变（771ee50c…），覆盖安装即可。\n",
+  "versionCode": 43,
+  "versionName": "2.9.0",
+  "size": 8805320,
+  "sha256": "88d7a7bdd96b2071374fac5ec59dc2075e0fc6156f990a7906813b867cc553d6",
+  "notes": "2.9.0：阅读模式重做——图能出来，字能调，退出不丢位置\n\n上一版修的是「点进来打不开」，这一版修的是「点开阅读模式之后不好用」。\n拿两个页面在模拟器上跑了一遍，把看得见的问题逐条改掉。\n\n【一、图片全是空白】\n\n微信、知乎、头条这些站的正文图是懒加载的：<img> 的 src 放一张 1x1 的\n透明占位图，真地址在 data-src 里。以前只读 src，所以阅读页里图片全空。\n\n现在按 data-src → data-original → data-actualsrc → data-lazy-src → srcset\n的顺序找真地址，再顺手把 width/height 去掉，交给样式表自适应宽度。\n图片如果整个丢了（连占位都不是），从上层元素的 background-image 里捞一次。\n\n【二、段落粘成一坨】\n\n中文站很多正文不是 <p>，而是 <section> 里一串 <span> 加 <br> 换行。\n直接搬过去就变成没有段间距的一大块。\n\n现在把这种「纯文本 + <br>」的容器按 <br> 切成独立段落，\n但只在容器里没有 p/table/pre/ul 等块级子元素时才动，不会破坏原有结构。\n\n【三、二维码、赞赏、关注引导、相关阅读】\n\n按两个条件筛，宁可少删：\n  1. class/id 命中 comment / share / related / advert / qrcode / reward /\n     subscribe / sidebar / toolbar 这类语义，且文本不到 220 字\n  2. 段落文本不到 90 字，且含「关注 / 点赞 / 扫码 / 阅读原文 / 商务合作」\n     这类词\n\n只命中其中一条不够——正文里出现「分享」两个字很常见，单靠关键词会误删。\n\n【四、标题取错】\n\n以前取页面上第一个 h1，很多站第一个 h1 是站点名或栏目名。\n现在优先 og:title，取不到再退回正文容器里的 h1，最后才是 document.title。\n正文里那个和标题重复的 h1 会被去掉，不会出现「大标题打两遍」。\n\n【五、点 A+ 会跳回顶部】\n\n以前调字号是把整页重新 loadData 一遍，每点一次闪一下、位置回到开头。\n现在只改 :root 上的一个字号变量，正文里的尺寸全用 em 跟着走，\n位置不动。连点两下 A+，字变大、页面停在原处。\n\n【六、退出阅读回到开头】\n\n以前退出是重新 loadUrl 原文，等于重新解析一遍，刚才读到哪儿忘了。\n现在退回历史里的原文那一层，滚动位置原样回来。\n\n顺带修了一个更隐蔽的：按系统返回键退出阅读模式时，标签的 readerMode\n标记没人复位，这个标签之后打开的页面就不再注入广告过滤和站点脚本——\n表现是「这个标签突然不拦广告了」。现在返回键也走同一套退出逻辑。\n\n【验证】\n\n模拟器（Android 11 / 720x1280）上建了两个页面：\n  · 微信风格：data-src 图 + section/br 段落 + 二维码 + 关注引导 + 隐藏块\n  · 资讯风格：article + 分享栏 + 相关阅读 + 侧栏\n提取结果逐条对照：图地址被还原、br 拆成三段、推广段全清、评论区没进来、\n标题取的是 og:title。A+ 连点两次确认不跳顶，返回键确认回原文且菜单\n恢复成「阅读模式」。78 个单测全过。\n\n签名未变（771ee50c…），覆盖安装即可。\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.8.4/Kite-2.8.4-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.8.4/Kite-2.8.4-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.8.4/Kite-2.8.4-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.0/Kite-2.9.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.0/Kite-2.9.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.0/Kite-2.9.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",

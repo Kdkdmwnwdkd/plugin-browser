@@ -289,19 +289,33 @@ object SiteScripts {
     val READER_EXTRACT: String = """
 (function () {
   try {
-    var DROP = 'script,style,noscript,iframe,form,nav,header,footer,aside,button,input,select,textarea,canvas,svg,video,audio,[aria-hidden="true"],[role="navigation"],[role="complementary"]';
+    var DROP = 'script,style,noscript,iframe,form,nav,header,footer,aside,button,input,select,textarea,canvas,svg,video,audio,object,embed,[hidden],[aria-hidden="true"],[role="navigation"],[role="complementary"],[role="banner"],[role="search"]';
+    var JUNK = /(comment|share|related|recommend|advert|sponsor|social|qrcode|reward|subscribe|newsletter|breadcrumb|toolbar|sidebar|hotlist|hot-list|ranklist|rank-list|appdownload|app-download|openapp|open-app)/i;
+    var PROMO = /(关注|点赞|在看|转发|分享|扫码|长按|二维码|阅读原文|投稿|转载|版权|商务合作|点击上方|识别图中|更多精彩|往期回顾|免责声明)/;
 
-    function txt(el) {
-      if (!el) return '';
-      return (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+    function cleanText(s) {
+      return (s || '').replace(/\s+/g, ' ').trim();
     }
-
     function textLen(el) {
-      return (el.textContent || '').replace(/\s+/g, ' ').trim().length;
+      return cleanText(el.textContent).length;
+    }
+    function attrOf(el, names) {
+      for (var i = 0; i < names.length; i++) {
+        var v = el.getAttribute(names[i]);
+        if (v && v.length > 4) return v;
+      }
+      return '';
+    }
+    function metaOf(sel) {
+      var m = document.querySelector(sel);
+      return m ? (m.getAttribute('content') || '') : '';
+    }
+    function drop(node) {
+      if (node && node.parentNode) node.parentNode.removeChild(node);
     }
 
     var cands = [];
-    var strong = document.querySelectorAll('article, main, [role="main"], [itemprop="articleBody"], #js_content, .rich_media_content, .article-content, .article_content, .post-content, .entry-content, .main-content, #article, #content, .content');
+    var strong = document.querySelectorAll('article, main, [role="main"], [itemprop="articleBody"], #js_content, .rich_media_content, .article-content, .article_content, .post-content, .entry-content, .main-content, #article, #content, .content, .article, .post');
     for (var i = 0; i < strong.length; i++) cands.push({ el: strong[i], bonus: 3000 });
     if (!cands.length) {
       var blocks = document.querySelectorAll('div, section, td');
@@ -312,53 +326,172 @@ object SiteScripts {
     for (var k = 0; k < cands.length; k++) {
       var el = cands[k].el;
       var len = textLen(el);
-      if (len < 240) continue;
+      if (len < 120) continue;
       var linkLen = 0;
       var as = el.querySelectorAll('a');
-      for (var m = 0; m < as.length; m++) linkLen += (as[m].textContent || '').length;
+      for (var m = 0; m < as.length; m++) linkLen += cleanText(as[m].textContent).length;
       var ps = el.querySelectorAll('p').length;
       var s = len - linkLen * 1.4 + ps * 30 + cands[k].bonus;
+      if (linkLen / len > 0.45) s -= len * 1.2;
       if (el.getElementsByTagName('*').length > 4000) s -= 6000;
       if (s > bestScore) { bestScore = s; best = el; }
     }
+    if (!best) {
+      var all = document.querySelectorAll('div, section, article, td');
+      var bestLen = 0;
+      for (var f = 0; f < all.length; f++) {
+        var fl = textLen(all[f]);
+        if (fl > bestLen && fl >= 80) { bestLen = fl; best = all[f]; }
+      }
+    }
     if (!best) return JSON.stringify({ ok: false, reason: 'no-content' });
 
+    var title = cleanText(metaOf('meta[property="og:title"]')) ||
+      cleanText(metaOf('meta[name="twitter:title"]')) ||
+      cleanText(document.title) || location.hostname;
+
+    var bylineEl = document.querySelector('[rel="author"], .author, .byline, .article-author, .rich_media_meta_text, #js_name, [itemprop="author"]');
+    var bylineText = cleanText(bylineEl && bylineEl.textContent).slice(0, 60);
+
     var clone = best.cloneNode(true);
+
     var junk = clone.querySelectorAll(DROP);
-    for (var n = junk.length - 1; n >= 0; n--) {
-      var j2 = junk[n];
-      if (j2.parentNode) j2.parentNode.removeChild(j2);
+    for (var n = junk.length - 1; n >= 0; n--) drop(junk[n]);
+
+    var hidden = clone.querySelectorAll('[style*="display:none"], [style*="display: none"]');
+    for (var h = hidden.length - 1; h >= 0; h--) drop(hidden[h]);
+
+    var totalLen = textLen(clone);
+    var marked = clone.querySelectorAll('[class], [id]');
+    for (var b = marked.length - 1; b >= 0; b--) {
+      var e = marked[b];
+      if (e === clone) continue;
+      var cls = (typeof e.className === 'string') ? e.className : '';
+      if (!JUNK.test(cls + ' ' + (e.id || ''))) continue;
+      var tl = textLen(e);
+      var imgN = e.getElementsByTagName('img').length;
+      if (tl < 220 || (imgN <= 1 && tl < 80)) drop(e);
     }
 
-    var all = clone.querySelectorAll('p, div, span, section');
-    for (var q = all.length - 1; q >= 0; q--) {
-      var e2 = all[q];
-      if (e2.querySelector('img, picture, pre, table, code, h1, h2, h3, blockquote')) continue;
-      var t2 = (e2.textContent || '').replace(/\s+/g, '');
-      if (t2.length === 0) { if (e2.parentNode) e2.parentNode.removeChild(e2); continue; }
-      var lk = e2.querySelectorAll('a');
-      if (t2.length < 40 && lk.length === 1) {
-        var lt = (lk[0].textContent || '').replace(/\s+/g, '').length;
-        if (lt >= t2.length - 2 && e2.parentNode) e2.parentNode.removeChild(e2);
+    var imgs = clone.getElementsByTagName('img');
+    for (var p = 0; p < imgs.length; p++) {
+      var im = imgs[p];
+      var src = im.getAttribute('src') || '';
+      var real = attrOf(im, ['data-src', 'data-original', 'data-actualsrc', 'data-actual-src', 'data-lazy-src', 'data-lazyload', 'data-url', 'data-echo']);
+      var ss = im.getAttribute('srcset') || '';
+      if (!real && ss) real = ss.split(',')[0].trim().split(' ')[0];
+      if (real) src = real;
+      if (!src || src.indexOf('data:') === 0) {
+        var bg = '';
+        var cur = im.parentNode;
+        for (var up = 0; up < 3 && cur && cur.getAttribute; up++) {
+          var st = cur.getAttribute('style') || '';
+          var mm = st.match(/url\(\s*['"]?([^'")]+)/);
+          if (mm) { bg = mm[1]; break; }
+          cur = cur.parentNode;
+        }
+        if (bg && bg.indexOf('data:') !== 0) src = bg;
+      }
+      if (!src || src.indexOf('data:') === 0) { drop(im); continue; }
+      im.setAttribute('src', src);
+      im.removeAttribute('srcset');
+      im.removeAttribute('sizes');
+      im.removeAttribute('loading');
+      im.removeAttribute('width');
+      im.removeAttribute('height');
+      im.removeAttribute('style');
+      var attrs = [];
+      for (var ai = 0; ai < im.attributes.length; ai++) attrs.push(im.attributes[ai].name);
+      for (var aj = 0; aj < attrs.length; aj++) {
+        if (attrs[aj].indexOf('data-') === 0) im.removeAttribute(attrs[aj]);
       }
     }
 
-    var h1 = document.querySelector('h1');
-    var bylineEl = document.querySelector('[rel="author"], .author, .byline, .article-author, .rich_media_meta_text, #js_name');
+    var styled = clone.getElementsByTagName('*');
+    for (var q = 0; q < styled.length; q++) {
+      var el2 = styled[q];
+      if (el2.tagName === 'IMG') continue;
+      el2.removeAttribute('style');
+      el2.removeAttribute('width');
+      el2.removeAttribute('height');
+      el2.removeAttribute('align');
+    }
+
+    var divs = clone.querySelectorAll('div, section');
+    for (var d = divs.length - 1; d >= 0; d--) {
+      var dv = divs[d];
+      if (!dv.parentNode) continue;
+      if (dv.querySelector('div, section, p, table, pre, ul, ol, h1, h2, h3, h4, h5, figure, blockquote')) continue;
+      var raw = dv.innerHTML;
+      if (!raw) { drop(dv); continue; }
+      var parts = raw.split(/<br\s*\/?>/i);
+      var frag = document.createDocumentFragment();
+      var made = 0;
+      for (var t = 0; t < parts.length; t++) {
+        var seg = parts[t];
+        var tmp = document.createElement('div');
+        tmp.innerHTML = seg;
+        var segText = cleanText(tmp.textContent);
+        var segImg = tmp.getElementsByTagName('img').length;
+        if (!segText && !segImg) continue;
+        var pel = document.createElement('p');
+        pel.innerHTML = seg;
+        frag.appendChild(pel);
+        made++;
+      }
+      if (made) dv.parentNode.replaceChild(frag, dv);
+    }
+
+    var h1c = clone.querySelector('h1');
+    if (h1c) {
+      var h1t = cleanText(h1c.textContent);
+      if (h1t && (h1t === title || title.indexOf(h1t) >= 0 || h1t.indexOf(title) >= 0)) drop(h1c);
+    }
+
+    if (bylineText) {
+      var bylines = clone.querySelectorAll('p, div, span');
+      for (var w = bylines.length - 1; w >= 0; w--) {
+        var wt = cleanText(bylines[w].textContent);
+        if (wt && wt.length < 40 && bylineText.indexOf(wt) >= 0) drop(bylines[w]);
+      }
+    }
+
+    var paras = clone.querySelectorAll('p');
+    for (var r = paras.length - 1; r >= 0; r--) {
+      var pe = paras[r];
+      if (!pe.parentNode) continue;
+      var pt = cleanText(pe.textContent);
+      if (!pt) {
+        if (pe.getElementsByTagName('img').length === 0) drop(pe);
+        continue;
+      }
+      if (pe.getElementsByTagName('img').length) continue;
+      if (pt.length < 90 && PROMO.test(pt)) drop(pe);
+    }
+
+    var empties = clone.querySelectorAll('p, div, section, span, strong, em');
+    for (var z = empties.length - 1; z >= 0; z--) {
+      var ez = empties[z];
+      if (!ez.parentNode) continue;
+      if (ez.getElementsByTagName('img').length || ez.getElementsByTagName('br').length) continue;
+      if (cleanText(ez.textContent).length === 0) drop(ez);
+    }
+
+    var h1In = best.querySelector('h1');
     var html = clone.innerHTML || '';
     if (html.length > 400000) html = html.slice(0, 400000);
 
     return JSON.stringify({
       ok: true,
-      title: txt(h1) || document.title || location.hostname,
+      title: (h1In ? cleanText(h1In.textContent) : '') || title,
       site: location.hostname,
-      byline: txt(bylineEl).slice(0, 60),
+      byline: bylineText,
       url: location.href,
       length: textLen(clone),
       html: html
     });
-  } catch (e) {
-    return JSON.stringify({ ok: false, reason: String(e) });
+  } catch (err) {
+    return JSON.stringify({ ok: false, reason: String(err) });
   }
 })()
 """.trimIndent()

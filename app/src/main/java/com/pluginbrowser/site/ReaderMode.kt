@@ -54,7 +54,6 @@ object ReaderMode {
         val rule = if (dark) "#2a2a2a" else "#e6e3dd"
         val accent = if (dark) "#8ab4f8" else "#1a6fd4"
         val base = 17.0f * scale
-        val titleSize = 25.0f * scale
         val minutes = (article.length / 350).coerceAtLeast(1)
 
         return """
@@ -64,11 +63,11 @@ object ReaderMode {
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${escape(article.title)}</title>
 <style>
-  :root { color-scheme: ${if (dark) "dark" else "light"}; }
+  :root { color-scheme: ${if (dark) "dark" else "light"}; --fs: ${base}px; }
   html, body { margin: 0; padding: 0; background: $bg; color: $fg; }
   body {
     font-family: system-ui, -apple-system, "PingFang SC", "Noto Sans SC", sans-serif;
-    font-size: ${base}px; line-height: 1.78;
+    font-size: var(--fs); line-height: 1.78;
     padding: 62px 20px 72px; box-sizing: border-box;
     -webkit-text-size-adjust: 100%; word-wrap: break-word;
   }
@@ -80,34 +79,34 @@ object ReaderMode {
   }
   .bar a { color: $accent; text-decoration: none; padding: 4px 2px; }
   .bar .grow { flex: 1; }
-  h1.title { font-size: ${titleSize}px; line-height: 1.34; margin: 0 0 10px; font-weight: 700; }
-  .meta { color: $sub; font-size: ${base * 0.78f}px; margin-bottom: 26px; }
+  h1.title { font-size: 1.5em; line-height: 1.34; margin: 0 0 10px; font-weight: 700; }
+  .meta { color: $sub; font-size: .78em; margin-bottom: 26px; }
   .meta span + span::before { content: " · "; }
   article { max-width: 680px; margin: 0 auto; }
   article p { margin: 0 0 1.05em; }
   article img, article picture img { max-width: 100%; height: auto; display: block; margin: 1em auto; border-radius: 6px; }
   article h1, article h2, article h3 { line-height: 1.4; margin: 1.6em 0 .7em; }
-  article h2 { font-size: ${base * 1.22f}px; }
-  article h3 { font-size: ${base * 1.08f}px; }
+  article h2 { font-size: 1.22em; }
+  article h3 { font-size: 1.08em; }
   article a { color: $accent; }
   article blockquote {
     margin: 1.2em 0; padding: 2px 0 2px 14px; border-left: 3px solid $rule; color: $sub;
   }
   article pre, article code {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: ${base * 0.86f}px;
+    font-size: .86em;
   }
   article pre {
-    background: ${if (dark) "#1d1d1d" else "#f2f0ec"}; padding: 12px 14px; border-radius: 8px;
+    font-size: .86em; background: ${if (dark) "#1d1d1d" else "#f2f0ec"}; padding: 12px 14px; border-radius: 8px;
     overflow-x: auto; line-height: 1.55;
   }
   article figure { margin: 1.2em 0; }
-  article figcaption { color: $sub; font-size: ${base * 0.76f}px; text-align: center; }
-  article table { border-collapse: collapse; width: 100%; font-size: ${base * 0.86f}px; display: block; overflow-x: auto; }
+  article figcaption { color: $sub; font-size: .76em; text-align: center; }
+  article table { border-collapse: collapse; width: 100%; font-size: .86em; display: block; overflow-x: auto; }
   article td, article th { border: 1px solid $rule; padding: 6px 8px; }
   article hr { border: 0; border-top: 1px solid $rule; margin: 2em 0; }
   .foot { max-width: 680px; margin: 34px auto 0; padding-top: 16px; border-top: 1px solid $rule;
-          color: $sub; font-size: ${base * 0.74f}px; }
+          color: $sub; font-size: .74em; }
   .foot a { color: $accent; text-decoration: none; word-break: break-all; }
 </style>
 </head>
