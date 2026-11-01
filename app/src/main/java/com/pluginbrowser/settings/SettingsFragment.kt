@@ -111,6 +111,19 @@ class SettingsFragment : PreferenceFragmentCompat() {
             }
         }
 
+        // 关掉开关时如果工具栏正收着，立刻叫回来。
+        // 不然用户关了它、回到网页，眼前还是一片没有地址栏的样子，只会以为开关没生效
+        findPreference<androidx.preference.SwitchPreferenceCompat>("auto_hide_toolbar")?.apply {
+            isChecked = settings.autoHideToolbar
+            setOnPreferenceChangeListener { _, newValue ->
+                settings.autoHideToolbar = newValue as Boolean
+                if (!newValue) {
+                    com.pluginbrowser.browser.BrowserFragment.active()?.showToolbarsFromSettings()
+                }
+                true
+            }
+        }
+
         findPreference<SwitchPreferenceCompat>("javascript")?.setOnPreferenceChangeListener { _, newValue ->
             settings.javascriptEnabled = newValue as Boolean
             true

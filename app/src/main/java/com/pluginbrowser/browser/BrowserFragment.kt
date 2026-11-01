@@ -1283,6 +1283,12 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         if (chromeHidden) applyChromeVisibility(false)
     }
 
+    /** 设置里关掉「滚动隐藏工具栏」时从那边调进来 */
+    fun showToolbarsFromSettings() {
+        if (!isAdded || view == null) return
+        showToolbars()
+    }
+
     private fun applyChromeVisibility(hide: Boolean) {
         if (hide == chromeHidden) return
         val root = view as? ConstraintLayout ?: return
