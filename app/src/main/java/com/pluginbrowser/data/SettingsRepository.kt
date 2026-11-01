@@ -45,6 +45,17 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_NIGHT, false)
         set(value) = prefs.edit().putBoolean(KEY_NIGHT, value).apply()
 
+    /**
+     * 往下滚时把地址栏和底栏收起来。
+     *
+     * 默认开。它省的不是「一条线的高度」，而是把 124dp 的常驻工具栏
+     * 变成只在需要时出现——小屏手机上这是两行正文。
+     * 愿意常看到地址栏的人可以在设置里关掉。
+     */
+    var autoHideToolbar: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_HIDE_TOOLBAR, true)
+        set(value) = prefs.edit().putBoolean(KEY_AUTO_HIDE_TOOLBAR, value).apply()
+
     /** 浏览器标识：default / quark / baidu。部分站点只对特定浏览器返回直链 */
     var uaPreset: String
         get() = prefs.getString(KEY_UA_PRESET, "default")!!
@@ -172,6 +183,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_DESKTOP_UA = "desktop_ua"
         private const val KEY_THEME = "theme"
         private const val KEY_NIGHT = "night_mode"
+        private const val KEY_AUTO_HIDE_TOOLBAR = "auto_hide_toolbar"
         private const val KEY_UA_PRESET = "ua_preset"
         private const val KEY_GITHUB_ACCEL = "github_accel"
         private const val KEY_GITHUB_CATCH_PAGES = "github_catch_pages"

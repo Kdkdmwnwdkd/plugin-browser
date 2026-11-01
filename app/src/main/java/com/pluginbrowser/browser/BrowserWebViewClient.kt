@@ -181,6 +181,9 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
             tab.translated = false
             tab.committed = false
             tab.adCssInjected = false
+            // 新页面从顶部开始。不清掉的话，上一个页面滚到一半的位置
+            // 会让下拉刷新在「看起来在顶部」的时候拒绝接管
+            tab.scrollY = 0
         }
         tab.progress = 5
         // 记录来源页面 & 让嗅探器知道当前在哪个站
@@ -240,6 +243,7 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         injectSiteGuards(view, url, tab)
         injectViewportFix(view, url, tab, verbose = true)
         injectNight(view, url, tab)
+        injectScrollReport(view, url, tab)
         owner.onPageFinished(tab)
     }
 
@@ -250,6 +254,19 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
      * 加载完成再补是因为有些站点会在 DOMContentLoaded 之后重设 body 背景。
      * 阅读模式那页不注——它自己就按深色模式渲染，再反色会把配图中的颜色搞反。
      */
+    /**
+     * 滚动位置上报。
+     *
+     * 原生侧完全看不见网页滚到哪了——WebView 的 scrollY 恒为 0，
+     * canScrollVertically() 也永远说「没滚过」。而「下拉刷新该不该接管」
+     * 和「工具栏该不该收」都必须以真实位置为准，所以让页面自己报。
+     * 脚本自带哨兵，重复注入只返回 already。
+     */
+    private fun injectScrollReport(view: WebView, url: String, tab: Tab) {
+        if (!url.startsWith("http") || tab.readerMode) return
+        runCatching { view.evaluateJavascript(SiteScripts.SCROLL_REPORT, null) }
+    }
+
     private fun injectNight(view: WebView, url: String, tab: Tab) {
         if (!url.startsWith("http") || tab.readerMode) return
         if (!owner.browserSettings.nightMode) return
@@ -307,6 +324,7 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         // viewport 排完版了，用户在那几百毫秒里捏合会觉得「怎么捏都不动」。
         if (tab != null) injectViewportFix(view, url, tab)
         if (tab != null) injectNight(view, url, tab)
+        if (tab != null) injectScrollReport(view, url, tab)
     }
 
     /**

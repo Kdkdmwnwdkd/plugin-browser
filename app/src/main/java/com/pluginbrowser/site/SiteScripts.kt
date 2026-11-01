@@ -280,6 +280,52 @@ object SiteScripts {
 """.trimIndent()
 
     /**
+     * 上报真实滚动位置。
+     *
+     * WebView 的内容滚动是 Chromium 内部做的，View 层的 `scrollY` 恒为 0、
+     * `canScrollVertically()` 也永远说「没滚」——原生侧完全看不见页面滚到哪了。
+     * 「下拉刷新要不要接管」「工具栏要不要收」这两件事都必须以真实位置为准，
+     * 所以让页面自己说出来。
+     *
+     * 走 console.log 而不是 addJavascriptInterface：后者会把一个 Java 对象
+     * 直接暴露给每一个网页，是已知的高危面；console 通道只回传一个数字，且
+     * 前缀不匹配的消息照常放过，不影响网页自己的调试输出。
+     *
+     * 上报节流到 ~90ms 一次、位移不足 6px 不发：滚动是每帧事件，
+     * 不节流的话一次滑动就能产生几百条跨进程消息。
+     */
+    val SCROLL_REPORT: String = """
+(function () {
+  if (window.__pbScrollWatch) return 'already';
+  window.__pbScrollWatch = true;
+  var last = -1;
+  var timer = 0;
+  function emit() {
+    timer = 0;
+    try {
+      var y = Math.round(window.pageYOffset || document.documentElement.scrollTop || 0);
+      if (y === last) return;
+      if (Math.abs(y - last) < 6 && y > 0) return;
+      last = y;
+      var vh = Math.round(window.innerHeight || document.documentElement.clientHeight || 0);
+      console.log('PBSCROLL:' + y + ',' + vh);
+    } catch (e) {}
+  }
+  window.addEventListener('scroll', function () {
+    if (timer) return;
+    timer = setTimeout(emit, 90);
+  }, { passive: true });
+  // 有些站点把滚动容器放在内层，window 收不到事件；捕获阶段兜一层
+  document.addEventListener('scroll', function () {
+    if (timer) return;
+    timer = setTimeout(emit, 90);
+  }, { passive: true, capture: true });
+  emit();
+  return 'ok';
+})()
+""".trimIndent()
+
+    /**
      * 网页夜间：整体反色 + 色相转回，图片和视频再反一次恢复原色。
      *
      * 为什么不用「逐个元素改背景色」：那要遍历整棵 DOM，中文资讯页动辄几千节点，

@@ -114,6 +114,7 @@
     <string name="settings_third_party_cookies">允许第三方 Cookie</string>
     <string name="settings_block_ads">拦截广告与跟踪</string>
     <string name="settings_desktop_ua">默认使用桌面版 UA</string>
+    <string name="settings_auto_hide_toolbar">滚动时隐藏工具栏</string>
     <string name="settings_theme">主题</string>
     <string name="settings_theme_system">跟随系统</string>
     <string name="settings_theme_light">浅色</string>

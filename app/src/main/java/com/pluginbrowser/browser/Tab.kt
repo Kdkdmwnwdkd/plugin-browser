@@ -40,6 +40,15 @@ class Tab(
      * 靠这个字段区分「是阅读页自己」还是「用户点了别的链接」，后者要退出阅读模式。
      */
     var readerUrl: String? = null,
+    /**
+     * 网页当前的真实滚动位置，由页面脚本上报。
+     *
+     * 必须是原生侧自己记：WebView 的 scrollY 恒为 0，任何依赖它的判断都是错的。
+     * 下拉刷新靠它决定「能不能接管手势」，工具栏靠它决定「该不该收起来」。
+     */
+    var scrollY: Int = 0,
+    /** 视口高度，用来判断「已经到顶」和「这点滚动值不值得收工具栏」 */
+    var viewportHeight: Int = 0,
 ) {
     lateinit var webView: WebView
 

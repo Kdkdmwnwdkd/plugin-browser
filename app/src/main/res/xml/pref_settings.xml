@@ -64,6 +64,12 @@
             android:key="desktop_ua"
             android:title="@string/settings_desktop_ua" />
 
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="auto_hide_toolbar"
+            android:summary="往下滑动时收起地址栏和底栏，往上滑或回到顶部时重新出现"
+            android:title="@string/settings_auto_hide_toolbar" />
+
         <Preference
             android:key="plugin_store"
             android:summary="@string/settings_plugins_summary"

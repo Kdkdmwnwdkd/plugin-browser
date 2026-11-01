@@ -13,6 +13,8 @@
         android:layout_width="0dp"
         android:layout_height="2dp"
         android:background="@drawable/bg_progress_bar"
+        android:elevation="8dp"
+        android:outlineProvider="none"
         android:scaleX="0"
         android:transformPivotX="0dp"
         app:layout_constraintEnd_toEndOf="parent"
@@ -29,6 +31,8 @@
         android:paddingTop="8dp"
         android:paddingEnd="16dp"
         android:paddingBottom="8dp"
+        android:background="?attr/colorSurface"
+        android:elevation="6dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/progress_bar">
@@ -165,8 +169,12 @@
             app:tint="?attr/colorOnSurfaceVariant" />
     </LinearLayout>
 
-    <!-- WebView 容器：所有标签页的 WebView 在此切换 -->
-    <FrameLayout
+    <!--
+      WebView 容器：所有标签页的 WebView 在此切换。
+      外面套一层下拉刷新，是为了拿到「网页是否已经到顶」——
+      WebView 的内部滚动在 View 层看不见，只能用宿主上报的真实位置判断。
+    -->
+    <com.pluginbrowser.browser.PullToRefreshLayout
         android:id="@+id/web_container"
         android:layout_width="0dp"
         android:layout_height="0dp"
@@ -240,6 +248,7 @@
         android:layout_width="0dp"
         android:layout_height="62dp"
         android:background="?attr/colorSurface"
+        android:elevation="6dp"
         android:gravity="center_vertical"
         android:paddingStart="8dp"
         android:paddingEnd="8dp"

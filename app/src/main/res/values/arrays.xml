@@ -31,6 +31,8 @@
         <item>回到主页</item>
         <item>新建标签页</item>
         <item>关闭当前标签</item>
+        <item>上一个标签</item>
+        <item>下一个标签</item>
         <item>回到页面顶部</item>
         <item>滚动到页面底部</item>
         <item>无动作</item>
@@ -43,6 +45,8 @@
         <item>home</item>
         <item>new_tab</item>
         <item>close_tab</item>
+        <item>prev_tab</item>
+        <item>next_tab</item>
         <item>scroll_top</item>
         <item>scroll_bottom</item>
         <item>none</item>

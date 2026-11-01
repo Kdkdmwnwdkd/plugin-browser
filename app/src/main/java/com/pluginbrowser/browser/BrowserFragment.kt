@@ -44,6 +44,8 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.PopupMenu
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.core.widget.addTextChangedListener
@@ -82,6 +84,7 @@ import com.pluginbrowser.ui.BookmarksFragment
 import com.pluginbrowser.util.AddressSubmit
 import com.pluginbrowser.util.UrlUtils
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 /**
  * 浏览器主界面：地址栏、多标签 WebView 容器、底部工具栏、
@@ -101,7 +104,6 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private val translateManager by lazy { TranslateManager(requireContext()) }
 
     private lateinit var webViewClient: BrowserWebViewClient
-    private lateinit var webChromeClient: BrowserWebChromeClient
     private lateinit var suggestionAdapter: SuggestionAdapter
 
     /* ---------------- 视图 ---------------- */
@@ -111,7 +113,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private lateinit var securityIcon: ImageView
     private lateinit var addressInput: AutoCompleteTextView
     private lateinit var incognitoBadge: TextView
-    private lateinit var webContainer: FrameLayout
+    private lateinit var webContainer: PullToRefreshLayout
     private lateinit var bottomBar: View
     private lateinit var btnBack: ImageButton
     private lateinit var btnForward: ImageButton
@@ -146,6 +148,12 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private var pendingDownload: PendingDownload? = null
     private lateinit var downloadPrompt: DownloadPrompt
     private var pluginActionMap = mutableMapOf<String, PluginMenuItem>()
+
+    /* 工具栏自动收起：地址栏 + 底栏一起，只在滚动停稳后动作 */
+    private var chromeHidden = false
+    private var lastKnownScrollY = 0
+    private var pendingChromeHide = false
+    private val applyChromeRunnable = Runnable { applyChromeVisibility(pendingChromeHide) }
     private val suggestionHandler = Handler(Looper.getMainLooper())
     private var suggestionRunnable: Runnable? = null
 
@@ -294,7 +302,6 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         activeRef = java.lang.ref.WeakReference(this)
         webViewClient = BrowserWebViewClient(this)
-        webChromeClient = BrowserWebChromeClient(this)
         suggestionAdapter = SuggestionAdapter(requireContext())
         downloadPrompt = DownloadPrompt(this, settings)
 
@@ -353,6 +360,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             }
         }
         tabManager.attachTo(webContainer)
+        setupPullToRefresh()
         refreshUi()
 
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, backCallback)
@@ -390,6 +398,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     override fun onDestroyView() {
+        view?.removeCallbacks(applyChromeRunnable)
         tabManager.selectionActionHandler = null
         tabManager.elementPickedHandler = null
         tabManager.pauseAll()
@@ -447,6 +456,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             suggestionAdapter.getItem(position)?.let { navigateTo(it.url) }
         }
         addressInput.setOnFocusChangeListener { _, hasFocus ->
+            // 收起状态下点地址栏：先让工具栏回来，否则输入法弹出来盖住的是网页
+            if (hasFocus) showToolbars()
             updateAddressAction()
             if (hasFocus && suggestionAdapter.count > 0) {
                 addressInput.postDelayed({
@@ -818,6 +829,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
     private fun showFindBar() {
         if (!::findBar.isInitialized) return
+        // 查找栏挂在地址栏下面，地址栏收着的时候打开它会错位
+        showToolbars()
         findBar.isVisible = true
         findInput.requestFocus()
         findInput.selectAll()
@@ -1131,12 +1144,19 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                     false
                 }
             }
+            "prev_tab" -> switchTabBy(-1)
+            "next_tab" -> switchTabBy(1)
+            // WebView 的 scrollTo 对网页内容是无效的（滚动在 Chromium 内部），
+            // 这两条以前静默失败——点了「回到顶部」纹丝不动
             "scroll_top" -> {
-                webView?.scrollTo(0, 0)
+                webView?.evaluateJavascript("window.scrollTo({top:0,behavior:'smooth'})", null)
                 webView != null
             }
             "scroll_bottom" -> {
-                webView?.scrollTo(0, webView.contentHeight)
+                webView?.evaluateJavascript(
+                    "window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})",
+                    null,
+                )
                 webView != null
             }
             else -> false
@@ -1156,6 +1176,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             "forward" -> wv.canGoForward()
             "reload", "home", "new_tab", "scroll_top", "scroll_bottom" -> true
             "close_tab" -> tabManager.tabs.size > 1
+            "prev_tab", "next_tab" -> tabManager.tabs.size > 1
             else -> false
         }
     }
@@ -1171,6 +1192,130 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     private fun currentWebView(): WebView? {
         val tab = tabManager.currentTab() ?: return null
         return if (tab.isCreated) tab.webView else null
+    }
+
+    private fun switchTabBy(delta: Int): Boolean {
+        val count = tabManager.tabs.size
+        if (count <= 1) return false
+        val from = tabManager.currentIndex
+        if (from !in tabManager.tabs.indices) return false
+        // 循环：最后一个再往后就是第一个
+        tabManager.switchTo((from + delta + count) % count)
+        return true
+    }
+
+    /* ---------------- 下拉刷新与工具栏收起 ---------------- */
+
+    /**
+     * 下拉刷新。
+     *
+     * 「到底有没有在顶部」这件事只能问网页：WebView 的 scrollY 恒为 0，
+     * canScrollVertically() 也永远说没滚过，拿它判断等于「任何位置都能下拉」。
+     * 真实位置来自注入脚本的上报，见 SiteScripts.SCROLL_REPORT。
+     */
+    private fun setupPullToRefresh() {
+        webContainer.atTopProvider = {
+            val tab = tabManager.currentTab()
+            tab == null || tab.scrollY <= 2
+        }
+        webContainer.onRefresh = {
+            val tab = tabManager.currentTab()
+            if (tab == null || tab.url.isBlank() || tab.readerMode) {
+                // 空白页、阅读页没什么可刷的，直接收回去，别让人对着转圈等
+                webContainer.post { webContainer.finishRefresh() }
+            } else {
+                showToolbars()
+                tab.scrollY = 0
+                lastKnownScrollY = 0
+                reload()
+            }
+        }
+    }
+
+    override fun onPageScroll(tab: Tab, y: Int, viewportHeight: Int) {
+        tab.scrollY = y
+        tab.viewportHeight = viewportHeight
+        if (tab !== tabManager.currentTab()) return
+        evaluateToolbarVisibility(y)
+    }
+
+    /**
+     * 决定工具栏该不该收起来。
+     *
+     * 只在滚动停稳之后才真的改布局：收起/展开要让 WebView 的高度变 124dp，
+     * 那是每帧重排；滚动过程中做，画面会一顿一顿的。
+     * 手指抬起来 240ms 后动手，用户看到的是「停下来，工具栏顺势让开」。
+     */
+    private fun evaluateToolbarVisibility(y: Int) {
+        if (!settings.autoHideToolbar) {
+            showToolbars()
+            return
+        }
+        if (toolbarsLocked()) return
+        val dy = y - lastKnownScrollY
+        lastKnownScrollY = y
+        if (abs(dy) < 6) return
+
+        // 向下滚、并且已经离开首屏才收；往回滚一律展开
+        pendingChromeHide = dy > 0 && y > (160 * resources.displayMetrics.density)
+        val host = view ?: return
+        host.removeCallbacks(applyChromeRunnable)
+        host.postDelayed(applyChromeRunnable, 240)
+    }
+
+    /**
+     * 什么情况下不许收。
+     *
+     * 地址栏正在输入时收起来等于把光标藏了；查找栏、外部跳转提示、
+     * 全屏视频同理——这些界面上正有需要人看的东西。
+     */
+    private fun toolbarsLocked(): Boolean =
+        !::findBar.isInitialized ||
+            !::handoffBar.isInitialized ||
+            addressInput.hasFocus() ||
+            findBar.isVisible ||
+            handoffBar.isVisible ||
+            customView != null
+
+    /** 任何「需要看到工具栏」的时刻都调这个：聚焦地址栏、开查找、切标签、下拉刷新 */
+    private fun showToolbars() {
+        view?.removeCallbacks(applyChromeRunnable)
+        if (chromeHidden) applyChromeVisibility(false)
+    }
+
+    private fun applyChromeVisibility(hide: Boolean) {
+        if (hide == chromeHidden) return
+        val root = view as? ConstraintLayout ?: return
+        if (hide && toolbarsLocked()) return
+        chromeHidden = hide
+
+        // 顺序有讲究：先把网页该占的高度让出来，再把工具栏滑走。
+        // 反过来会先看到一条与背景同色的空带，然后内容才补上去。
+        val cs = ConstraintSet()
+        cs.clone(root)
+        if (hide) {
+            cs.connect(R.id.web_container, ConstraintSet.TOP, R.id.browser_root, ConstraintSet.TOP, 0)
+            cs.connect(
+                R.id.web_container,
+                ConstraintSet.BOTTOM,
+                R.id.browser_root,
+                ConstraintSet.BOTTOM,
+                0,
+            )
+        } else {
+            cs.connect(R.id.web_container, ConstraintSet.TOP, R.id.find_bar, ConstraintSet.BOTTOM, 0)
+            cs.connect(R.id.web_container, ConstraintSet.BOTTOM, R.id.bar_divider, ConstraintSet.TOP, 0)
+        }
+        cs.applyTo(root)
+
+        val up = if (hide) -addressBarRow.bottom.toFloat() else 0f
+        val down = if (hide) bottomBar.height.toFloat() else 0f
+        val duration = if (hide) 180L else 200L
+        addressBarRow.animate().translationY(up).setDuration(duration).start()
+        progressBar.animate().translationY(up).setDuration(duration).start()
+        bottomBar.animate().translationY(down).setDuration(duration).start()
+        view?.findViewById<View>(R.id.bar_divider)
+            ?.animate()?.translationY(down)?.setDuration(duration)?.start()
     }
 
     /* ---------------- 溢出菜单 ---------------- */
@@ -1962,7 +2107,9 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
 
     private fun configureWebView(tab: Tab, wv: WebView) {
         wv.webViewClient = webViewClient
-        wv.webChromeClient = webChromeClient
+        // 按标签单独建：滚动上报走 console 通道，那条回调没有 WebView 参数，
+        // 共用一个实例就分不清是哪个页面在报
+        wv.webChromeClient = BrowserWebChromeClient(this, tab)
         val bridge = JsBridge(
             context = requireContext(),
             scope = PluginBrowserApp.appScope,
@@ -2033,6 +2180,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             refreshUi()
             // 能不能前进/后退变了，边缘区该归谁也得跟着变
             syncGestureExclusion()
+            // 下拉刷新的转圈到这里收：它等的就是「加载完」这一下
+            if (::webContainer.isInitialized) webContainer.finishRefresh()
         }
         // 跳转后旧的高亮会失效，若查找栏还开着就重新搜一次
         if (::findBar.isInitialized && findBar.isVisible && findQuery.isNotBlank()) {
@@ -2411,6 +2560,11 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     fun onCurrentTabChanged(tab: Tab?) {
         if (!isAdded || view == null) return
         tabManager.attachTo(webContainer)
+        // 换页面：下拉的位移、工具栏的收放、滚动基准全部归零。
+        // 不复位的话新标签会带着上一个页面的「已收起」状态和半截下拉位移
+        if (::webContainer.isInitialized) webContainer.reset()
+        lastKnownScrollY = 0
+        showToolbars()
         refreshUi()
         // 换了标签，前进/后退能力跟着换，边缘归属也要重算
         syncGestureExclusion()
