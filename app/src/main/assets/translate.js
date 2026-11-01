@@ -143,5 +143,123 @@
     return n;
   }
 
-  window.__PB_TR = { collect: collect, apply: apply, restore: restore };
+  /* ---------- 语言检测 ---------- */
+
+  /*
+   * 为什么要自己判，而不是直接读 document.lang：
+   * 一半的站点根本不写 lang，另一半写的是错的（整站抄模板，首页标 zh-CN，
+   * 英文子站也不改）。所以 lang 只当参考，真正的判据是正文里各种文字的占比。
+   */
+
+  var TRAD_RE = /[這個說時會來對們為國學經還樣麼沒點開關門問題實際現應該發讓見東車話語讀寫購買賣價錢銀網頁體驗設頻聲]/g;
+  var SIMP_RE = /[这个说时会对们为国学经还样么没点开关门问题实际现应该发让见东车话语读写购买卖价钱银网页体验设频声]/g;
+  var EN_WORD = /\b(the|and|of|to|is|are|that|this|with|for|you|it|was|on|as|be|by|at|from|not|have|but|they|what|will|can|has|been|their|would|about)\b/gi;
+
+  function countChars(text) {
+    var stat = { han: 0, kana: 0, hangul: 0, latin: 0, cyr: 0 };
+    for (var i = 0; i < text.length; i++) {
+      var c = text.charCodeAt(i);
+      if ((c >= 0x4E00 && c <= 0x9FFF) || (c >= 0x3400 && c <= 0x4DBF) || (c >= 0xF900 && c <= 0xFAFF)) {
+        stat.han++;
+      } else if (c >= 0x3040 && c <= 0x30FF) {
+        stat.kana++;
+      } else if ((c >= 0xAC00 && c <= 0xD7AF) || (c >= 0x1100 && c <= 0x11FF)) {
+        stat.hangul++;
+      } else if ((c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A)) {
+        stat.latin++;
+      } else if (c >= 0x0400 && c <= 0x04FF) {
+        stat.cyr++;
+      }
+    }
+    return stat;
+  }
+
+  /** 取一段有代表性的正文做样本：优先叶子块，凑不够就用整页文字 */
+  function sampleText() {
+    var out = '';
+    var cands = document.querySelectorAll(BLOCK_TAGS);
+    for (var i = 0; i < cands.length && out.length < 1400; i++) {
+      var el = cands[i];
+      if (skipped(el)) continue;
+      if (el.querySelector(NESTED)) continue;
+      var t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t.length < 6) continue;
+      out += t + ' ';
+    }
+    if (out.replace(/\s/g, '').length < 30 && document.body) {
+      out = document.body.innerText || document.body.textContent || '';
+    }
+    return out.slice(0, 2000);
+  }
+
+  /**
+   * 返回 { declared, guess, conf, variant, chars }。
+   * guess 取 zh / en / ja / ko / latin / other / unknown —— 判不准就说不知道，
+   * 让上层照常翻译，而不是猜一个错的语言把用户的页面锁死。
+   */
+  function detect() {
+    var declared = (document.documentElement.getAttribute('lang') || '').trim();
+    if (!declared) {
+      var meta = document.querySelector(
+        'meta[property="og:locale"], meta[name="language"], meta[http-equiv="content-language"]'
+      );
+      if (meta) declared = (meta.getAttribute('content') || '').trim();
+    }
+
+    var sample = sampleText();
+    var s = countChars(sample);
+    var letters = s.han + s.kana + s.hangul + s.latin + s.cyr;
+    var guess = 'unknown';
+    var conf = 0;
+
+    // 少于 24 个字母基本没什么可判的（"加载中"、纯图页、还没渲染完）
+    if (letters >= 24) {
+      if (s.hangul > 2 && s.hangul / letters >= 0.15) {
+        guess = 'ko';
+        conf = s.hangul / letters;
+      } else if (s.kana > 2 && s.kana / (s.han + s.kana) >= 0.03) {
+        // 假名几乎只出现在日语里，哪怕比例很小也足以定性（日语汉字多，不能只看汉字）
+        guess = 'ja';
+        conf = Math.min(0.9, 0.4 + s.kana / (s.han + s.kana));
+      } else if (s.han > 0 && s.han / (s.han + s.latin) >= 0.55 && s.han / letters >= 0.4) {
+        guess = 'zh';
+        conf = s.han / (s.han + s.latin);
+      } else if (s.latin > 0 && s.latin / letters >= 0.6) {
+        // 拉丁字母只能说明是拉丁语系。要判成英语得看高频功能词的比例：
+        // 法语德语同样满屏字母，但 the/and/of/to 出现得少。
+        var words = sample.split(/\s+/).filter(function (w) { return /^[A-Za-z][A-Za-z'’-]*$/.test(w); });
+        var hits = (sample.match(EN_WORD) || []).length;
+        var ratio = words.length ? hits / words.length : 0;
+        if (words.length >= 8 && ratio >= 0.12) {
+          guess = 'en';
+          conf = Math.min(0.95, 0.5 + ratio);
+        } else {
+          guess = 'latin';
+          conf = 0.55;
+        }
+      } else if (s.cyr > 0 && s.cyr / letters >= 0.5) {
+        guess = 'other';
+        conf = 0.6;
+      }
+    }
+
+    // 繁简：汉字两边的占比，繁体站大多不写 lang，只能靠异形字
+    var variant = 'unknown';
+    if (guess === 'zh') {
+      var trad = (sample.match(TRAD_RE) || []).length;
+      var simp = (sample.match(SIMP_RE) || []).length;
+      if (trad >= 3 && trad > simp * 1.5) variant = 'hant';
+      else if (simp >= 3) variant = 'hans';
+    }
+
+    return {
+      declared: declared,
+      guess: guess,
+      conf: Math.round(conf * 100) / 100,
+      variant: variant,
+      chars: letters
+    };
+  }
+
+  window.__PB_TR = { collect: collect, apply: apply, restore: restore, detect: detect };
 })();

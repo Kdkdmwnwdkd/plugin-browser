@@ -183,6 +183,10 @@
     <string name="translate_use_builtin">用内置免费源</string>
     <string name="translate_no_config_needed">这一项不需要填写任何内容，直接选目标语言就能用。</string>
     <string name="translate_go_settings">去设置</string>
+    <string name="translate_from_to">%1$s → %2$s</string>
+    <string name="translate_same_title">这一页已经是%1$s</string>
+    <string name="translate_same_msg">整页翻译要把每一段都发出去、再等回来，十几秒起步。这一页本来就是同样的语言，翻完不会有任何变化。\n\n如果页面标注有问题、或者你确实想再翻一遍，可以继续。</string>
+    <string name="translate_anyway">仍然翻译</string>
     <string name="settings_plugins">插件管理</string>
     <string name="settings_plugins_summary">查看、开关或导入插件（含内置的阅读模式、夜间模式）</string>
     <string name="settings_gesture_title">手势</string>

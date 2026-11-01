@@ -22,6 +22,13 @@ class TranslateManager(context: Context) {
     private val appContext = context.applicationContext
     private val settings = TranslateSettings(appContext)
 
+    /** 注入脚本只读一次。整页翻译和语言检测都要用它，每次都从 assets 读一遍没必要 */
+    private val pageScript: String by lazy {
+        appContext.assets.open("translate.js").bufferedReader().use { it.readText() }
+    }
+
+    val target: TranslateTarget get() = settings.target
+
     fun isConfigured(): Boolean = settings.isConfigured()
 
     fun providerLabel(): String = settings.provider.label
@@ -31,14 +38,32 @@ class TranslateManager(context: Context) {
         settings.provider = TranslateProvider.TENCENT
     }
 
+    /**
+     * 探一下页面是什么语言。
+     *
+     * 在中文页面上点翻译，原来会把中文再翻一遍中文：发几十个请求、等十几秒、
+     * 回来还是那些字。检测就是为了在花掉这十几秒之前先拦住。
+     *
+     * 页面还没渲染完（样本不足）时返回 unknown，调用方照常翻译。
+     */
+    suspend fun detectPage(webView: WebView): PageLanguage? = withContext(Dispatchers.Main) {
+        try {
+            webView.evaluateJavascript(pageScript, null)
+            val raw = evaluate(webView, "JSON.stringify(window.__PB_TR.detect())")
+            val inner = (JSONTokener(raw ?: "").nextValue() as? String).orEmpty()
+            if (inner.isBlank()) null else PageLanguage.parse(JSONObject(inner))
+        } catch (e: Exception) {
+            // 检测本身失败不该挡住翻译，交给调用方按「不知道」处理
+            null
+        }
+    }
+
     suspend fun translatePage(
         webView: WebView,
         onProgress: (done: Int, total: Int) -> Unit,
     ): Result<Int> = withContext(Dispatchers.Main) {
         try {
-            val script = appContext.assets.open("translate.js")
-                .bufferedReader().use { it.readText() }
-            webView.evaluateJavascript(script, null)
+            webView.evaluateJavascript(pageScript, null)
 
             val raw = evaluate(webView, "JSON.stringify(window.__PB_TR.collect())")
                 ?: return@withContext Result.failure(IOException("页面没有响应翻译脚本"))

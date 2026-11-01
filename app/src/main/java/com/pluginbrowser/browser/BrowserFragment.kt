@@ -78,6 +78,7 @@ import com.pluginbrowser.site.SitePermissions
 import com.pluginbrowser.site.SitePreferences
 import com.pluginbrowser.site.SiteRuleEngine
 import com.pluginbrowser.site.SiteScripts
+import com.pluginbrowser.translate.PageLanguage
 import com.pluginbrowser.translate.TranslateManager
 import com.pluginbrowser.translate.TranslateSettingsFragment
 import com.pluginbrowser.ui.BookmarksFragment
@@ -541,14 +542,43 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             return
         }
 
+        // 先花几十毫秒探一下语言，再决定要不要真的开始翻。
+        // 中文页面上点翻译，原来是老老实实把中文发出去、等十几秒、回来还是中文。
+        lifecycleScope.launch {
+            val page = translateManager.detectPage(webView)
+            if (page != null && page.isAlready(translateManager.target)) {
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(getString(R.string.translate_same_title, page.displayName()))
+                    .setMessage(R.string.translate_same_msg)
+                    .setNegativeButton(R.string.cancel, null)
+                    .setPositiveButton(R.string.translate_anyway) { _, _ ->
+                        runTranslate(tab, webView, page)
+                    }
+                    .show()
+            } else {
+                runTranslate(tab, webView, page)
+            }
+        }
+    }
+
+    /** 真正的翻译流程：进度框 + 分批请求 + 回填。检测只决定「要不要问一句」，不改变这里 */
+    private fun runTranslate(tab: Tab, webView: WebView, page: PageLanguage?) {
         val content = layoutInflater.inflate(R.layout.dialog_translate_progress, null)
         val status = content.findViewById<TextView>(R.id.translate_status)
         val bar = content.findViewById<ProgressBar>(R.id.translate_progress)
         // 长文章几十段、内置免费源还要按段限速，整页翻完可能要十几秒。
-        // 原来这个框点不掉也戳不穿，中途想停下来只能退到后台——给人的感觉是卡死了。
+        // 原来这个框点不掉也戳不穿，中途想停下来只能退到后台——给人的感觉就是卡死了。
         var job: Job? = null
+        // 标题带上语言对：用户点的是「翻译」，看到的却是「英文 → 简体中文」，
+        // 一眼就知道程序判对了没有
+        val languagePair = page?.displayName()?.takeIf { it.isNotBlank() }
+        val title = if (languagePair == null) {
+            getString(R.string.menu_translate)
+        } else {
+            getString(R.string.translate_from_to, languagePair, translateManager.target.label)
+        }
         val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.menu_translate)
+            .setTitle(title)
             .setView(content)
             .setNegativeButton(R.string.cancel) { _, _ -> job?.cancel() }
             .create()
