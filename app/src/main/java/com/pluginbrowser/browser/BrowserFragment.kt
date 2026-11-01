@@ -78,6 +78,7 @@ import com.pluginbrowser.site.SitePermissions
 import com.pluginbrowser.site.SitePreferences
 import com.pluginbrowser.site.SiteRuleEngine
 import com.pluginbrowser.site.SiteScripts
+import com.pluginbrowser.translate.AutoTranslatePolicy
 import com.pluginbrowser.translate.PageLanguage
 import com.pluginbrowser.translate.TranslateManager
 import com.pluginbrowser.translate.TranslateSettingsFragment
@@ -85,6 +86,7 @@ import com.pluginbrowser.ui.BookmarksFragment
 import com.pluginbrowser.util.AddressSubmit
 import com.pluginbrowser.util.UrlUtils
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -537,12 +539,34 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             lifecycleScope.launch {
                 translateManager.restore(webView)
                 tab.translated = false
+                // 这个站设了自动翻译时，还原必须能「停住」：只把标记翻回去，
+                // 下一次 onPageFinished（锚点跳转、图片加载完成）就会又翻一遍
+                tab.translateSuppressed = true
                 toast(getString(R.string.translate_restored))
             }
             return
         }
 
-        // 先花几十毫秒探一下语言，再决定要不要真的开始翻。
+        val host = SiteRuleEngine.hostOf(tab.url).orEmpty()
+        // 用户明确说过「这个站不翻」。仍然允许翻这一次——他可能只是不想自动翻，
+        // 但被一刀切掉之后连手动都点不动，那就成了 bug
+        if (AutoTranslatePolicy.normalize(sitePreferences.translateMode(host)) == AutoTranslatePolicy.NEVER) {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(getString(R.string.translate_site_never_title, host))
+                .setMessage(R.string.translate_site_never_msg)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.translate_this_time) { _, _ ->
+                    detectThenTranslate(tab, webView)
+                }
+                .show()
+            return
+        }
+
+        detectThenTranslate(tab, webView)
+    }
+
+    /** 先花几十毫秒探一下语言，再决定要不要真的开始翻 */
+    private fun detectThenTranslate(tab: Tab, webView: WebView) {
         // 中文页面上点翻译，原来是老老实实把中文发出去、等十几秒、回来还是中文。
         lifecycleScope.launch {
             val page = translateManager.detectPage(webView)
@@ -552,17 +576,80 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                     .setMessage(R.string.translate_same_msg)
                     .setNegativeButton(R.string.cancel, null)
                     .setPositiveButton(R.string.translate_anyway) { _, _ ->
-                        runTranslate(tab, webView, page)
+                        runTranslate(tab, webView, page, auto = false)
                     }
                     .show()
             } else {
-                runTranslate(tab, webView, page)
+                runTranslate(tab, webView, page, auto = false)
             }
         }
     }
 
+    /**
+     * 自动翻译：页面加载完之后，如果这个站是「自动」档就直接翻。
+     *
+     * 不弹任何确认框——用户已经把这一站设成自动了，每次再问一遍等于没设。
+     * 但进度框保留、随时能取消：翻到一半发现点错了站，退出路径必须有。
+     */
+    private fun maybeAutoTranslate(tab: Tab) {
+        if (tab !== tabManager.currentTab() || !tab.usable) return
+        if (!translateManager.isConfigured()) return
+        val host = SiteRuleEngine.hostOf(tab.url).orEmpty()
+        if (host.isBlank()) return
+        val mode = sitePreferences.translateMode(host)
+        val startUrl = tab.url
+        if (!AutoTranslatePolicy.shouldStart(
+                mode, tab.translated, tab.translateSuppressed, startUrl, null, translateManager.target,
+            )
+        ) {
+            return
+        }
+
+        val webView = tab.webView
+        lifecycleScope.launch {
+            // 很多站的正文是 onPageFinished 之后才由 JS 渲染出来的，
+            // 立刻取样本会拿到空壳，判成「不知道」，然后白翻一遍
+            delay(700)
+            if (!isAdded || !tab.usable || tab !== tabManager.currentTab()) return@launch
+            // 这 700ms 里用户可能已经点了别的链接，翻的就是上一页了
+            if (tab.url != startUrl) return@launch
+            val page = translateManager.detectPage(webView)
+            if (!AutoTranslatePolicy.shouldStart(
+                    mode, tab.translated, tab.translateSuppressed, tab.url, page, translateManager.target,
+                )
+            ) {
+                return@launch
+            }
+            runTranslate(tab, webView, page, auto = true)
+        }
+    }
+
+    /**
+     * 第一次在某个站翻译成功后，问一次「以后自动翻」。
+     *
+     * 入口只能藏在这里：让用户先去找站点面板、再找翻译那一行，没人会去找。
+     * 问完就记下来，包括选「不用」——那不是拒绝，是回答。
+     */
+    private fun maybeAskAutoTranslate(tab: Tab) {
+        val host = SiteRuleEngine.hostOf(tab.url).orEmpty()
+        if (host.isBlank()) return
+        val mode = sitePreferences.translateMode(host)
+        if (!AutoTranslatePolicy.shouldAskAfterSuccess(mode, sitePreferences.translateAsked(host))) return
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.translate_auto_ask_title, host))
+            .setMessage(R.string.translate_auto_ask_msg)
+            .setNegativeButton(R.string.translate_auto_no) { _, _ ->
+                sitePreferences.setTranslateMode(host, AutoTranslatePolicy.MANUAL)
+            }
+            .setPositiveButton(R.string.translate_auto_yes) { _, _ ->
+                sitePreferences.setTranslateMode(host, AutoTranslatePolicy.ALWAYS)
+                toast(getString(R.string.translate_auto_on, host))
+            }
+            .show()
+    }
+
     /** 真正的翻译流程：进度框 + 分批请求 + 回填。检测只决定「要不要问一句」，不改变这里 */
-    private fun runTranslate(tab: Tab, webView: WebView, page: PageLanguage?) {
+    private fun runTranslate(tab: Tab, webView: WebView, page: PageLanguage?, auto: Boolean) {
         val content = layoutInflater.inflate(R.layout.dialog_translate_progress, null)
         val status = content.findViewById<TextView>(R.id.translate_status)
         val bar = content.findViewById<ProgressBar>(R.id.translate_progress)
@@ -573,7 +660,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         // 一眼就知道程序判对了没有
         val languagePair = page?.displayName()?.takeIf { it.isNotBlank() }
         val title = if (languagePair == null) {
-            getString(R.string.menu_translate)
+            getString(if (auto) R.string.translate_auto_running else R.string.menu_translate)
         } else {
             getString(R.string.translate_from_to, languagePair, translateManager.target.label)
         }
@@ -593,6 +680,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             result.onSuccess { count ->
                 tab.translated = true
                 toast(getString(R.string.translate_done, count))
+                if (!auto) maybeAskAutoTranslate(tab)
             }.onFailure { error ->
                 toast(getString(R.string.translate_failed, error.message ?: ""))
             }
@@ -728,6 +816,21 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             onApply = { reload ->
                 sitePreferences.applyTo(tab.webView, tab.url)
                 if (reload) runCatching { tab.webView.reload() }
+            }
+            // 切成「自动」时当前页已经加载完了，不会再有 onPageFinished，
+            // 必须在这里直接翻一次，否则用户要手动刷新才能看到效果
+            onAutoTranslate = {
+                if (tab.usable && !tab.translated) detectThenTranslate(tab, tab.webView)
+            }
+            onCancelAutoTranslate = {
+                if (tab.usable && tab.translated) {
+                    lifecycleScope.launch {
+                        translateManager.restore(tab.webView)
+                        tab.translated = false
+                        tab.translateSuppressed = true
+                        toast(getString(R.string.translate_restored))
+                    }
+                }
             }
         }.show(fm, TAG_SITE_INFO)
     }
@@ -2306,6 +2409,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         if (::findBar.isInitialized && findBar.isVisible && findQuery.isNotBlank()) {
             startFind(findQuery)
         }
+        // 这个站设了「自动翻译」的话，页面到这一步才算能取样本
+        maybeAutoTranslate(tab)
     }
 
     override fun onProgressChanged(tab: Tab, progress: Int) = refreshUi()

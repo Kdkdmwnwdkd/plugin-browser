@@ -1,5 +1,6 @@
 package com.pluginbrowser.translate
 
+import com.pluginbrowser.net.ChainTrust
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -7,6 +8,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
+import javax.net.ssl.HttpsURLConnection
 
 /**
  * 各家翻译接口的调用实现。
@@ -324,6 +326,9 @@ object Translators {
             setRequestProperty("Accept", "application/json")
             headers.forEach { (k, v) -> setRequestProperty(k, v) }
         }
+        // 系统信任库里的旧中间证书会把某些站点判成「已过期」（详见 ChainTrust）。
+        // 只作用在这条翻译请求上，不碰 WebView 的联网链路
+        if (conn is HttpsURLConnection) ChainTrust.applyTo(conn)
         try {
             conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
             val code = conn.responseCode

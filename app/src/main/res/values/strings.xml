@@ -187,6 +187,17 @@
     <string name="translate_same_title">这一页已经是%1$s</string>
     <string name="translate_same_msg">整页翻译要把每一段都发出去、再等回来，十几秒起步。这一页本来就是同样的语言，翻完不会有任何变化。\n\n如果页面标注有问题、或者你确实想再翻一遍，可以继续。</string>
     <string name="translate_anyway">仍然翻译</string>
+    <string name="translate_auto_running">正在自动翻译…</string>
+    <string name="translate_auto_ask_title">以后自动翻译 %1$s？</string>
+    <string name="translate_auto_ask_msg">打开这个站的页面时，会自动把它翻成你设的目标语言，不用每次点菜单。\n\n已经是目标语言的页面会跳过，不会白翻。随时可以在地址栏左边的站点面板里改回来。</string>
+    <string name="translate_auto_yes">自动翻译</string>
+    <string name="translate_auto_no">先不用</string>
+    <string name="translate_auto_on">已开启：进入 %1$s 自动翻译</string>
+    <string name="translate_site_never_title">%1$s 已被设为不翻译</string>
+    <string name="translate_site_never_msg">你在站点面板里把这个站设成了「从不」，所以自动翻译不会碰它。\n\n这次仍然可以手动翻一份。</string>
+    <string name="translate_this_time">只翻这一次</string>
+    <string name="translate_site_label">翻译这个网站</string>
+    <string name="translate_site_hint">点一下切换：手动 / 自动 / 从不。选「自动」后，进站即翻，已是目标语言的页面会跳过</string>
     <string name="settings_plugins">插件管理</string>
     <string name="settings_plugins_summary">查看、开关或导入插件（含内置的阅读模式、夜间模式）</string>
     <string name="settings_gesture_title">手势</string>

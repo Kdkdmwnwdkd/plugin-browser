@@ -15,6 +15,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.pluginbrowser.R
 import com.pluginbrowser.data.SettingsRepository
+import com.pluginbrowser.translate.AutoTranslatePolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -39,6 +40,12 @@ class SiteInfoSheet : BottomSheetDialogFragment() {
     /** 设置改完后通知宿主套用；参数表示要不要立即重载当前页 */
     var onApply: ((Boolean) -> Unit)? = null
 
+    /** 切到「自动翻译」：宿主立刻翻当前页，不用等下次刷新 */
+    var onAutoTranslate: ((String) -> Unit)? = null
+
+    /** 切到「从不」：宿主把已经翻好的页面还原回原文 */
+    var onCancelAutoTranslate: (() -> Unit)? = null
+
     private val host: String get() = SiteRuleEngine.hostOf(pageUrl).orEmpty()
 
     private lateinit var prefs: SitePreferences
@@ -58,6 +65,7 @@ class SiteInfoSheet : BottomSheetDialogFragment() {
 
         bindIdentity(view)
         bindSettings(view)
+        bindTranslate(view)
         bindPermissions(view)
         bindBlocked(view)
         bindClear(view)
@@ -116,6 +124,41 @@ class SiteInfoSheet : BottomSheetDialogFragment() {
                 onApply?.invoke(true)
             }
         })
+    }
+
+    /**
+     * 翻译三态：手动 / 自动 / 从不。
+     *
+     * 用点击循环而不是开关，是因为「手动」和「从不」是两个不同意思的「关」：
+     * 前者是「我还没决定」，后者是「别再问我」。合成一个开关，用户想表达
+     * 「这个站以后别自动翻」时就只能一直关着，而自动翻译的默认值恰恰也是关。
+     */
+    private fun bindTranslate(view: View) {
+        val row = view.findViewById<View>(R.id.row_translate)
+        val label = view.findViewById<TextView>(R.id.translate_value)
+        fun render() {
+            label.text = AutoTranslatePolicy.label(prefs.translateMode(host))
+        }
+        render()
+        row.setOnClickListener {
+            val next = when (AutoTranslatePolicy.normalize(prefs.translateMode(host))) {
+                AutoTranslatePolicy.ALWAYS -> AutoTranslatePolicy.NEVER
+                AutoTranslatePolicy.NEVER -> AutoTranslatePolicy.MANUAL
+                else -> AutoTranslatePolicy.ALWAYS
+            }
+            prefs.setTranslateMode(host, next)
+            render()
+            // 切成「自动」要立刻对这一页生效，否则用户以为没反应；
+            // 切成「从不」只需拦住下一次，不用把已经翻好的页面折腾回去
+            if (next == AutoTranslatePolicy.ALWAYS) {
+                onApply?.invoke(false)
+                dismissAllowingStateLoss()
+                // 面板和翻译进度框都是窗口，错开一帧弹出，避免叠在一起再互相抢焦点
+                activity?.window?.decorView?.post { onAutoTranslate?.invoke(host) }
+            } else if (next == AutoTranslatePolicy.NEVER) {
+                onCancelAutoTranslate?.invoke()
+            }
+        }
     }
 
     private fun bindPermissions(view: View) {

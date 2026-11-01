@@ -129,6 +129,29 @@
             android:text="加载图片"
             android:textSize="14sp" />
 
+        <LinearLayout
+            android:id="@+id/row_translate"
+            style="@style/SiteSheetRow">
+
+            <TextView
+                style="@style/SiteSheetRowTitle"
+                android:text="@string/translate_site_label" />
+
+            <TextView
+                android:id="@+id/translate_value"
+                style="@style/SiteSheetRowValue" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="24dp"
+            android:paddingTop="2dp"
+            android:paddingEnd="24dp"
+            android:text="@string/translate_site_hint"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="11sp" />
+
         <TextView
             style="@style/SiteSheetSection"
             android:text="权限" />

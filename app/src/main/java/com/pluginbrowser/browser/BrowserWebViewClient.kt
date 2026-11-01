@@ -176,12 +176,16 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         // 错误页是用 loadDataWithBaseURL 加载的，WebView 会额外报一次 about:blank。
         // 如果连它一起写进 tab.url，地址栏就变成 about:blank，重试也会去重试空白页。
         if (!url.startsWith("data:") && url != "about:blank") {
+            // 同一次加载的重入（刷新、锚点、页面自己 pushState）不算换了页面：
+            // 用户刚点过「还原原文」，刷新一下又翻回去，那颗按钮就等于白点
+            val samePage = url == tab.url
             // 从阅读页点进了别的链接：阅读模式已经名存实亡，把标记撤掉，
             // 否则菜单会一直显示「退出阅读」，点了却退不回去
             if (tab.readerMode && url != tab.readerUrl) tab.readerMode = false
             tab.url = url
             tab.failedUrl = null
             tab.translated = false
+            if (!samePage) tab.translateSuppressed = false
             tab.committed = false
             tab.adCssInjected = false
             // 新页面从顶部开始。不清掉的话，上一个页面滚到一半的位置

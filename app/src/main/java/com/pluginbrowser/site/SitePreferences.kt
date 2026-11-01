@@ -3,6 +3,7 @@ package com.pluginbrowser.site
 import android.content.Context
 import android.webkit.WebSettings
 import android.webkit.WebView
+import com.pluginbrowser.translate.AutoTranslatePolicy
 
 /**
  * 单个站点的加载偏好。
@@ -26,6 +27,13 @@ class SitePreferences(context: Context) {
 
     fun images(host: String): Boolean? = optBool("i.$host")
 
+    /** @see com.pluginbrowser.translate.AutoTranslatePolicy */
+    fun translateMode(host: String): Int =
+        AutoTranslatePolicy.normalize(prefs.getInt("t.$host", AutoTranslatePolicy.MANUAL))
+
+    /** 这个站点是否已经问过「以后自动翻译」——问过就不再问，说「不用」也是回答 */
+    fun translateAsked(host: String): Boolean = prefs.getBoolean("tq.$host", false)
+
     fun setDesktop(host: String, value: Boolean?) = putBool("d.$host", value)
 
     fun setTextZoom(host: String, value: Int) {
@@ -36,12 +44,21 @@ class SitePreferences(context: Context) {
 
     fun setImages(host: String, value: Boolean?) = putBool("i.$host", value)
 
+    fun setTranslateMode(host: String, mode: Int) {
+        prefs.edit()
+            .putInt("t.$host", AutoTranslatePolicy.normalize(mode))
+            // 用户自己动过这个开关，就当成已经回答过，别再弹「以后自动翻？」
+            .putBoolean("tq.$host", true)
+            .apply()
+    }
+
     fun hasOverride(host: String): Boolean =
         desktop(host) != null || textZoom(host) > 0 || javascript(host) != null || images(host) != null
 
     fun reset(host: String) {
         prefs.edit()
             .remove("d.$host").remove("z.$host").remove("j.$host").remove("i.$host")
+            .remove("t.$host").remove("tq.$host")
             .apply()
     }
 

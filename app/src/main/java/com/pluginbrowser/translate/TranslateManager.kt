@@ -128,6 +128,10 @@ class TranslateManager(context: Context) {
      * CertificateExpiredException: Certificate expired at Wed Oct 11 …」
      * 一长串英文，既看不懂也做不了任何事。而真实原因往往简单得离谱——
      * 手机日期停在两年前，或者根本没连上网。
+     *
+     * 「证书过期」这条要说得保守一点：它有两种来源，用户能修的（手机时间）
+     * 和用户修不了的（服务商换了证书）。ChainTrust 已经把「系统里有旧中间证书」
+     * 这一种挡在门外了，走到这里的多半是真的过期。
      */
     private fun friendly(e: Exception): Exception {
         val all = buildString {
@@ -140,7 +144,12 @@ class TranslateManager(context: Context) {
         }.lowercase()
         return when {
             all.contains("certificate expired") || all.contains("certificateexpire") ->
-                IOException("手机的系统时间不对——翻译服务返回的证书显示已经过期。把日期时间改回「自动」再试")
+                IOException(
+                    "连不上翻译服务：证书已过期。先把手机日期时间改回「自动」；" +
+                        "日期没问题的话，是服务商的证书到期了，换一家翻译服务就能继续用",
+                )
+            all.contains("ssl") || all.contains("certificate") ->
+                IOException("和翻译服务的加密连接没建起来，可能是网络被拦截或证书不被信任。换一家翻译服务或换个网络再试")
             all.contains("unable to resolve host") || all.contains("unknownhost") ->
                 IOException("连不上翻译服务，检查一下网络")
             all.contains("timeout") || all.contains("timed out") ->
