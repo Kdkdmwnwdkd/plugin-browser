@@ -253,6 +253,19 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
             owner.runIo {
                 owner.browserStore.addHistory(tab.title, url)
             }
+            // 离线快照：正文存一份，下次断网时错误页上有「看快照」可用
+            runCatching {
+                view.evaluateJavascript("document.documentElement.outerHTML") { result ->
+                    val html = result?.let {
+                        runCatching { org.json.JSONArray(it).optString(0) }.getOrNull()
+                    }
+                    if (!html.isNullOrEmpty()) {
+                        owner.runIo {
+                            OfflineCache.save(view.context.applicationContext, url, html)
+                        }
+                    }
+                }
+            }
         }
 
         // 注入 JS 插件（API 垫片 + 命中的用户脚本，按分块顺序执行）

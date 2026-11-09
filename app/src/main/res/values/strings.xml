@@ -78,6 +78,10 @@
     <string name="plugins_install_url">从链接安装</string>
     <string name="plugin_install_url_hint">脚本或插件包链接（.user.js / .pbp）</string>
 
+    <!-- 离线快照 -->
+    <string name="offline_snapshot_shown">已显示离线快照，内容是上次打开成功时的</string>
+    <string name="offline_snapshot_missing">没有这个页面的离线快照</string>
+
     <!-- 书签 / 历史 -->
     <string name="bookmarks_title">书签</string>
     <string name="history_title">历史记录</string>

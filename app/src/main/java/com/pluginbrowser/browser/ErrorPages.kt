@@ -11,7 +11,10 @@ object ErrorPages {
      */
     const val RETRY_SCHEME = "pb://retry"
 
-    fun html(errorCode: Int, failedUrl: String, extraHint: String? = null): String {
+    /** 错误页上「看离线快照」按钮走这个 scheme，原生侧负责把快照 HTML 装回去 */
+    const val SNAPSHOT_SCHEME = "pb://snapshot"
+
+    fun html(errorCode: Int, failedUrl: String, extraHint: String? = null, hasSnapshot: Boolean = false): String {
         val reason = when (errorCode) {
             WebViewClient.ERROR_HOST_LOOKUP -> "找不到服务器，请检查网址是否正确"
             WebViewClient.ERROR_CONNECT -> "连接服务器失败"
@@ -60,7 +63,16 @@ object ErrorPages {
   <p>$reason</p>
   <p>$hint</p>
   <div class="url">${escape(failedUrl)}</div>
-  <a class="retry" href="$RETRY_SCHEME">重新加载</a>
+  <a class="retry" href="$RETRY_SCHEME">重新加载</a>${
+    if (hasSnapshot) {
+        """
+  &nbsp;<a class="retry snapshot" href="$SNAPSHOT_SCHEME">看离线快照</a>
+  <p style="margin-top:10px;font-size:12px">快照是上次打开成功时留下的，图片可能不全</p>
+"""
+    } else {
+        ""
+    }
+  }
 </body>
 </html>
 """.trimIndent()

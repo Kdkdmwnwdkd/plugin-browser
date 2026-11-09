@@ -2441,9 +2441,48 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         }
         tab.failedUrl = failed
         runCatching { tab.webView.stopLoading() }
-        val html = ErrorPages.html(errorCode, failed, errorHintFor(failed))
+        val html = ErrorPages.html(
+            errorCode,
+            failed,
+            errorHintFor(failed),
+            hasSnapshot = OfflineCache.exists(requireContext(), failed),
+        )
         runCatching { tab.webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null) }
         if (tab === tabManager.currentTab()) refreshUi()
+    }
+
+    /** 错误页上的「看离线快照」：把上次成功打开的正文装回去 */
+    private fun showOfflineSnapshot() {
+        val tab = tabManager.currentTab() ?: return
+        val target = tab.failedUrl ?: tab.url
+        val html = OfflineCache.load(requireContext(), target) ?: run {
+            toast(R.string.offline_snapshot_missing)
+            return
+        }
+        val notice = "<div style=\"position:fixed;top:0;left:0;right:0;z-index:2147483647;" +
+            "background:#fde68a;color:#422006;padding:6px 12px;font-size:12px;text-align:center\">" +
+            "离线快照 · 断网状态，图片与最新内容可能有缺</div>"
+        val withNotice = if (html.contains("<body", ignoreCase = true)) {
+            html.replaceRange(
+                html.indexOfFirstCharOfBody(),
+                0,
+                notice,
+            )
+        } else {
+            notice + html
+        }
+        runCatching {
+            // baseURL 用原地址：页面里的相对链接、锚点还能对上原本的站点
+            tab.webView.loadDataWithBaseURL(target, withNotice, "text/html", "utf-8", null)
+        }
+        tab.failedUrl = target
+        toast(R.string.offline_snapshot_shown)
+    }
+
+    private fun String.indexOfFirstCharOfBody(): Int {
+        val i = indexOf("<body", ignoreCase = true)
+        val gt = indexOf('>', i)
+        return if (gt >= 0) gt + 1 else 0
     }
 
     /**
@@ -2495,6 +2534,10 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         }
         if (url.startsWith(ErrorPages.RETRY_SCHEME)) {
             reload()
+            return true
+        }
+        if (url.startsWith(ErrorPages.SNAPSHOT_SCHEME)) {
+            showOfflineSnapshot()
             return true
         }
         if (url.startsWith("pb://focus-address")) {
