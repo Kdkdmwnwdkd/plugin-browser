@@ -64,6 +64,24 @@ class AdBlockEngine(private val context: Context?) {
 
     private val cache = ConcurrentHashMap<String, Boolean>(1024)
 
+    /**
+     * 缓存超限时只淘汰约一半条目，保留近期判定、避免整体清空后瞬时大量重算。
+     * ConcurrentHashMap 的迭代弱一致，并发写入下淘汰数量近似即可。
+     */
+    internal fun evictCacheHalf() {
+        val target = cache.size / 2
+        if (target <= 0) return
+        val it = cache.keys.iterator()
+        var removed = 0
+        while (removed < target && it.hasNext()) {
+            it.next()
+            it.remove()
+            removed++
+        }
+    }
+
+    internal fun cacheSizeForTest(): Int = cache.size
+
     @Volatile
     var ready: Boolean = false
         private set
@@ -214,7 +232,7 @@ class AdBlockEngine(private val context: Context?) {
         if (cached != null) return cached
 
         val verdict = runCatching { evaluate(url, pageUrl) }.getOrDefault(false)
-        if (cache.size > 8192) cache.clear()
+        if (cache.size > MAX_CACHE_ENTRIES) evictCacheHalf()
         cache[url] = verdict
         if (verdict) blockedCount++
         return verdict
@@ -226,13 +244,15 @@ class AdBlockEngine(private val context: Context?) {
 
         val pageHost = pageUrl?.let { hostOf(it) }
         val thirdParty = isThirdParty(host, pageHost)
-        val lowerUrl = url.lowercase()
+        // URL 多数本来已是小写，仅在含大写字母时才分配新串
+        val lowerUrl = if (url.any { it in 'A'..'Z' }) url.lowercase() else url
+        val tokens = tokensOf(lowerUrl)
 
         // 例外优先：命中任何 @@ 规则就放行
-        if (anyMatch(exceptHosts, exceptByHost, exceptByToken, exceptSlop, host, lowerUrl, thirdParty)) {
+        if (anyMatch(exceptHosts, exceptByHost, exceptByToken, exceptSlop, host, lowerUrl, tokens, thirdParty)) {
             return false
         }
-        return anyMatch(blockHosts, blockByHost, blockByToken, blockSlop, host, lowerUrl, thirdParty)
+        return anyMatch(blockHosts, blockByHost, blockByToken, blockSlop, host, lowerUrl, tokens, thirdParty)
     }
 
     private fun anyMatch(
@@ -242,6 +262,7 @@ class AdBlockEngine(private val context: Context?) {
         slop: List<Rule>,
         host: String,
         url: String,
+        tokens: List<String>,
         thirdParty: Boolean,
     ): Boolean {
         var h = host
@@ -256,7 +277,7 @@ class AdBlockEngine(private val context: Context?) {
             h = h.substring(dot + 1)
         }
 
-        for (token in tokensOf(url)) {
+        for (token in tokens) {
             val list = byToken[token] ?: continue
             for (i in list.indices) if (list[i].matches(url, host, thirdParty)) return true
         }
@@ -319,6 +340,9 @@ class AdBlockEngine(private val context: Context?) {
     fun isWhitelisted(host: String): Boolean = host.lowercase() in whitelist
 
     companion object {
+        /** 判定结果缓存上限；超限时淘汰约一半，避免整体清空造成瞬时重算 */
+        internal const val MAX_CACHE_ENTRIES = 8192
+
         /** 轻量取主机名，避免依赖 android.net.Uri，方便单测 */
         internal fun hostOf(url: String): String? {
             val scheme = url.indexOf("://")

@@ -1,5 +1,6 @@
 package com.pluginbrowser.adblock
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -65,5 +66,26 @@ class AdBlockEngineTest {
     fun `规则规模合理`() {
         val e = engine()
         assertTrue("host 规则过少：${e.hostRuleCount}", e.hostRuleCount > 80000)
+    }
+
+    @Test
+    fun `大小写混合URL仍命中规则`() {
+        val e = engine()
+        // hostOf 与词元提取均按小写处理，混合大小写不能漏拦
+        assertTrue(e.shouldBlock("https://SecurePubAds.G.DoubleClick.NET/tag/js/gpt.js", "https://foo.com"))
+        assertFalse(e.shouldBlock("https://Normal-Site.Example.COM/Logo.PNG", "https://foo.com"))
+    }
+
+    @Test
+    fun `缓存超限时淘汰约一半条目`() {
+        val e = engine()
+        val page = "https://www.example.com/"
+        repeat(10) { i -> e.shouldBlock("https://cache-stress$i.example.com/x.js", page) }
+        assertEquals(10, e.cacheSizeForTest())
+        e.evictCacheHalf()
+        assertEquals(5, e.cacheSizeForTest())
+        // 淘汰一半后缓存仍可正常读写
+        assertTrue(e.shouldBlock("https://securepubads.g.doubleclick.net/tag/js/gpt.js", page))
+        assertEquals(6, e.cacheSizeForTest())
     }
 }
