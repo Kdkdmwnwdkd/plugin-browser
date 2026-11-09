@@ -10,6 +10,7 @@ import com.pluginbrowser.plugin.native.AdBlockPlugin
 import com.pluginbrowser.plugin.native.ExternalPluginLoader
 import com.pluginbrowser.plugin.native.NativePluginRegistry
 import kotlinx.coroutines.CoroutineScope
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.zip.ZipInputStream
@@ -140,24 +141,32 @@ class PluginManager(
 
     /** 从 .pbp（zip）插件包安装，返回 manifest 或失败原因 */
     fun installFromZip(uri: Uri): Result<PluginManifest> = runCatching {
+        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            ?: error("无法读取所选文件")
+        installFromBytes(bytes).getOrThrow()
+    }.onFailure { Log.w(TAG, "install failed", it) }
+
+    /**
+     * 从字节数组安装 .pbp（zip）插件包。与 installFromZip 同一套校验逻辑，
+     * 供网页一键安装（先 NetFetcher 拉回字节再走这里）复用。
+     */
+    fun installFromBytes(bytes: ByteArray): Result<PluginManifest> = runCatching {
         val tmp = File(context.cacheDir, "plugin_import")
         if (tmp.exists()) tmp.deleteRecursively()
         tmp.mkdirs()
 
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            ZipInputStream(input).use { zis ->
-                var entry = zis.nextEntry
-                while (entry != null) {
-                    if (!entry.isDirectory) {
-                        val outFile = safeResolve(tmp, entry.name)
-                        outFile.parentFile?.mkdirs()
-                        outFile.outputStream().use { zis.copyTo(it) }
-                    }
-                    zis.closeEntry()
-                    entry = zis.nextEntry
+        ZipInputStream(bytes.inputStream()).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                if (!entry.isDirectory) {
+                    val outFile = safeResolve(tmp, entry.name)
+                    outFile.parentFile?.mkdirs()
+                    outFile.outputStream().use { zis.copyTo(it) }
                 }
+                zis.closeEntry()
+                entry = zis.nextEntry
             }
-        } ?: error("无法读取所选文件")
+        }
 
         // manifest.json 允许在 zip 根目录，或唯一一级子目录（常见于「右键压缩文件夹」）
         val root = manifestRootOf(tmp)
@@ -189,6 +198,110 @@ class PluginManager(
         notifyPluginsChanged()
         manifest
     }.onFailure { Log.w(TAG, "install failed", it) }
+
+    /**
+     * 预览远端插件包：只在内存里解出 manifest.json 用于安装确认框，不落盘。
+     */
+    fun previewFromBytes(bytes: ByteArray): Result<PluginManifest> = runCatching {
+        ZipInputStream(bytes.inputStream()).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                if (!entry.isDirectory && entry.name.endsWith("manifest.json")) {
+                    val json = JSONObject(zis.readBytes().toString(Charsets.UTF_8))
+                    return Result.success(PluginManifest.fromJson(json, "pending"))
+                }
+                zis.closeEntry()
+                entry = zis.nextEntry
+            }
+            error("插件包中缺少 manifest.json")
+        }
+    }
+
+    /**
+     * 从用户脚本源码安装（.user.js / 网页一键安装）。
+     *
+     * 解析 ==UserScript== 元数据块 → 抓取 @require / @resource 指到的远程文件 →
+     * 落盘成与 .pbp 相同的目录结构（manifest.json + user.js + lib/），
+     * 复用同一套匹配、注入与存储隔离机制。同名脚本重复安装即更新（整体覆盖）。
+     *
+     * fetch 依赖抓取器，默认走网络；单测注入假数据。
+     */
+    fun installFromUserScript(
+        source: String,
+        fetch: (String) -> String? = { com.pluginbrowser.util.NetFetcher.text(it) },
+    ): Result<PluginManifest> = runCatching {
+        val meta = UserScriptMeta.parse(source)
+            ?: error("不是有效的用户脚本（缺少 ==UserScript== 元数据块）")
+        val id = UserScriptMeta.idFor(meta)
+        require(ID_PATTERN.matches(id)) { "无法为脚本生成合法的插件 id：$id" }
+        require(id !in builtinIds()) { "插件 id 与内置插件冲突：$id" }
+
+        val dest = safeResolve(pluginRoot(), id)
+        if (dest.exists()) dest.deleteRecursively()
+        dest.mkdirs()
+        val libDir = File(dest, "lib")
+
+        fun cache(name: String, url: String): String {
+            val text = fetch(url)
+                ?: error("依赖下载失败：$url（脚本安装已中止，不影响已装插件）")
+            val f = File(libDir, name)
+            f.parentFile?.mkdirs()
+            f.writeText(text)
+            return "lib/$name"
+        }
+
+        val requires = meta.requires.mapIndexed { i, url ->
+            cache(requireFileName(url, i), url)
+        }
+        val resources = JSONObject().apply {
+            meta.resources.forEach { (key, url) ->
+                put(key, cache(resourceFileName(url), url))
+            }
+        }
+
+        val matches = (meta.matches + meta.includes.mapNotNull { UserScriptMeta.includeToMatch(it) })
+            .filter { it.isNotBlank() }
+        val manifestJson = JSONObject().apply {
+            put("id", id)
+            put("name", meta.name.ifBlank { id })
+            meta.version?.let { put("version", it) }
+            meta.author?.let { put("author", it) }
+            meta.description?.let { put("description", it) }
+            put("type", "js")
+            put("matches", JSONArray(matches.ifEmpty { listOf("*://*/*") }))
+            put(
+                "runAt",
+                when (meta.runAt?.lowercase()) {
+                    "document-start" -> "document_start"
+                    else -> "document_end"
+                },
+            )
+            if (meta.grants.isNotEmpty()) put("grant", JSONArray(meta.grants))
+            if (requires.isNotEmpty()) put("requires", JSONArray(requires))
+            if (meta.resources.isNotEmpty()) put("resources", resources)
+            put("defaultEnabled", true)
+        }
+        File(dest, "manifest.json").writeText(manifestJson.toString(2))
+        File(dest, "user.js").writeText(source)
+
+        reload()
+        notifyPluginsChanged()
+        PluginManifest.fromJson(manifestJson, dest.absolutePath)
+    }.onFailure { Log.w(TAG, "userscript install failed", it) }
+
+    /** @require 的落盘文件名：取 URL 最后一段并清洗，防路径穿越 */
+    private fun requireFileName(url: String, index: Int): String {
+        val name = url.substringBefore('?').substringAfterLast('/')
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+        return name.ifBlank { "require-$index.js" }.take(64)
+    }
+
+    /** @resource 的落盘文件名：与资源名无关（可能撞名），按 URL 生成 */
+    private fun resourceFileName(url: String): String {
+        val name = url.substringBefore('?').substringAfterLast('/')
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+        return "res-" + name.ifBlank { "asset.txt" }.take(60)
+    }
 
     /** 定位插件包根目录：根目录优先，其次唯一的子目录 */
     private fun manifestRootOf(dir: File): File {

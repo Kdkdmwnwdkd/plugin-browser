@@ -80,6 +80,10 @@ class PluginStoreFragment : Fragment(R.layout.fragment_plugin_store) {
         view.findViewById<MaterialButton>(R.id.btn_import).setOnClickListener {
             importLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
         }
+
+        view.findViewById<MaterialButton>(R.id.btn_install_url).setOnClickListener {
+            ScriptInstaller.showUrlDialog(this, pluginManager)
+        }
     }
 
     override fun onResume() {

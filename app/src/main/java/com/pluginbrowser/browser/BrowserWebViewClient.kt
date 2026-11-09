@@ -77,6 +77,10 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
 
         /** 处理 pb:// 内部指令（如 pb://focus-address），返回 true 表示已消费 */
         fun onInternalScheme(url: String): Boolean
+
+        /** 点开的是脚本/插件包直链（.user.js / .pbp），交给网页一键安装，返回 true 表示已消费 */
+        fun onPluginInstallRequested(url: String): Boolean
+
         fun onDownloadRequested(
             url: String,
             userAgent: String,
@@ -108,6 +112,10 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         if (url.startsWith("pb://")) return owner.onInternalScheme(url)
 
         if (url.startsWith("http://") || url.startsWith("https://")) {
+            // 用户脚本 / 插件包直链：交给一键安装，确认前不落盘
+            if (looksLikePluginInstall(url)) {
+                return owner.onPluginInstallRequested(url)
+            }
             // 直链文件（.apk/.zip/.pdf…）直接交给下载器。
             // 交给 WebView 的话，服务端 Content-Type 不规范时只会显示一屏乱码或空白
             if (looksLikeDownload(url)) {
@@ -154,6 +162,18 @@ class BrowserWebViewClient(private val owner: Owner) : WebViewClient() {
         val name = path.substringAfterLast('/')
         if (!name.contains('.')) return false
         return name.substringAfterLast('.') in DOWNLOAD_EXTENSIONS
+    }
+
+    /**
+     * 脚本安装直链：.user.js（油猴脚本）与 .pbp（本宿主插件包）。
+     * .pbp 不在 DOWNLOAD_EXTENSIONS 里是故意的——装到一半的确认框比下载器更适合它。
+     */
+    private fun looksLikePluginInstall(url: String): Boolean {
+        val path = runCatching { android.net.Uri.parse(url).path }.getOrNull()
+            ?.lowercase()
+            ?: return false
+        val name = path.substringAfterLast('/')
+        return name.endsWith(".user.js") || name.endsWith(".pbp")
     }
 
     override fun onReceivedHttpAuthRequest(

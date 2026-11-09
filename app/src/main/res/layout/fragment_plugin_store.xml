@@ -55,6 +55,16 @@
             android:textSize="13sp"
             app:cornerRadius="14dp" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_install_url"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="46dp"
+            android:layout_marginTop="6dp"
+            android:text="@string/plugins_install_url"
+            android:textSize="13sp"
+            app:cornerRadius="14dp" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

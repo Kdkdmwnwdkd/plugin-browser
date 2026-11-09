@@ -64,6 +64,8 @@ import com.pluginbrowser.download.DownloadPrompt
 import com.pluginbrowser.download.DownloadService
 import com.pluginbrowser.download.DownloadsFragment
 import com.pluginbrowser.plugin.PluginManager
+import com.pluginbrowser.plugin.PluginManifest
+import com.pluginbrowser.plugin.UserScriptMeta
 import com.pluginbrowser.plugin.api.PluginMenuItem
 import com.pluginbrowser.plugin.js.JsBridge
 import com.pluginbrowser.plugin.store.PluginStoreFragment
@@ -84,10 +86,13 @@ import com.pluginbrowser.translate.TranslateManager
 import com.pluginbrowser.translate.TranslateSettingsFragment
 import com.pluginbrowser.ui.BookmarksFragment
 import com.pluginbrowser.util.AddressSubmit
+import com.pluginbrowser.util.NetFetcher
 import com.pluginbrowser.util.UrlUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 /**
@@ -2501,6 +2506,15 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
                 imm.showSoftInput(addressInput, InputMethodManager.SHOW_IMPLICIT)
             }, 120)
         }
+        return true
+    }
+
+    /* ---------------- 网页一键安装脚本 ---------------- */
+
+    override fun onPluginInstallRequested(url: String): Boolean {
+        // 实际流程（拉内容 → 确认框 → 落盘）在 ScriptInstaller，
+        // 插件管理页的「从链接安装」走的是同一条路
+        com.pluginbrowser.plugin.store.ScriptInstaller.installFromUrl(this, pluginManager, url)
         return true
     }
 
