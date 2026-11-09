@@ -2,6 +2,7 @@ package com.pluginbrowser
 
 import android.app.Application
 import android.content.Context
+import com.pluginbrowser.adblock.AdBlockLists
 import com.pluginbrowser.data.SettingsRepository
 import com.pluginbrowser.download.DownloadTracker
 import com.pluginbrowser.net.GitHubChannel
@@ -11,6 +12,7 @@ import com.pluginbrowser.util.EventLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * 插件浏览器 Application。
@@ -36,6 +38,17 @@ class PluginBrowserApp : Application() {
         gitHubChannel = GitHubChannel(this, SettingsRepository(this))
         // 发现已安装的外部原生插件 APK
         pluginManager.loadExternalNativePlugins()
+        // 订阅广告名单到期就续：不挡启动，也不挡任何交互；失败静默（下次还会再试）
+        val adblock = pluginManager.adBlockPlugin()
+        if (adblock != null && AdBlockLists.dueForAutoRefresh(this)) {
+            val url = AdBlockLists.subscriptionUrl(this)
+            appScope.launch {
+                AdBlockLists.refresh(this@PluginBrowserApp, url).onSuccess {
+                    adblock.reloadRules()
+                    EventLog.log("ADBLK", "subscription refreshed: $it entries")
+                }
+            }
+        }
         // 注册下载完成广播跟踪
         DownloadTracker.get(this).register()
         // 启动即预热 GitHub 通道：DNS 和 TLS 先行，用户真去点的时候就不用再等这一两秒

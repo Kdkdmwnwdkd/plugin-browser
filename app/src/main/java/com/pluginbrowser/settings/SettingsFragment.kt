@@ -3,6 +3,7 @@ package com.pluginbrowser.settings
 import android.net.Uri
 import android.os.Bundle
 import android.webkit.CookieManager
+import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -65,6 +66,88 @@ class SettingsFragment : PreferenceFragmentCompat() {
             pref.summary = text
             probing = false
         }
+    }
+
+    /* ---------------- 广告规则订阅与自定义 ---------------- */
+
+    private var refreshingSubscription = false
+
+    private fun subscriptionSummary(): String {
+        val lists = com.pluginbrowser.adblock.AdBlockLists
+        val url = lists.subscriptionUrl(requireContext())
+        if (url.isBlank()) {
+            return "未设置。填广告域名清单链接（hosts 或 ||域名^ 行），每 3 天自动更新"
+        }
+        val at = lists.lastUpdatedAt(requireContext())
+        val time = if (at == 0L) {
+            "从未更新"
+        } else {
+            java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(at))
+        }
+        return "$url · ${lists.lastEntryCount(requireContext())} 条 · $time"
+    }
+
+    private fun refreshSubscription() {
+        if (refreshingSubscription) return
+        val url = com.pluginbrowser.adblock.AdBlockLists.subscriptionUrl(requireContext())
+        if (url.isBlank()) {
+            Toast.makeText(requireContext(), "先填订阅链接", Toast.LENGTH_SHORT).show()
+            return
+        }
+        refreshingSubscription = true
+        Toast.makeText(requireContext(), "更新中…", Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val n = com.pluginbrowser.adblock.AdBlockLists.refresh(requireContext(), url).getOrThrow()
+                    pluginManager.adBlockPlugin()?.reloadRules()
+                    n
+                }
+            }
+            refreshingSubscription = false
+            if (!isAdded) return@launch
+            result.onSuccess { n ->
+                Toast.makeText(requireContext(), "已更新 $n 条规则", Toast.LENGTH_SHORT).show()
+                findPreference<Preference>("adblock_subscription_url")?.summary = subscriptionSummary()
+            }.onFailure { e ->
+                Toast.makeText(requireContext(), "更新失败：${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun editUserRules() {
+        val ctx = requireContext()
+        val input = EditText(ctx).apply {
+            setSingleLine(false)
+            minLines = 6
+            setText(com.pluginbrowser.adblock.AdBlockLists.readUserRules(ctx).joinToString("\n"))
+            hint = "||ads.example.com^\n@@||my-bank.com^"
+        }
+        val wrap = android.widget.FrameLayout(ctx).apply {
+            val pad = (20 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad / 2, pad, 0)
+            addView(input)
+        }
+        androidx.appcompat.app.AlertDialog.Builder(ctx)
+            .setTitle("自定义拦截规则")
+            .setView(wrap)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val lines = input.text.toString().lines()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                lifecycleScope.launch {
+                    withContext(Dispatchers.IO) {
+                        com.pluginbrowser.adblock.AdBlockLists.writeUserRules(ctx, lines)
+                        // 新引擎读盘重建；旧实例的内存数据被网络线程读着，不能原地改
+                        runCatching { pluginManager.adBlockPlugin()?.reloadRules() }
+                    }
+                    if (isAdded) {
+                        Toast.makeText(ctx, "规则已生效（当前页刷新后可见）", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .show()
     }
 
     override fun onCreateView(
@@ -148,6 +231,27 @@ class SettingsFragment : PreferenceFragmentCompat() {
         findPreference<SwitchPreferenceCompat>("block_ads")?.setOnPreferenceChangeListener { _, newValue ->
             // 唯一数据源：插件启用状态（不再往 pb_settings 写一份 blockAds）
             pluginManager.setEnabled(PluginManager.ADBLOCK_PLUGIN_ID, newValue as Boolean)
+            true
+        }
+
+        // 订阅：URL 存在 AdBlockLists 自己的偏好里；保存后摘要带上上次更新时间
+        findPreference<EditTextPreference>("adblock_subscription_url")?.apply {
+            summary = subscriptionSummary()
+            setOnPreferenceChangeListener { pref, newValue ->
+                val url = (newValue as String).trim()
+                com.pluginbrowser.adblock.AdBlockLists.setSubscriptionUrl(requireContext(), url)
+                pref.summary = subscriptionSummary()
+                true
+            }
+        }
+
+        findPreference<Preference>("adblock_subscription_refresh")?.setOnPreferenceClickListener {
+            refreshSubscription()
+            true
+        }
+
+        findPreference<Preference>("adblock_user_rules")?.setOnPreferenceClickListener {
+            editUserRules()
             true
         }
 

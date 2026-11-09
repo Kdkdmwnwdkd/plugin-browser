@@ -394,8 +394,12 @@ class PluginManager(
     /** 广告拦截插件实例（只取启用的）；供 WebView 注入元素隐藏样式 */
     fun enabledAdBlocker(): AdBlockPlugin? {
         if (!isEnabled(ADBLOCK_PLUGIN_ID)) return null
-        return nativePlugins.firstOrNull { it is AdBlockPlugin } as? AdBlockPlugin
+        return adBlockPlugin()
     }
+
+    /** 广告拦截插件实例（不区分启用与否）：订阅刷新与规则编辑走这里 */
+    fun adBlockPlugin(): AdBlockPlugin? =
+        nativePlugins.firstOrNull { it is AdBlockPlugin } as? AdBlockPlugin
 
     /* ---------------- JS 脚本组装与注入 ---------------- */
 

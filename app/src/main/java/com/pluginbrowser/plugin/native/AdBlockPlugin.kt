@@ -32,7 +32,13 @@ class AdBlockPlugin(private val context: Context) : NativePlugin {
         builtin = true,
     )
 
-    val engine = AdBlockEngine(context)
+    /**
+     * 规则引擎。订阅刷新时整体换新实例（旧的 HashSets 由网络线程读着，原地改会有竞态），
+     * 引用一换，下一个请求就走新名单。
+     */
+    @Volatile
+    var engine: AdBlockEngine = AdBlockEngine(context)
+        private set
 
     /**
      * 当前页面的地址。
@@ -50,6 +56,16 @@ class AdBlockPlugin(private val context: Context) : NativePlugin {
     /** 异步加载规则，不占启动主线程 */
     fun loadAsync(scope: CoroutineScope) {
         scope.launch(Dispatchers.IO) { engine.load() }
+    }
+
+    /**
+     * 订阅/自定义规则落盘后重建引擎（IO 线程调用）。
+     * load() 的 ready 幂等挡住重复读，所以要换新实例而不是原实例重载。
+     */
+    fun reloadRules() {
+        val next = AdBlockEngine(context)
+        next.load()
+        engine = next
     }
 
     val blockedCount: Int get() = engine.blockedCount.toInt()

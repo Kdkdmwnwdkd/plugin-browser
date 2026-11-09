@@ -84,9 +84,53 @@ class AdBlockEngine(private val context: Context?) {
         if (ready) return
         val ctx = context ?: return
         runCatching { loadHosts(ctx) }
+        runCatching { loadDownloaded(ctx) }
+        runCatching { loadUserRules(ctx) }
         runCatching { loadRules(ctx) }
         runCatching { loadCosmetic(ctx) }
         ready = blockHosts.isNotEmpty()
+    }
+
+    /** 订阅名单（AdBlockLists.refresh 的产物）；没有就静默跳过 */
+    private fun loadDownloaded(ctx: Context) {
+        val f = AdBlockLists.subscriptionFile(ctx)
+        if (!f.exists()) return
+        f.bufferedReader().useLines { lines -> parseDownloaded(lines) }
+    }
+
+    /** 供单测直接喂行数据（订阅名单已编译成纯域名行） */
+    internal fun parseDownloaded(lines: Sequence<String>) {
+        lines.forEach { line ->
+            val h = line.trim()
+            if (h.isNotEmpty() && h[0] != '#') blockHosts.add(h)
+        }
+    }
+
+    /** 用户自定义规则；文件不存在跳过 */
+    private fun loadUserRules(ctx: Context) {
+        val f = AdBlockLists.userRulesFile(ctx)
+        if (!f.exists()) return
+        f.bufferedReader().useLines { lines -> parseUserRules(lines) }
+    }
+
+    internal fun parseUserRules(lines: Sequence<String>) {
+        lines.forEach { raw ->
+            when (val classified = AdBlockLists.classify(raw)) {
+                null -> Unit
+                else -> {
+                    val (allow, body) = classified
+                    if (allow) {
+                        whitelist.add(body)
+                    } else if (body.startsWith("http") || body.contains('/') || body.contains('*')) {
+                        // URL 模式：无域名锚点，走通用规则层
+                        blockSlop.add(Rule(body, null, thirdOnly = false))
+                    } else {
+                        blockHosts.add(body)
+                    }
+                    markReady()
+                }
+            }
+        }
     }
 
     private fun loadHosts(ctx: Context) {

@@ -62,6 +62,21 @@
             android:key="block_ads"
             android:title="@string/settings_block_ads" />
 
+        <EditTextPreference
+            android:key="adblock_subscription_url"
+            android:title="广告规则订阅"
+            app:useSimpleSummaryProvider="true" />
+
+        <Preference
+            android:key="adblock_subscription_refresh"
+            android:summary="拉取订阅名单并立即生效，拉取失败不影响现有规则"
+            android:title="立即更新订阅" />
+
+        <Preference
+            android:key="adblock_user_rules"
+            android:summary="一行一条：||ads.example.com^ 拦截，@@||x.com^ 放行，也可直接写域名"
+            android:title="自定义拦截规则" />
+
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="ask_before_download"
