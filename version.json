@@ -1,13 +1,13 @@
 {
-  "versionCode": 50,
-  "versionName": "2.9.7",
-  "size": 8862950,
-  "sha256": "68b433eaca764d3b844323c08f0d8912925beaf7cc0eb2e580b548d9c4c258c6",
-  "notes": "2.9.7：一条能把翻译内容换掉的中间人通道，关了。\n\n这次是审查出来的一批问题，核心是一条安全漏洞，其余六处是顺手踩到的坑。全部改动都过了 113 个单测，`assembleDebug` 也正常出包；真机没跑过，遇到异常照旧看「设置 → 诊断」里的事件时间线。\n\n[要紧的那条]\n\n翻译链路的证书校验有个回落逻辑：系统校验失败时，它会拿「服务器发下来的证书链」重新建一条路径。问题出在建路径时，它把链里**任意一张**证书都当叶子试了一遍。\n\n中间证书不是秘密——DigiCert、Let's Encrypt 的中间证书谁都能下载。所以只要发「一张自签的叶子证书 + 一张真的中间证书」，那条中间证书的路径就能建成，握手被放行。而译文是直接注入页面的，能改握手的人就能改你看到的每一个字。\n\n现在只认 `chain[0]`（RFC 5246 规定发送方证书在前），建出来的路径终点必须就是这张叶子；如果叶子本身是一张受信根证书，直接拒绝——那种证书上没有握手用的私钥。\n\n[插件导入]\n\n  · 以前解压没有任何上限。一个精心构造的 .pbp 能把手机存储写满，而且失败之后留下的碎片也不会清。现在限制 2000 个文件 / 解压后 64MB，失败时清掉临时目录\n  · 导入本来是在回调里同步跑的：解压 + 重新扫描全部插件目录，包一大就卡住主线程，系统直接判无响应。挪到 IO 线程，结果回主线程提示\n  · 跟着带出来一个问题：插件变更回调会去刷新列表，挪线程之后就成了跨线程改 UI。现在回调统一切回主线程\n\n[广告拦截]\n\n判定结果有缓存，但缓存键只用了资源地址。可是「是不是第三方」要看页面在哪个站——所以同一张图在 A 站被放行过一次，B 站再问就直接拿到「放行」这个旧结论。缓存键补上页面域名。顺带把拦截计数换成原子量，白名单换成并发集合（一个在 UI 线程写、一个在 WebView 线程读）。\n\n[JS 桥接]\n\n  · `PB.storage.set(key, null)` 以前存成空串，读回来是 `\"\"` 而不是 `null`，脚本里判 null 的分支永远进不去。现在写 null 等价删键\n  · `http.request` 出错时不断开连接，插件连续失败几次就把连接池占满。改成 try/finally\n\n[下载]\n\nm3u8 里的 `EXT-X-MEDIA-SEQUENCE` 以前没解析。没写 IV 的 AES-128 流要靠它推 IV，忽略这条标签，下下来的文件就是一坨解不开的乱码。现在按它做分片序号起点。\n\n[更新]\n\n  · 远端清单的 `versionName` 以前直接拼进文件名，里面带 `../` 就能把安装包写到缓存目录外面。现在只留字母数字和 `._-`\n  · 清单里没写 `sha256` 时，以前会跳过校验直接拉起安装器。现在拒绝——宁可让你去 Release 页手动装，也不把一份可能被换过的包装进系统\n\n[验证]\n\n  · CI：JDK 17 + platform-34，`testDebugUnitTest` 113 个用例全过，`assembleDebug` 出包成功\n  · 新增两条回归：第三方规则缓存不跨页面串味、`EXT-X-MEDIA-SEQUENCE` 解析\n\n[已知边界]\n\n  · 原生插件加载仍然不做签名校验，装一个声明了宿主 action 的 APK 就能进宿主进程——这是教学定位下的既定取舍，生产化要先补签名白名单\n  · JS 桥接的 `http.request` 不拦内网地址，插件可以打 127.0.0.1 和路由器后台。插件来源可信时问题不大，接第三方插件市场前必须加\n",
+  "versionCode": 51,
+  "versionName": "2.9.8",
+  "size": 8865798,
+  "sha256": "892e5db5a95d13c3d9ea7aa24d8cf5ea409d9cfcedffcb9408148a81f55b245f",
+  "notes": "2.9.8：四件「说了但没做到」的事\n\n这一版没有新功能，全是把已经有承诺、实际没兑现的地方补上。\n\n[按站点关闭广告拦截]\n\n规则拦得狠，偶尔会把正常站的图片、接口一起拦掉——表现是图裂、按钮点不动。\n以前唯一的路是去设置里把拦截全局关掉，等于让别的站跟着裸奔。\n\n现在地址栏左边那颗锁 → 内容过滤 → 广告拦截，可以只对当前站关。\n关掉后页面自动重载，广告位回来，其他站照旧。\n\n只提供「关」这一档，没有「强制开」：全局关掉时广告插件根本不会被调用，\n再加一个站点级的「开」也执行不到，只会让人以为设了没生效。\n恢复时写回「跟随全局」，而不是钉死一个 true，免得以后全局关了这个站还留着隐形覆盖。\n\n[「清除浏览数据」真的清干净了]\n\n以前只清了 Cookie、缓存、历史记录。localStorage 一直没动——而现在大量站点\n把登录态就放在 localStorage 里。用户点完清除，下次打开还是登录状态，\n只能认为这个按钮是坏的。\n\n现在一并清掉 WebStorage（localStorage / IndexedDB）、表单自动填充记录、\nHTTP 认证密码。清完就是一干二净，该重新登录就重新登录。\n\n[双击手势不再误触]\n\n以前双击只看时间：320 毫秒内点两下就算，不管点在哪。在列表页连点两个不同的\n链接是很常见的操作，第二下会被当成双击，直接执行「新建标签」「全屏」这类动作，\n用户完全不知道发生了什么。\n\n现在要求两次点击落在同一小块区域（系统双击容差），并且被吞掉的那次按下会连\n后续抬手一起吞——只吞按下的话，网页会收到一个没有按下的抬手，按钮会卡在高亮态。\n\n[恢复会话不再一次加载八个标签]\n\n以前冷启动会把上次的标签全部 loadUrl：八个 WebView、八个渲染进程、八份请求\n同时起来，白屏好几秒，内存峰值高到必须开 largeHeap 才撑得住。\n\n现在只有上次正在看的那一个立刻加载，其余把地址存着，切过去才发请求。\n顺带记下了「上次停在第几个标签」——以前不管你当时在看哪个，重启永远回到第一个。\n\n[顺带修的]\n\n站点面板里的「清除本站数据」，WebStorage 那段原来跑在 IO 线程上，\n还套着 runCatching。一旦因为线程不对抛异常，就会被静默吞掉，\n表现是「点了清除、什么都没清」。现在改到主线程，失败也会留一条事件日志。\nhttp 和 https 两个 cookie 作用域也一起清了，不再漏一半。\n\n[验证]\n\n单测 113 个全过，assembleDebug 出包。\n这次涉及手势和会话恢复，建议真机过一遍：连点两个链接不该触发双击动作；\n杀掉进程重开，应该回到上次那个标签，其余标签切过去才加载。\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.7/Kite-2.9.7-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.7/Kite-2.9.7-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.7/Kite-2.9.7-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.8/Kite-2.9.8-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.8/Kite-2.9.8-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.8/Kite-2.9.8-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
