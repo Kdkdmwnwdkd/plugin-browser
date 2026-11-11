@@ -41,6 +41,19 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
     private var edgeStartX = 0f
     private var edgeStartY = 0f
     private var lastTapAt = 0L
+    private var lastTapX = 0f
+    private var lastTapY = 0f
+
+    /** 双击判定的容差：两次点击都要落在这么小的一块区域里 */
+    private var doubleTapSlop = 0f
+
+    /**
+     * 这一次 DOWN 因为触发了双击动作而被吞掉。
+     *
+     * 必须连后续 MOVE/UP 一起吞：只吞 DOWN 的话，网页会收到一个没有按下的抬手，
+     * 表现是按钮卡在高亮态，个别站点还会把这次抬手当成点击穿透到下层元素。
+     */
+    private var swallowUp = false
 
     /** 已经接管、正在跟手的边缘拖动：此时事件不再下发给网页 */
     private var edgeDragging = false
@@ -59,6 +72,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
         setContentView(R.layout.activity_main)
         applySystemBars()
         touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+        doubleTapSlop = ViewConfiguration.get(this).scaledDoubleTapSlop.toFloat()
 
         tabManager = TabManager(this, this)
 
@@ -189,11 +203,23 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
             MotionEvent.ACTION_DOWN -> {
                 val now = SystemClock.uptimeMillis()
                 val doubleTapAction = settings.gestureDoubleTap
-                if (doubleTapAction != ACTION_NONE && now - lastTapAt in 40..320) {
+                // 两次点击必须落在同一小块区域才算双击。
+                // 只比时间的话，在列表页连点两个不同的链接就会被当成双击，
+                // 直接执行「新建标签 / 全屏」这类动作，用户完全不知道发生了什么。
+                val sameSpot = abs(ev.x - lastTapX) <= doubleTapSlop &&
+                    abs(ev.y - lastTapY) <= doubleTapSlop
+                if (doubleTapAction != ACTION_NONE && sameSpot && now - lastTapAt in 40..320) {
                     lastTapAt = 0
-                    if (performGesture(doubleTapAction)) return true
+                    if (performGesture(doubleTapAction)) {
+                        swallowUp = true
+                        edgeSide = SIDE_NONE
+                        edgeDragging = false
+                        return true
+                    }
                 }
                 lastTapAt = now
+                lastTapX = ev.x
+                lastTapY = ev.y
 
                 // 用窗口宽度而不是物理屏宽：刘海屏/带侧边手势条的机型两者不相等，
                 // 按物理宽度算会把右边缘判定区推到屏幕外
@@ -215,6 +241,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
             }
 
             MotionEvent.ACTION_MOVE -> {
+                if (swallowUp) return true
                 if (edgeSide == SIDE_NONE) return super.dispatchTouchEvent(ev)
                 velocity?.addMovement(ev)
                 val dx = ev.x - edgeStartX
@@ -254,6 +281,10 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
             }
 
             MotionEvent.ACTION_UP -> {
+                if (swallowUp) {
+                    swallowUp = false
+                    return true
+                }
                 val side = edgeSide
                 val dragging = edgeDragging
                 val action = edgeAction
@@ -302,6 +333,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
             }
 
             MotionEvent.ACTION_CANCEL -> {
+                swallowUp = false
                 edgeSide = SIDE_NONE
                 edgeDragging = false
                 edgeAction = ACTION_NONE

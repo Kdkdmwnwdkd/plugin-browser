@@ -210,6 +210,29 @@
             android:text="内容过滤" />
 
         <LinearLayout
+            android:id="@+id/row_adblock"
+            style="@style/SiteSheetRow">
+
+            <TextView
+                style="@style/SiteSheetRowTitle"
+                android:text="广告拦截" />
+
+            <TextView
+                android:id="@+id/adblock_value"
+                style="@style/SiteSheetRowValue" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="24dp"
+            android:paddingTop="2dp"
+            android:paddingEnd="24dp"
+            android:text="某个站被误拦（图片不显示、按钮点不动）时，可以只在这里关掉，其他站照常拦"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="11sp" />
+
+        <LinearLayout
             android:id="@+id/row_blocked"
             style="@style/SiteSheetRow">
 

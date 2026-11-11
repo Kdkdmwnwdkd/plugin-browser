@@ -3,6 +3,8 @@ package com.pluginbrowser.settings
 import android.net.Uri
 import android.os.Bundle
 import android.webkit.CookieManager
+import android.webkit.WebStorage
+import android.webkit.WebViewDatabase
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -474,14 +476,21 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     private suspend fun clearBrowsingData() {
         store.clearBrowsingData()
-        // 清空 WebView 缓存与 Cookie
+        // 清空 WebView 的那几层存储。只清 Cookie 是不够的：
+        // 现在大量站点把登录态放在 localStorage 里，用户点完「清除数据」还被认出来，
+        // 下次开口就是「你不是说清了吗」。
         CookieManager.getInstance().removeAllCookies(null)
         CookieManager.getInstance().flush()
+        WebStorage.getInstance().deleteAllData()
+        val webDb = WebViewDatabase.getInstance(requireContext())
+        webDb.clearFormData()
+        webDb.clearHttpAuthUsernamePassword()
         val tabManager = (requireActivity() as com.pluginbrowser.MainActivity).tabManager
         tabManager.tabs.forEach { tab ->
             if (tab.isCreated) {
                 tab.webView.clearCache(true)
                 tab.webView.clearHistory()
+                tab.webView.clearFormData()
             }
         }
         Toast.makeText(requireContext(), R.string.archive_cleared, Toast.LENGTH_SHORT).show()

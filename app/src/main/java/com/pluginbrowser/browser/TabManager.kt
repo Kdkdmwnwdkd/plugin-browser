@@ -97,7 +97,12 @@ class TabManager(
     /* ---------------- 标签操作 ---------------- */
 
     @SuppressLint("SetJavaScriptEnabled")
-    fun newTab(url: String? = null, incognito: Boolean = incognitoMode, select: Boolean = true): Tab {
+    fun newTab(
+        url: String? = null,
+        incognito: Boolean = incognitoMode,
+        select: Boolean = true,
+        deferLoad: Boolean = false,
+    ): Tab {
         // 标签数上限：超出时先回收最早的非当前标签，避免每个标签一个 WebView 把内存吃满
         if (tabs.size >= MAX_TABS) {
             val victim = tabs.indexOfFirst { it !== currentTab() }
@@ -177,8 +182,27 @@ class TabManager(
             "new #${System.identityHashCode(tab)} total=${tabs.size} " +
                 "incog=$incognito url=${if (incognito) "-" else hostOf(url)}",
         )
-        if (!url.isNullOrBlank()) wv.loadUrl(url)
+        if (!url.isNullOrBlank()) {
+            if (deferLoad) tab.pendingUrl = url else wv.loadUrl(url)
+        }
         return tab
+    }
+
+    /**
+     * 把延迟加载的地址放出来。
+     *
+     * 只在 WebView 还没载过页面时动手：已经显示着内容的标签（比如用户自己
+     * 点了一个链接之后就再没切走过）不该被一条旧地址顶掉。
+     */
+    private fun loadPending(tab: Tab?) {
+        if (tab == null) return
+        val url = tab.pendingUrl ?: return
+        tab.pendingUrl = null
+        if (!tab.usable) return
+        val current = tab.webView.url
+        if (current.isNullOrBlank() || current == "about:blank") {
+            tab.webView.loadUrl(url)
+        }
     }
 
     fun currentTab(): Tab? = tabs.getOrNull(currentIndex)
@@ -205,6 +229,7 @@ class TabManager(
         val previous = currentTab()
         currentIndex = index
         if (previous !== currentTab()) demote(previous)
+        loadPending(currentTab())
         promote(currentTab())
         listener.onCurrentTabChanged(currentTab())
         listener.onTabsChanged()
@@ -256,6 +281,8 @@ class TabManager(
         if (tabs.isEmpty()) {
             newTab(url = settings.homeUrl, incognito = incognitoMode)
         } else {
+            // 关掉的正好是当前标签时，新顶上来的那个可能还挂着延迟加载的地址
+            loadPending(currentTab())
             listener.onCurrentTabChanged(currentTab())
         }
         listener.onTabsChanged()
@@ -279,6 +306,7 @@ class TabManager(
         val tab = currentTab() ?: return
         // 销毁过的 WebView 不能再挂回界面：挂上去就是一张不动的静止画面
         if (!tab.alive) return
+        loadPending(tab)
         (tab.webView.parent as? ViewGroup)?.removeView(tab.webView)
         container.addView(
             tab.webView,
@@ -355,12 +383,19 @@ class TabManager(
 
     fun saveSession() {
         val arr = JSONArray()
+        // 无痕标签不存，所以「当前是第几个」要按**存下来的那条队列**重新数，
+        // 不能直接写 currentIndex —— 前面只要有一个无痕标签，位置就整体错一位
+        var savedIndex = 0
         tabs.forEach { tab ->
             if (!tab.incognito && tab.url.isNotBlank() && !tab.url.startsWith("data:")) {
+                if (tab === currentTab()) savedIndex = arr.length()
                 arr.put(JSONObject().put("url", tab.url))
             }
         }
-        sessionPrefs.edit().putString(KEY_SESSION, arr.toString()).apply()
+        sessionPrefs.edit()
+            .putString(KEY_SESSION, arr.toString())
+            .putInt(KEY_SESSION_INDEX, savedIndex)
+            .apply()
     }
 
     /** 恢复上次会话；返回是否有可恢复内容 */
@@ -369,10 +404,15 @@ class TabManager(
         return try {
             val arr = JSONArray(raw)
             if (arr.length() == 0) return false
+            val current = sessionPrefs.getInt(KEY_SESSION_INDEX, 0)
+                .coerceIn(0, arr.length() - 1)
             for (i in 0 until arr.length()) {
                 val url = arr.getJSONObject(i).optString("url")
-                newTab(url = url, incognito = false, select = i == 0)
+                // 只有上次正在看的那一个立刻加载，其余等切过去再放。
+                // 全部 loadUrl 的话，冷启动会同时起 N 个渲染进程和 N 份请求。
+                newTab(url = url, incognito = false, select = false, deferLoad = i != current)
             }
+            switchTo(current)
             true
         } catch (e: Exception) {
             false
@@ -404,5 +444,6 @@ class TabManager(
         private const val MAX_TABS = 8
 
         private const val KEY_SESSION = "session_tabs"
+        private const val KEY_SESSION_INDEX = "session_index"
     }
 }

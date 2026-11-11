@@ -8,6 +8,8 @@ import com.pluginbrowser.adblock.AdBlockEngine
 import com.pluginbrowser.plugin.PluginManager
 import com.pluginbrowser.plugin.api.NativePlugin
 import com.pluginbrowser.plugin.api.PluginMetadata
+import com.pluginbrowser.site.SitePreferences
+import com.pluginbrowser.site.SiteRuleEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -34,6 +36,9 @@ class AdBlockPlugin(private val context: Context) : NativePlugin {
 
     val engine = AdBlockEngine(context)
 
+    /** 站点级开关（「这个站不拦」）存在站点偏好里，和字号、桌面版那一套放一起 */
+    private val sitePrefs = SitePreferences(context)
+
     /**
      * 当前页面的地址。
      * [shouldInterceptRequest] 跑在 WebView 的网络线程上，那里调 `view.url` 会直接抛
@@ -45,6 +50,13 @@ class AdBlockPlugin(private val context: Context) : NativePlugin {
 
     fun onPageStarted(url: String) {
         currentPageUrl = url
+        // 把「本站是否关闭拦截」同步给引擎。放在这里而不是每个请求里查
+        // SharedPreferences：一个页面上百个子资源，逐条读盘没有必要。
+        // reload 会重新走 onPageStarted，所以面板里一改、页面一刷就生效。
+        val host = SiteRuleEngine.hostOf(url)
+        if (host != null) {
+            engine.setSiteDisabled(host, sitePrefs.adblock(host) == false)
+        }
     }
 
     /** 异步加载规则，不占启动主线程 */

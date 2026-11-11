@@ -13,9 +13,12 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.switchmaterial.SwitchMaterial
+import com.pluginbrowser.PluginBrowserApp
 import com.pluginbrowser.R
 import com.pluginbrowser.data.SettingsRepository
+import com.pluginbrowser.plugin.PluginManager
 import com.pluginbrowser.translate.AutoTranslatePolicy
+import com.pluginbrowser.util.EventLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -67,6 +70,7 @@ class SiteInfoSheet : BottomSheetDialogFragment() {
         bindSettings(view)
         bindTranslate(view)
         bindPermissions(view)
+        bindAdBlock(view)
         bindBlocked(view)
         bindClear(view)
         loadCertificate(view)
@@ -190,6 +194,42 @@ class SiteInfoSheet : BottomSheetDialogFragment() {
         }
     }
 
+    /**
+     * 本站的广告拦截开关。
+     *
+     * 这是误杀的逃生口：规则拦得狠，偶尔会把正常站的图片或接口一起拦掉，
+     * 以前只有「全局关掉」一条路，等于让别的站跟着裸奔。按站点关，刷新即生效。
+     */
+    private fun bindAdBlock(view: View) {
+        val row = view.findViewById<View>(R.id.row_adblock)
+        val label = view.findViewById<TextView>(R.id.adblock_value)
+        val globalOn = PluginBrowserApp.from(requireContext()).pluginManager
+            .isEnabled(PluginManager.ADBLOCK_PLUGIN_ID)
+
+        fun render() {
+            label.text = when {
+                !globalOn -> "全局已关闭"
+                prefs.adblock(host) == false -> "本站已关闭"
+                else -> "开启"
+            }
+        }
+        render()
+
+        row.setOnClickListener {
+            if (!globalOn) {
+                toast("广告拦截在设置里被关掉了，先去打开它")
+                return@setOnClickListener
+            }
+            val off = prefs.adblock(host) == false
+            // 恢复时写 null 而不是 true：回到「跟随全局」。
+            // 写死 true 的话，用户以后在设置里关掉全局开关，这个站还会留着一个看不见的覆盖。
+            prefs.setAdblock(host, if (off) null else false)
+            render()
+            // 已经拦掉的请求不会自己回来，必须重载一次才能看到广告位恢复
+            onApply?.invoke(true)
+        }
+    }
+
     private fun bindBlocked(view: View) {
         val blocker = ElementBlocker(requireContext())
         val label = view.findViewById<TextView>(R.id.blocked_value)
@@ -234,30 +274,35 @@ class SiteInfoSheet : BottomSheetDialogFragment() {
     }
 
     private fun clearSiteData() {
-        val url = pageUrl
-        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+        val targetHost = host
+        // CookieManager / WebStorage 都是 WebView 的 API，必须在主线程调用。
+        // 原来整段扔在 Dispatchers.IO 上，还套着 runCatching ——
+        // 一旦因为线程不对抛异常，表现就是「点了清除，什么都没清」，且没有任何痕迹。
+        viewLifecycleOwner.lifecycleScope.launch {
             runCatching {
                 val cm = CookieManager.getInstance()
-                cm.getCookie(url).orEmpty()
-                    .split(';')
-                    .map { it.substringBefore('=').trim() }
-                    .filter { it.isNotEmpty() }
-                    .forEach { name -> cm.setCookie(url, "$name=; Max-Age=0; Path=/") }
-                cm.flush()
-
-                val ws = WebStorage.getInstance()
-                ws.getOrigins { origins ->
-                    runCatching {
-                        origins?.keys?.forEach { key ->
-                            val origin = key as? String ?: return@forEach
-                            if (origin.contains(host)) ws.deleteOrigin(origin)
-                        }
-                    }
+                // http 和 https 是两个独立的 cookie 作用域，只清当前那个会漏一半
+                listOf("https://$targetHost", "http://$targetHost").forEach { origin ->
+                    cm.getCookie(origin).orEmpty()
+                        .split(';')
+                        .map { it.substringBefore('=').trim() }
+                        .filter { it.isNotEmpty() }
+                        .forEach { name -> cm.setCookie(origin, "$name=; Max-Age=0; Path=/") }
                 }
-            }
+                cm.flush()
+            }.onFailure { EventLog.log("SITE", "clear cookie failed: ${it.javaClass.simpleName}") }
+
             runCatching {
-                prefs.reset(host)
-                perms.clearHost(host)
+                val ws = WebStorage.getInstance()
+                // 不走 getOrigins 再过滤：那是异步回调，还得自己拼字符串比对。
+                // 站点只有这两种源，按名字删，命中就删、没有也不报错。
+                ws.deleteOrigin("https://$targetHost")
+                ws.deleteOrigin("http://$targetHost")
+            }.onFailure { EventLog.log("SITE", "clear storage failed: ${it.javaClass.simpleName}") }
+
+            withContext(Dispatchers.IO) {
+                prefs.reset(targetHost)
+                perms.clearHost(targetHost)
             }
         }
     }

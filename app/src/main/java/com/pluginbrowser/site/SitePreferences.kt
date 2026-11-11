@@ -27,6 +27,15 @@ class SitePreferences(context: Context) {
 
     fun images(host: String): Boolean? = optBool("i.$host")
 
+    /**
+     * 本站的广告拦截开关。
+     *
+     * null / true = 跟随全局（拦）；false = 这个站不拦。
+     * 只做「关」这一档，是因为全局关掉时广告插件根本不会被调用，
+     * 站点级再写一个「强制开」也执行不到，只会让用户以为设了没生效。
+     */
+    fun adblock(host: String): Boolean? = optBool("a.$host")
+
     /** @see com.pluginbrowser.translate.AutoTranslatePolicy */
     fun translateMode(host: String): Int =
         AutoTranslatePolicy.normalize(prefs.getInt("t.$host", AutoTranslatePolicy.MANUAL))
@@ -44,6 +53,8 @@ class SitePreferences(context: Context) {
 
     fun setImages(host: String, value: Boolean?) = putBool("i.$host", value)
 
+    fun setAdblock(host: String, value: Boolean?) = putBool("a.$host", value)
+
     fun setTranslateMode(host: String, mode: Int) {
         prefs.edit()
             .putInt("t.$host", AutoTranslatePolicy.normalize(mode))
@@ -58,7 +69,7 @@ class SitePreferences(context: Context) {
     fun reset(host: String) {
         prefs.edit()
             .remove("d.$host").remove("z.$host").remove("j.$host").remove("i.$host")
-            .remove("t.$host").remove("tq.$host")
+            .remove("t.$host").remove("tq.$host").remove("a.$host")
             .apply()
     }
 

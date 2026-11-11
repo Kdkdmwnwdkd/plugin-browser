@@ -56,6 +56,14 @@ class Tab(
     var scrollY: Int = 0,
     /** 视口高度，用来判断「已经到顶」和「这点滚动值不值得收工具栏」 */
     var viewportHeight: Int = 0,
+    /**
+     * 恢复会话时先不加载、等切过去再放的地址。
+     *
+     * 冷启动一口气建 8 个 WebView 并同时 loadUrl，等于同时起 8 个渲染进程、
+     * 发 8 份网络请求：白屏好几秒，内存峰值也直接顶到要开 largeHeap 的程度。
+     * 恢复时只让当前标签真的去加载，其余把地址存在这里，切到时才发出去。
+     */
+    var pendingUrl: String? = null,
 ) {
     lateinit var webView: WebView
 

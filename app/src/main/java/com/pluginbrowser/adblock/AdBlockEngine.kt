@@ -63,6 +63,18 @@ class AdBlockEngine(private val context: Context?) {
     private val whitelist: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     /**
+     * 按**页面站点**关闭拦截的域名。
+     *
+     * 和上面的 whitelist 是两件事：whitelist 放行的是「这个域名发出的请求」，
+     * 这里关的是「在这个页面上发出的所有请求」。用户在某个站被误杀时想说的是后者——
+     * 他不需要一个个去放行广告域名，只要这个站整体别拦。
+     *
+     * 判定放在 shouldBlock 的最前面，cssFor 也要看它，否则请求放行了、
+     * 元素隐藏样式还在，页面照样是缺块的。
+     */
+    private val disabledSites: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /**
      * 判定结果缓存。
      *
      * 键必须带上**页面主机名**：同样的资源地址，在不同页面上第三方判定不同，
@@ -175,6 +187,8 @@ class AdBlockEngine(private val context: Context?) {
         // 页面主机名参与判定（第三方规则），所以它也必须进缓存键，
         // 否则同一张图在 A 站放行的结论会被 B 站复用
         val pageHost = pageUrl?.let { hostOf(it) }.orEmpty()
+        // 用户为这个站关掉了拦截：连缓存都不用查
+        if (pageHost.isNotEmpty() && pageHost in disabledSites) return false
         val key = pageHost + "\u0000" + url
         val cached = cache[key]
         if (cached != null) return cached
@@ -258,6 +272,7 @@ class AdBlockEngine(private val context: Context?) {
         if (!ready || pageUrl == null) return null
         val host = hostOf(pageUrl) ?: return null
         if (host in whitelist) return null
+        if (host in disabledSites) return null
 
         val sb = StringBuilder(cosmeticGeneric)
         var h = host
@@ -283,6 +298,18 @@ class AdBlockEngine(private val context: Context?) {
     }
 
     fun isWhitelisted(host: String): Boolean = host.lowercase() in whitelist
+
+    /**
+     * 按站点开关拦截。切回「拦截」时要清缓存——否则刚放行过的那批 URL
+     * 还留着 verdict=false，页面重载后照样一个都不拦。
+     */
+    fun setSiteDisabled(host: String, disabled: Boolean) {
+        val key = host.lowercase()
+        val changed = if (disabled) disabledSites.add(key) else disabledSites.remove(key)
+        if (changed) cache.clear()
+    }
+
+    fun isSiteDisabled(host: String): Boolean = host.lowercase() in disabledSites
 
     companion object {
         /** 轻量取主机名，避免依赖 android.net.Uri，方便单测 */
