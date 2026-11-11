@@ -92,35 +92,47 @@ object ChainTrust {
      *
      * 不往 CertStore 里塞系统库，是这个方法存在的全部意义：
      * 一旦让 Builder 去系统库找中间证书，它又会挑到那张过期的旧副本。
+     *
+     * 只校验 chain[0]（服务器叶子证书），**不能**拿链里任意一张当叶子去试：
+     * 中间证书是公开的（谁都能下载到），若把中间证书当叶子验一遍，
+     * 攻击者只要发「自签叶子 + 一张真的中间证书」，中间证书那条路就能建成，
+     * 于是握手被放行——等于给所有站点开了一道中间人通道。
      */
     private fun validateUsingServerChainOnly(chain: Array<X509Certificate>) {
         if (chain.isEmpty()) throw CertificateException("服务器没有提供证书")
+        // RFC 5246 7.4.2：发送方的证书在前，chain[0] 就是本次握手用的叶子证书
+        val leaf = chain[0]
         val anchors = systemTrust.acceptedIssuers
             .map { TrustAnchor(it, null) }
             .toSet()
         if (anchors.isEmpty()) throw CertificateException("系统没有受信根证书")
-
-        // 服务器可能把顺序打乱（少见但合法），逐张当叶子试一遍
-        var last: CertificateException? = null
-        for (leaf in chain) {
-            try {
-                val params = PKIXBuilderParameters(anchors, X509CertSelector().apply {
-                    certificate = leaf
-                }).apply {
-                    isRevocationEnabled = false
-                    addCertStore(
-                        CertStore.getInstance(
-                            "Collection",
-                            CollectionCertStoreParameters(chain.toList()),
-                        ),
-                    )
-                }
-                CertPathBuilder.getInstance("PKIX").build(params)
-                return
-            } catch (e: Exception) {
-                last = CertificateException("证书链校验失败：${e.message}", e)
-            }
+        // 叶子本身就是受信根时，链里随便塞一张根证书都能"验过"，
+        // 而握手用的私钥根本不在这张证书上，必须拒绝
+        if (anchors.any { it.trustedCert == leaf }) {
+            throw CertificateException("叶子证书是受信根证书，拒绝作为站点证书")
         }
-        throw last ?: CertificateException("证书链校验失败")
+
+        try {
+            val params = PKIXBuilderParameters(anchors, X509CertSelector().apply {
+                certificate = leaf
+            }).apply {
+                isRevocationEnabled = false
+                addCertStore(
+                    CertStore.getInstance(
+                        "Collection",
+                        CollectionCertStoreParameters(chain.toList()),
+                    ),
+                )
+            }
+            val path = CertPathBuilder.getInstance("PKIX").build(params).certPath
+            // 兜底：建出来的路径终点必须就是这张叶子证书
+            if (path.certificates.firstOrNull() != leaf) {
+                throw CertificateException("证书路径终点不是服务器下发的叶子证书")
+            }
+        } catch (e: CertificateException) {
+            throw e
+        } catch (e: Exception) {
+            throw CertificateException("证书链校验失败：${e.message}", e)
+        }
     }
 }

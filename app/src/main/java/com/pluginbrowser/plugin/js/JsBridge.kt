@@ -131,6 +131,8 @@ class JsBridge(
 
     private fun storageGet(pluginId: String, key: String): Any? {
         val raw = prefsOf(pluginId).getString(key, null) ?: return null
+        // 旧版本把 null 存成了空串，这里按 null 处理，避免脚本拿到 "" 当值用
+        if (raw.isEmpty()) return null
         return parseJson(raw)
     }
 
@@ -145,11 +147,13 @@ class JsBridge(
     }
 
     private fun storageSet(pluginId: String, key: String, value: Any?) {
-        val text = when (value) {
-            null -> ""
-            is JSONObject, is JSONArray -> value.toString()
-            else -> value.toString()
+        // 与 GM_setValue(key, null) 语义保持一致：写入 null 等价于删除这个键，
+        // 否则读回来的是空串，脚本判 null 的分支永远进不去
+        if (value == null || value == JSONObject.NULL) {
+            storageRemove(pluginId, key)
+            return
         }
+        val text = value.toString()
         prefsOf(pluginId).edit().putString(key, text).apply()
     }
 
@@ -172,26 +176,32 @@ class JsBridge(
             val body = if (params.isNull("data")) null else params.opt("data")?.toString()
 
             val conn = URL(url).openConnection() as HttpURLConnection
-            conn.connectTimeout = 15000
-            conn.readTimeout = 15000
-            conn.requestMethod = method
-            conn.instanceFollowRedirects = true
-            headers.keys().forEach { k -> conn.setRequestProperty(k, headers.optString(k)) }
-            if (body != null && method in setOf("POST", "PUT", "PATCH")) {
-                conn.doOutput = true
-                conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            try {
+                conn.connectTimeout = 15000
+                conn.readTimeout = 15000
+                conn.requestMethod = method
+                conn.instanceFollowRedirects = true
+                headers.keys().forEach { k -> conn.setRequestProperty(k, headers.optString(k)) }
+                if (body != null && method in setOf("POST", "PUT", "PATCH")) {
+                    conn.doOutput = true
+                    conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                }
+                val code = conn.responseCode
+                val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
+                    ?.bufferedReader(Charsets.UTF_8)
+                    ?.use { it.readText() } ?: ""
+                val respHeaders = JSONObject()
+                conn.headerFields?.forEach { (k, v) -> if (k != null) respHeaders.put(k, JSONArray(v)) }
+                result.put("status", code)
+                    .put("statusText", conn.responseMessage.orEmpty())
+                    .put("headers", respHeaders)
+                    .put("body", text)
+            } finally {
+                // 出错时也要断开，否则连接和 socket 一直挂着，
+                // 插件连续请求几次就把连接池占满了
+                runCatching { conn.disconnect() }
             }
-            val code = conn.responseCode
-            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
-                ?.bufferedReader(Charsets.UTF_8)
-                ?.use { it.readText() } ?: ""
-            val respHeaders = JSONObject()
-            conn.headerFields?.forEach { (k, v) -> if (k != null) respHeaders.put(k, JSONArray(v)) }
-            conn.disconnect()
-            result.put("status", code)
-                .put("statusText", conn.responseMessage.orEmpty())
-                .put("headers", respHeaders)
-                .put("body", text)
+            result
         } catch (e: Exception) {
             Log.w(TAG, "http request failed", e)
             result.put("error", e.message ?: "request failed")

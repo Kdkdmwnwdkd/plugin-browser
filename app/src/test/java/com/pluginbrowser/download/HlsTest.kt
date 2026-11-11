@@ -123,4 +123,15 @@ class HlsTest {
         assertNull(media.key)
         assertNotNull(Hls.parseMaster("#EXTM3U", "https://a.com/x.m3u8"))
     }
+
+    @Test
+    fun `EXT-X-MEDIA-SEQUENCE 是无显式 IV 时的分片序号起点`() {
+        val text = """
+            #EXTM3U
+            #EXT-X-MEDIA-SEQUENCE:42
+            #EXTINF:4.0,
+            a.ts
+        """.trimIndent()
+        assertEquals(42L, Hls.parseMedia(text, "https://a.com/v/x.m3u8").sequence)
+    }
 }

@@ -66,4 +66,21 @@ class AdBlockEngineTest {
         val e = engine()
         assertTrue("host 规则过少：${e.hostRuleCount}", e.hostRuleCount > 80000)
     }
+
+    /**
+     * 第三方规则的判定结果和页面有关，缓存不能只按资源地址存：
+     * 以前同一张图在 A 站放行一次，B 站再问就直接拿到「放行」的旧结论。
+     */
+    @Test
+    fun `同一资源在不同页面上的第三方判定不串味`() {
+        val e = AdBlockEngine(null)
+        e.parseHosts(sequenceOf("nonexistent.example"))
+        // flags=01：不是例外规则，且只在第三方场景生效；token=banner
+        e.parseRules(sequenceOf("01\t\tbanner\tbanner"))
+        e.markReady()
+
+        val url = "https://ad.example.com/banner.js"
+        assertFalse("同站资源不算第三方，不该拦", e.shouldBlock(url, "https://ad.example.com/"))
+        assertTrue("换到别的站点上就是第三方，必须拦", e.shouldBlock(url, "https://news.example.org/"))
+    }
 }

@@ -109,7 +109,17 @@ object UpdateManager {
     ): kotlin.Result<File> = withContext(Dispatchers.IO) {
         val dir = context.externalCacheDir ?: context.cacheDir
         dir.mkdirs()
-        val target = File(dir, "update-${info.versionName}.apk")
+        // versionName 来自远端清单，不能直接拼进文件名：
+        // 里面若带 ../ 或 / 就能把安装包写到缓存目录之外
+        val safeName = info.versionName.replace(Regex("[^A-Za-z0-9._-]"), "_").take(40)
+            .ifBlank { info.versionCode.toString() }
+        val target = File(dir, "update-$safeName.apk")
+        // 没有 sha256 就无从校验：宁可让用户去 Release 页手动装，
+        // 也不把一份可能被替换过的 APK 交给系统安装器
+        val expectedHash = info.sha256
+            ?: return@withContext kotlin.Result.failure(
+                Exception("更新清单缺少 sha256 校验值，已取消自动安装"),
+            )
         var lastError = "没有可用的下载源"
 
         for (url in info.apkUrls) {
@@ -117,8 +127,8 @@ object UpdateManager {
                 if (target.exists()) target.delete()
                 downloadTo(url, target, info.size, onProgress)
                 val digest = sha256(target)
-                if (info.sha256 != null && !digest.equals(info.sha256, ignoreCase = true)) {
-                    lastError = "校验失败（文件可能被截断）"
+                if (!digest.equals(expectedHash, ignoreCase = true)) {
+                    lastError = "校验失败（文件可能被截断或被篡改）"
                     target.delete()
                     continue
                 }

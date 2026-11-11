@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
@@ -19,6 +20,9 @@ import com.pluginbrowser.R
 import com.pluginbrowser.plugin.PluginInfo
 import com.pluginbrowser.plugin.PluginManager
 import com.pluginbrowser.plugin.PluginType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** 插件管理（商店）：列表 / 启用禁用 / 导入 .pbp */
 class PluginStoreFragment : Fragment(R.layout.fragment_plugin_store) {
@@ -32,19 +36,24 @@ class PluginStoreFragment : Fragment(R.layout.fragment_plugin_store) {
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
         if (uri == null) return@registerForActivityResult
-        val result = pluginManager.installFromZip(uri)
-        result.onSuccess { manifest ->
-            android.widget.Toast.makeText(
-                requireContext(),
-                getString(R.string.plugins_import_success, manifest.name),
-                android.widget.Toast.LENGTH_SHORT,
-            ).show()
-        }.onFailure { e ->
-            android.widget.Toast.makeText(
-                requireContext(),
-                getString(R.string.plugins_import_failed, e.message ?: "未知错误"),
-                android.widget.Toast.LENGTH_SHORT,
-            ).show()
+        // 解压 + 重新扫描插件目录全是 IO：以前在主线程同步跑，包一大就卡住界面
+        // （系统认定无响应），所以挪到 IO 线程，结果回主线程提示
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) { pluginManager.installFromZip(uri) }
+            val ctx = context ?: return@launch
+            result.onSuccess { manifest ->
+                android.widget.Toast.makeText(
+                    ctx,
+                    getString(R.string.plugins_import_success, manifest.name),
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
+            }.onFailure { e ->
+                android.widget.Toast.makeText(
+                    ctx,
+                    getString(R.string.plugins_import_failed, e.message ?: "未知错误"),
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
+            }
         }
     }
 

@@ -59,18 +59,24 @@ class AdBlockEngine(private val context: Context?) {
     private val cosmeticGeneric = StringBuilder()
     private val cosmeticByDomain = HashMap<String, ArrayList<String>>(8192)
 
-    /** 用户手动放行的域名 */
-    private val whitelist = HashSet<String>()
+    /** 用户手动放行的域名（UI 线程写、WebView 线程读，必须并发安全） */
+    private val whitelist: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
+    /**
+     * 判定结果缓存。
+     *
+     * 键必须带上**页面主机名**：同样的资源地址，在不同页面上第三方判定不同，
+     * 只按 url 缓存会把「首页放行」的结论带到别的站，或者反过来误杀。
+     */
     private val cache = ConcurrentHashMap<String, Boolean>(1024)
 
     @Volatile
     var ready: Boolean = false
         private set
 
-    @Volatile
-    var blockedCount: Long = 0L
-        private set
+    private val blockedCounter = java.util.concurrent.atomic.AtomicLong(0L)
+
+    val blockedCount: Long get() = blockedCounter.get()
 
     val hostRuleCount: Int get() = blockHosts.size
 
@@ -166,13 +172,17 @@ class AdBlockEngine(private val context: Context?) {
     fun shouldBlock(url: String, pageUrl: String?): Boolean {
         if (!ready) return false
         if (url.startsWith("data:") || url.startsWith("blob:")) return false
-        val cached = cache[url]
+        // 页面主机名参与判定（第三方规则），所以它也必须进缓存键，
+        // 否则同一张图在 A 站放行的结论会被 B 站复用
+        val pageHost = pageUrl?.let { hostOf(it) }.orEmpty()
+        val key = pageHost + "\u0000" + url
+        val cached = cache[key]
         if (cached != null) return cached
 
         val verdict = runCatching { evaluate(url, pageUrl) }.getOrDefault(false)
         if (cache.size > 8192) cache.clear()
-        cache[url] = verdict
-        if (verdict) blockedCount++
+        cache[key] = verdict
+        if (verdict) blockedCounter.incrementAndGet()
         return verdict
     }
 

@@ -48,6 +48,11 @@ object Hls {
         val segments: List<String>,
         val key: Key?,
         val initSegment: String?,
+        /**
+         * 第一个分片的序号（EXT-X-MEDIA-SEQUENCE）。
+         * 没写 IV 的 AES-128 流用它当 IV，漏掉就是整条流解不开。
+         */
+        val sequence: Long = 0L,
     ) {
         val fmp4: Boolean get() = initSegment != null
     }
@@ -80,6 +85,7 @@ object Hls {
         val segments = ArrayList<String>()
         var key: Key? = null
         var init: String? = null
+        var sequence = 0L
         text.lineSequence().forEach { raw ->
             val line = raw.trim()
             if (line.isEmpty()) return@forEach
@@ -100,11 +106,14 @@ object Hls {
                         init = resolve(baseUrl, it)
                     }
                 }
+                line.startsWith("#EXT-X-MEDIA-SEQUENCE") -> {
+                    sequence = line.substringAfter(':', "").trim().toLongOrNull() ?: 0L
+                }
                 line.startsWith("#") -> Unit
                 else -> if (segments.size < MAX_SEGMENTS) segments.add(resolve(baseUrl, line))
             }
         }
-        return Media(segments, key, init)
+        return Media(segments, key, init, sequence)
     }
 
     /**
@@ -189,7 +198,7 @@ object Hls {
         out.delete()
         var written = 0L
         var total = 0L
-        var seq = 0L
+        var seq = media.sequence
         val started = System.currentTimeMillis()
         FileOutputStream(out).use { sink ->
             // fMP4 的初始化段必须写在最前面，否则整段无法解析

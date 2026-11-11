@@ -34,6 +34,10 @@ class PluginManager(
 
         /** 插件 id 白名单：id 会被直接用作磁盘目录名 */
         private val ID_PATTERN = Regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+        /** 解压上限：插件包里塞几万个小文件或一个超大文件，能把用户存储写满 */
+        private const val MAX_ENTRIES = 2000
+        private const val MAX_TOTAL_BYTES = 64L * 1024 * 1024
     }
 
     private val prefs: SharedPreferences =
@@ -53,6 +57,7 @@ class PluginManager(
 
     private var bridgeScriptCache: String? = null
     private val scriptCache = mutableMapOf<String, String>()
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     /** 浏览器宿主提供者（MainActivity 注册），供 PB.tabs.open 等 API 使用 */
     var hostProvider: (() -> BrowserHost?)? = null
@@ -146,12 +151,18 @@ class PluginManager(
 
         context.contentResolver.openInputStream(uri)?.use { input ->
             ZipInputStream(input).use { zis ->
+                var entries = 0
+                var totalBytes = 0L
                 var entry = zis.nextEntry
                 while (entry != null) {
                     if (!entry.isDirectory) {
+                        entries++
+                        require(entries <= MAX_ENTRIES) { "插件包文件数量过多（上限 $MAX_ENTRIES 个）" }
                         val outFile = safeResolve(tmp, entry.name)
                         outFile.parentFile?.mkdirs()
-                        outFile.outputStream().use { zis.copyTo(it) }
+                        val copied = outFile.outputStream().use { zis.copyTo(it) }
+                        totalBytes += copied
+                        require(totalBytes <= MAX_TOTAL_BYTES) { "插件包解压后超过 64MB，已拒绝安装" }
                     }
                     zis.closeEntry()
                     entry = zis.nextEntry
@@ -188,7 +199,11 @@ class PluginManager(
         reload()
         notifyPluginsChanged()
         manifest
-    }.onFailure { Log.w(TAG, "install failed", it) }
+    }.onFailure {
+        Log.w(TAG, "install failed", it)
+        // 半途失败时解压出来的临时文件要清掉，否则导入几次缓存目录里留一堆残片
+        runCatching { File(context.cacheDir, "plugin_import").deleteRecursively() }
+    }
 
     /** 定位插件包根目录：根目录优先，其次唯一的子目录 */
     private fun manifestRootOf(dir: File): File {
@@ -247,6 +262,7 @@ class PluginManager(
 
     /* ---------------- 查询 ---------------- */
 
+    @Synchronized
     fun allPlugins(): List<PluginInfo> {
         val out = mutableListOf<PluginInfo>()
         jsPlugins.forEach { m ->
@@ -319,6 +335,7 @@ class PluginManager(
      * earlyOnly = true 时仅取声明 runAt=document_start 的脚本（页面开始加载时注入）；
      * 为 false 时取其余脚本（页面加载完成后注入）。
      */
+    @Synchronized
     fun jsScriptFor(url: String, earlyOnly: Boolean = false): List<String> {
         val matched = jsPlugins.filter {
             isEnabled(it.id, it.defaultEnabled) && PluginManifest.matchesUrl(it.matches, url)
@@ -434,6 +451,13 @@ class PluginManager(
     fun pluginRoot(): File = File(context.filesDir, PLUGIN_ROOT).apply { mkdirs() }
 
     private fun notifyPluginsChanged() {
-        onPluginsChanged?.invoke()
+        // 回调方（插件管理页）会直接刷新 RecyclerView，必须回主线程；
+        // 安装流程现在跑在 IO 线程，不做这一步就是跨线程改 UI
+        val callback = onPluginsChanged ?: return
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            callback()
+        } else {
+            mainHandler.post { callback() }
+        }
     }
 }
