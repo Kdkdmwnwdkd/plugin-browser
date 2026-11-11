@@ -1,0 +1,153 @@
+name: Release
+
+# 打 tag（v2.9.7 这种）就发一版：出包 → 建 Release → 回写 version.json。
+# 应用里的「检查更新」读的是 main 上的 version.json，所以最后那步才是真正的发版动作，
+# 只打 tag 不改 version.json，用户那边永远显示「已是最新」。
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要发布的 tag（需已存在，如 v2.9.7）'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 设置 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 安装 SDK 包
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          SDKMAN="$(ls -d "$SDK_ROOT"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)"
+          [ -n "$SDKMAN" ] || { echo "找不到 sdkmanager"; exit 1; }
+          yes | "$SDKMAN" --licenses > /dev/null || true
+          "$SDKMAN" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          echo "sdk.dir=$SDK_ROOT" > local.properties
+
+      - name: 读取版本号
+        id: ver
+        run: |
+          CODE=$(grep -oP 'versionCode\s*=\s*\K\d+' app/build.gradle.kts | head -1)
+          NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts | head -1)
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "版本：$NAME ($CODE)"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: 单元测试
+        run: ./gradlew testDebugUnitTest --stacktrace --no-daemon
+
+      - name: 打包
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
+
+      - name: 重命名并计算指纹
+        id: apk
+        run: |
+          mkdir -p out
+          APK="out/Kite-${{ steps.ver.outputs.name }}-debug.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$APK"
+          echo "path=$APK" >> "$GITHUB_OUTPUT"
+          echo "size=$(stat -c%s "$APK")" >> "$GITHUB_OUTPUT"
+          echo "sha=$(sha256sum "$APK" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          ls -lh "$APK"
+
+      - name: 建 Release 并上传 APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          APK: ${{ steps.apk.outputs.path }}
+          NOTES: release-notes/${{ steps.ver.outputs.name }}.md
+        run: |
+          set -e
+          # 说明文件缺失就退回默认文案，不让发布卡住
+          if [ ! -f "$NOTES" ]; then
+            echo "v${{ steps.ver.outputs.name }}" > /tmp/notes.md
+            NOTES=/tmp/notes.md
+          fi
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" \
+              --title "v${{ steps.ver.outputs.name }}" \
+              --notes-file "$NOTES"
+          fi
+
+      - name: 回写 version.json
+        env:
+          VER: ${{ steps.ver.outputs.name }}
+          CODE: ${{ steps.ver.outputs.code }}
+          SIZE: ${{ steps.apk.outputs.size }}
+          SHA: ${{ steps.apk.outputs.sha }}
+          TAG: ${{ github.ref_name }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          python3 - <<'EOF'
+          import json, os
+          ver, code = os.environ["VER"], int(os.environ["CODE"])
+          size, sha = int(os.environ["SIZE"]), os.environ["SHA"]
+          tag, owner, repo = os.environ["TAG"], os.environ["OWNER"], os.environ["REPO"]
+
+          base = f"https://github.com/{owner}/{repo}/releases/download/{tag}/Kite-{ver}-debug.apk"
+          notes_path = f"release-notes/{ver}.md"
+          notes = open(notes_path, encoding="utf-8").read() if os.path.exists(notes_path) else ""
+          raw = f"https://raw.githubusercontent.com/{owner}/{repo}/main/version.json"
+
+          data = {
+              "versionCode": code,
+              "versionName": ver,
+              "size": size,
+              "sha256": sha,
+              "notes": notes,
+              # 客户端按顺序尝试，第一个通了但哈希对不上会继续试下一个
+              "apk": [f"https://gh-proxy.com/{base}", f"https://ghfast.top/{base}", base],
+              "manifest": [f"https://gh-proxy.com/{raw}", f"https://ghfast.top/{raw}", raw],
+          }
+          with open("version.json", "w", encoding="utf-8") as f:
+              json.dump(data, f, ensure_ascii=False, indent=2)
+              f.write("\n")
+          print("version.json ->", code, ver, size, sha[:12])
+          EOF
+
+      - name: 提交 version.json 到 main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B main
+          git add version.json
+          if git diff --cached --quiet; then
+            echo "version.json 没变化，跳过"
+          else
+            git commit -m "release: v${{ steps.ver.outputs.name }}（version.json 自动回写）"
+            git push origin main
+          fi
+
+      - name: 上传 APK 备查
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: out/*.apk
+          if-no-files-found: ignore
+          retention-days: 14

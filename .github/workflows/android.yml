@@ -5,6 +5,10 @@ name: Android CI
 on:
   push:
     branches: [ main ]
+    # 发版流程会自己提交 version.json / release-notes，别为这两个文件再跑一遍全量构建
+    paths-ignore:
+      - 'version.json'
+      - 'release-notes/**'
   pull_request:
   workflow_dispatch:
 
