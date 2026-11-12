@@ -1,13 +1,13 @@
 {
-  "versionCode": 53,
-  "versionName": "2.10.0",
-  "size": 8872990,
-  "sha256": "7a48aaa1088b69180f8abe13885b315ab5bc92bfe0b205c21b1c669f74c61c78",
-  "notes": "界面重做：去掉所有「容器」，只留线和留白\n\n上一版把颜色和字号统一了，但版式还是「一块一块拼起来」的：地址栏一个胶囊、\n底栏一条、标签页一堆卡片。这次换的是骨架本身。\n\n地址栏\n- 从 48dp 胶囊改成 56dp 通栏。左右不再是浮在页面上的一个圆角块，\n  而是和网页同宽的一条带子，下面一条 1dp 线收尾。\n- 文字左边缘对齐到 24dp 基线，和标签页、设置页、首页全部对齐。\n\n底栏\n- 56dp → 52dp。五个动作照旧，但不再是五个等距大图标。\n- 标签数从「居中的 24dp 空心方框」改成图标右上角 15dp 的实心块。\n  原来那个方框是底栏里最大的元素，视线全被它拽过去，而它其实只是个状态。\n\n标签页\n- 两列大卡改成 76dp 列表行：44dp 缩略图 + 标题 + 域名。\n  一屏能看见的标签从 4 个变成 8 个，开了几个一眼就数得出来。\n- 当前标签用左边 2.5dp 的竖线标出，不再给整张卡描边 —— 描边会让它看起来像按钮。\n- 底部「新建标签页」从整块实心按钮改成一行「+ 新建标签页」，右侧显示标签数量。\n\n新标签页\n- 去掉品牌大图标和 4×2 圆角磁贴，改成：小标签 + 50dp 直角搜索框 + 46dp 直角站点格。\n- 站点名从 12px 降到 11px，图标从 60dp 圆角 19dp 降到 46dp 直角。\n  圆角磁贴看起来像「应用」，而这里只是「入口」。\n\n全局\n- 圆角归零。除了底部面板的顶边（从屏幕底边掀起来，直角会被看成切了一刀），\n  全界面没有第二个圆角。分界只有 1dp 线。\n- 左右边距 16dp → 24dp。\n- 强调色从 #2F5BD8 调到 #1E4FD8；无痕标识从紫色收成墨灰 —— 这套界面只有一支蓝。\n- 分组小标题字号降到 11sp、字距拉开到 0.12em，靠字距而不是字号区分层级。\n",
+  "versionCode": 54,
+  "versionName": "2.10.1",
+  "size": 8877550,
+  "sha256": "50e18056c4bd94958aa1c65c9097eb412a72759169b5f06a211f8861ee5c4ea2",
+  "notes": "把两个输入口收成一个，把两套网格收成一套\n\n上一版把骨架换掉了，但留了两处「多出来的东西」。这次是减法。\n\n新标签页\n- 去掉页面中间那个搜索框。顶上地址栏本来就在手边，同一个动作画两遍，\n  第一眼看到的就是「怎么有两个输入框」。\n- 「新标签页」这个小标题改成「常用」——它标的是下面那八个格子，\n  不是这一页叫什么。\n- 站点格上移，页面从「小标题 + 入口」直接开始。点空白处仍然聚焦地址栏。\n\n功能面板\n- 四列图标格全部撤掉，改成单列行。原来上半屏十二个格子挤在一起、标签 11sp 顶到边，\n  下半屏突然变成 56dp 的松长条，中间还横一条分割线——两套密度拼在一张面板上，\n  眼睛找不到落点。\n- 图标也一起去掉了。这套图库里一半是 Material 实心字形，一半是后来补的 1.7dp 线框，\n  染成同一个颜色之后，块状和线条混着往下排，越看越乱。重画四十个图标不如先不要图标：\n  中文两个字本身就是最短的标签。\n- 分组改成「当前页 / 打开 / 工具 / 显示 / 更多」，靠小标题和 20dp 留白分开，不画线。\n- 行高 50dp，左右内边距 16 → 24dp，跟组标题对齐。上一版标题在 24、行在 16，\n  整片文字像被推歪了一格。\n- 关掉的状态不再写「已关闭」。那是默认值，二十行里出现十几次，只是噪音；\n  现在只标开着的，用那一支蓝。\n- 菜单里的「刷新」删了，地址栏右边就有。\n\n地址栏\n- 让出状态栏。整页是 edge-to-edge，地址栏从屏幕最顶上开始画，文字直接顶着\n  时间和电量那一行——截图里看着像顶部还残留了半个搜索框。\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.10.0/Kite-2.10.0-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.10.0/Kite-2.10.0-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.10.0/Kite-2.10.0-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.10.1/Kite-2.10.1-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.10.1/Kite-2.10.1-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.10.1/Kite-2.10.1-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
