@@ -258,6 +258,26 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
+        // gecko 分支的原型入口。刻意不做成「切换内核」的开关——
+        // 现在是两套并行的界面，不是同一个浏览器的两种模式。
+        findPreference<Preference>("gecko_proto")?.setOnPreferenceClickListener {
+            runCatching {
+                startActivity(
+                    android.content.Intent(
+                        requireContext(),
+                        com.pluginbrowser.gecko.GeckoPrototypeActivity::class.java,
+                    ),
+                )
+            }.onFailure {
+                android.widget.Toast.makeText(
+                    requireContext(),
+                    "打不开：${it.message}",
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
+            }
+            true
+        }
+
         findPreference<Preference>("translate_service")?.apply {
             summary = TranslateSettings(requireContext()).provider.label
             setOnPreferenceClickListener {

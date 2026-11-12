@@ -11,8 +11,16 @@ android {
         applicationId = "com.pluginbrowser"
         minSdk = 24
         targetSdk = 34
-        versionCode = 55
-        versionName = "2.11.0"
+        // gecko 分支专用版本号：跟 main 的 2.11.x 明确分开，
+        // 装上之后一眼能看出这是原型包，不是正式版。
+        versionCode = 56
+        versionName = "2.12.0-gecko.1"
+
+        // GeckoView 的 AAR 里带 arm64-v8a / armeabi-v7a / x86 / x86_64 四套 .so，
+        // 不裁的话 APK 直接 150MB+。原型只留 arm64——2017 年之后的手机基本都是。
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     signingConfigs {
@@ -67,4 +75,13 @@ dependencies {
 
     // 二维码：只取 core（纯 Java 编码器），不要 android 那个包——它带一堆 Activity
     implementation("com.google.zxing:core:3.5.3")
+
+    // GeckoView：Firefox 的内核。这一行是 gecko 分支存在的全部理由——
+    // 用它就不再依赖手机里那个 WebView，内核版本由我们自己决定。
+    //
+    // 为什么钉在 135 而不是最新的 160：从 140 起 GeckoView 改用 kotlin-stdlib 2.x 发布，
+    // 而我们项目的 Kotlin 编译器还是 1.9.24，读不了 2.x 的元数据，会直接编译失败。
+    // 135 是本项目语言版本能用的最新一版（2025-02，Firefox 135）。
+    // 等 Kotlin 升到 2.x 再往上走。
+    implementation("org.mozilla.geckoview:geckoview:135.0.20250216192613")
 }

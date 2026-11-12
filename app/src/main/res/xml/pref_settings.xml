@@ -137,6 +137,12 @@
             android:key="engine_check"
             android:summary="网页内核版本、实测支持的能力、可一键复制成报告"
             android:title="浏览器内核体检" />
+
+        <!-- gecko 分支独有：原型跑通之前不要出现在 main 上 -->
+        <Preference
+            android:key="gecko_proto"
+            android:summary="用 Firefox 的内核打开网页，不再依赖系统 WebView"
+            android:title="GeckoView 内核（实验）" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="外观">

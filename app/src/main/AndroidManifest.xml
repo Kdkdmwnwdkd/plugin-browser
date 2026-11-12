@@ -83,6 +83,14 @@
             </intent-filter>
         </activity>
 
+        <!-- GeckoView 原型：只在 gecko 分支里存在，从设置页进入。
+             不挂任何 intent-filter——它不该抢外部链接，也不该出现在桌面。 -->
+        <activity
+            android:name=".gecko.GeckoPrototypeActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|density"
+            android:windowSoftInputMode="adjustResize" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
