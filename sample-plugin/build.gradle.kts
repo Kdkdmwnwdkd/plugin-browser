@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.pluginbrowser.sample"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.pluginbrowser.sample"

@@ -44,7 +44,7 @@ jobs:
           fi
           echo "使用 $SDKMAN"
           yes | "$SDKMAN" --licenses > /dev/null || true
-          "$SDKMAN" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          "$SDKMAN" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
           # 仓库里的 local.properties 写的是作者本机路径 /opt/android-sdk，
           # 不覆盖的话 Gradle 会去找一个不存在的目录
           echo "sdk.dir=$SDK_ROOT" > local.properties
