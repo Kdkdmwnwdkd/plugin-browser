@@ -183,7 +183,7 @@
         <item name="android:background">?attr/selectableItemBackground</item>
     </style>
 
-    <style name="Widget.PluginBrowser.ListRowTitle">
+    <style name="Widget.PluginBrowser.ListRowTitle" parent="">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:ellipsize">end</item>
@@ -192,7 +192,7 @@
         <item name="android:textSize">@dimen/text_body</item>
     </style>
 
-    <style name="Widget.PluginBrowser.ListRowMeta">
+    <style name="Widget.PluginBrowser.ListRowMeta" parent="">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:ellipsize">end</item>
