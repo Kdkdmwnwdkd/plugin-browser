@@ -1,13 +1,13 @@
 {
-  "versionCode": 51,
-  "versionName": "2.9.8",
-  "size": 8865798,
-  "sha256": "892e5db5a95d13c3d9ea7aa24d8cf5ea409d9cfcedffcb9408148a81f55b245f",
-  "notes": "2.9.8：四件「说了但没做到」的事\n\n这一版没有新功能，全是把已经有承诺、实际没兑现的地方补上。\n\n[按站点关闭广告拦截]\n\n规则拦得狠，偶尔会把正常站的图片、接口一起拦掉——表现是图裂、按钮点不动。\n以前唯一的路是去设置里把拦截全局关掉，等于让别的站跟着裸奔。\n\n现在地址栏左边那颗锁 → 内容过滤 → 广告拦截，可以只对当前站关。\n关掉后页面自动重载，广告位回来，其他站照旧。\n\n只提供「关」这一档，没有「强制开」：全局关掉时广告插件根本不会被调用，\n再加一个站点级的「开」也执行不到，只会让人以为设了没生效。\n恢复时写回「跟随全局」，而不是钉死一个 true，免得以后全局关了这个站还留着隐形覆盖。\n\n[「清除浏览数据」真的清干净了]\n\n以前只清了 Cookie、缓存、历史记录。localStorage 一直没动——而现在大量站点\n把登录态就放在 localStorage 里。用户点完清除，下次打开还是登录状态，\n只能认为这个按钮是坏的。\n\n现在一并清掉 WebStorage（localStorage / IndexedDB）、表单自动填充记录、\nHTTP 认证密码。清完就是一干二净，该重新登录就重新登录。\n\n[双击手势不再误触]\n\n以前双击只看时间：320 毫秒内点两下就算，不管点在哪。在列表页连点两个不同的\n链接是很常见的操作，第二下会被当成双击，直接执行「新建标签」「全屏」这类动作，\n用户完全不知道发生了什么。\n\n现在要求两次点击落在同一小块区域（系统双击容差），并且被吞掉的那次按下会连\n后续抬手一起吞——只吞按下的话，网页会收到一个没有按下的抬手，按钮会卡在高亮态。\n\n[恢复会话不再一次加载八个标签]\n\n以前冷启动会把上次的标签全部 loadUrl：八个 WebView、八个渲染进程、八份请求\n同时起来，白屏好几秒，内存峰值高到必须开 largeHeap 才撑得住。\n\n现在只有上次正在看的那一个立刻加载，其余把地址存着，切过去才发请求。\n顺带记下了「上次停在第几个标签」——以前不管你当时在看哪个，重启永远回到第一个。\n\n[顺带修的]\n\n站点面板里的「清除本站数据」，WebStorage 那段原来跑在 IO 线程上，\n还套着 runCatching。一旦因为线程不对抛异常，就会被静默吞掉，\n表现是「点了清除、什么都没清」。现在改到主线程，失败也会留一条事件日志。\nhttp 和 https 两个 cookie 作用域也一起清了，不再漏一半。\n\n[验证]\n\n单测 113 个全过，assembleDebug 出包。\n这次涉及手势和会话恢复，建议真机过一遍：连点两个链接不该触发双击动作；\n杀掉进程重开，应该回到上次那个标签，其余标签切过去才加载。\n",
+  "versionCode": 52,
+  "versionName": "2.9.9",
+  "size": 8865898,
+  "sha256": "59bc83d9a884df3c7302da66c0dce1c5d434bd7b49e300c82e88bc523842b625",
+  "notes": "修复「设置 → 站点适配」一打开就闪退\n\n崩溃出在页面最后那个「说明」分组：它先往里塞子项、再整体挂到页面上。\nAndroidX 的 PreferenceGroup 在挂载之前拿不到 PreferenceManager，加子项时\n分配 id 会取到 null（getNextId() on a null object reference），整页随之打不开。\n现在改成先挂组、再填内容。\n\n顺带两处：\n\n- 「恢复默认」不再重建 Fragment。原来它 replace 一个新的页面，而这一页本身\n  没有进回退栈，重建后按返回会直接退出设置；现在直接按存储值重刷已渲染的开关。\n- 开关不再往默认偏好文件里另存一份。值只由站点规则引擎持有，避免同一个开关\n  在两处存储里各说各话。\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.8/Kite-2.9.8-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.8/Kite-2.9.8-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.8/Kite-2.9.8-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.9/Kite-2.9.9-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.9/Kite-2.9.9-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.9/Kite-2.9.9-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
