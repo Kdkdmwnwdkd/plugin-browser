@@ -10,7 +10,6 @@
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="?attr/colorSurface"
     android:clipToPadding="false"
     android:fillViewport="false"
     android:overScrollMode="ifContentScrolls">
@@ -19,13 +18,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingBottom="16dp">
+        android:paddingBottom="@dimen/space_20">
 
         <View
-            android:layout_width="36dp"
-            android:layout_height="4dp"
+            android:layout_width="@dimen/sheet_handle_width"
+            android:layout_height="@dimen/sheet_handle_height"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="@dimen/space_8"
             android:background="@drawable/bg_sheet_handle" />
 
         <TextView
@@ -81,17 +80,17 @@
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="20dp"
-            android:layout_marginTop="12dp"
-            android:layout_marginEnd="20dp"
+            android:layout_height="@dimen/hairline"
+            android:layout_marginStart="@dimen/screen_margin"
+            android:layout_marginTop="@dimen/space_12"
+            android:layout_marginEnd="@dimen/screen_margin"
             android:background="?attr/colorOutlineVariant" />
 
         <LinearLayout
             android:id="@+id/row_list"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/space_4"
             android:orientation="vertical" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

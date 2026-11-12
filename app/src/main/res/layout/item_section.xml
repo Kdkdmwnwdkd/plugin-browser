@@ -9,5 +9,5 @@
     android:paddingEnd="20dp"
     android:paddingBottom="7dp"
     android:textColor="?attr/colorOnSurfaceVariant"
-    android:textSize="10.5sp"
+    android:textSize="11sp"
     android:textStyle="bold" />

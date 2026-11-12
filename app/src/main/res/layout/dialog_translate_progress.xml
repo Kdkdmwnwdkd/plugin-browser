@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:text="@string/translate_preparing"
         android:textColor="?attr/colorOnSurfaceVariant"
-        android:textSize="13sp" />
+        android:textSize="14sp" />
 
     <ProgressBar
         android:id="@+id/translate_progress"

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      尺寸与字号刻度。
+
+      之前这些值是散在各布局里的字面量，于是同一层级的行用了 7/10/13/18/22 dp，
+      字号出现了 9 / 9.5 / 10.5 / 11.5 / 12.5 这些半像素档。
+      半像素字号在 3x 屏上要靠抗锯齿凑出来，小字会发虚、粗细不匀 —— 这是
+      「看着怪但说不出哪怪」的主要来源之一。
+
+      这里收成两套刻度：间距 4 的倍数，字号只保留 6 档整数。
+    -->
+
+    <!-- 间距 -->
+    <dimen name="space_2">2dp</dimen>
+    <dimen name="space_4">4dp</dimen>
+    <dimen name="space_8">8dp</dimen>
+    <dimen name="space_12">12dp</dimen>
+    <dimen name="space_16">16dp</dimen>
+    <dimen name="space_20">20dp</dimen>
+    <dimen name="space_24">24dp</dimen>
+    <dimen name="space_32">32dp</dimen>
+
+    <!-- 圆角：只有四档，别再造第五种 -->
+    <dimen name="radius_sm">8dp</dimen>
+    <dimen name="radius_md">12dp</dimen>
+    <dimen name="radius_lg">16dp</dimen>
+    <dimen name="radius_pill">24dp</dimen>
+    <dimen name="radius_sheet">28dp</dimen>
+
+    <!-- 字号：6 档，全部整数 -->
+    <dimen name="text_caption">11sp</dimen>
+    <dimen name="text_label">12sp</dimen>
+    <dimen name="text_body">14sp</dimen>
+    <dimen name="text_subtitle">16sp</dimen>
+    <dimen name="text_title">20sp</dimen>
+    <dimen name="text_display">24sp</dimen>
+
+    <!-- 控件 -->
+    <dimen name="touch_target">48dp</dimen>
+    <dimen name="bar_height">56dp</dimen>
+    <dimen name="address_bar_height">48dp</dimen>
+    <dimen name="list_row_min_height">56dp</dimen>
+    <dimen name="icon_sm">20dp</dimen>
+    <dimen name="icon_md">24dp</dimen>
+    <dimen name="hairline">1dp</dimen>
+    <dimen name="screen_margin">16dp</dimen>
+    <dimen name="sheet_handle_width">32dp</dimen>
+    <dimen name="sheet_handle_height">4dp</dimen>
+</resources>

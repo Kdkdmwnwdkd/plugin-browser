@@ -2,6 +2,16 @@
 <resources>
 
     <style name="Theme.PluginBrowser" parent="Theme.Material3.DayNight.NoActionBar">
+        <!--
+          关闭 elevation 染色。
+
+          Material3 默认开着的 elevationOverlay 会按高度给表面叠一层 colorSurfaceTint
+          （这里等于 primary 蓝）。地址栏和底栏都带 elevation，于是同一个 #FAFAFA
+          在三个高度上变成三种偏蓝的灰 —— 单看每一块都正常，并排看就是「脏」。
+          这套界面靠 1dp 细线和表面层级分界，不需要阴影。
+        -->
+        <item name="elevationOverlayEnabled">false</item>
+
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorOnPrimary">@color/colorOnPrimary</item>
         <item name="colorPrimaryContainer">@color/colorPrimaryContainer</item>
@@ -10,21 +20,42 @@
         <item name="colorOnSecondary">@color/colorOnSecondary</item>
         <item name="colorSecondaryContainer">@color/colorSecondaryContainer</item>
         <item name="colorOnSecondaryContainer">@color/colorOnSecondaryContainer</item>
+        <item name="colorTertiary">@color/colorTertiary</item>
+        <item name="colorOnTertiary">@color/colorOnTertiary</item>
+        <item name="colorTertiaryContainer">@color/colorTertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/colorOnTertiaryContainer</item>
+
         <item name="colorSurface">@color/colorSurface</item>
-        <item name="colorOnSurface">@color/colorOnSurface</item>
+        <item name="colorSurfaceDim">@color/colorSurfaceDim</item>
+        <item name="colorSurfaceBright">@color/colorSurfaceBright</item>
+        <item name="colorSurfaceContainerLowest">@color/colorSurfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/colorSurfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/colorSurfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/colorSurfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/colorSurfaceContainerHighest</item>
         <item name="colorSurfaceVariant">@color/colorSurfaceVariant</item>
+        <item name="colorOnSurface">@color/colorOnSurface</item>
         <item name="colorOnSurfaceVariant">@color/colorOnSurfaceVariant</item>
         <item name="colorOutline">@color/colorOutline</item>
         <item name="colorOutlineVariant">@color/colorOutlineVariant</item>
+        <item name="colorInverseSurface">@color/colorInverseSurface</item>
+        <item name="colorInverseOnSurface">@color/colorInverseOnSurface</item>
+        <item name="colorInversePrimary">@color/colorInversePrimary</item>
+
         <item name="colorError">@color/colorError</item>
         <item name="colorOnError">@color/colorOnError</item>
+        <item name="colorErrorContainer">@color/colorErrorContainer</item>
+        <item name="colorOnErrorContainer">@color/colorOnErrorContainer</item>
+
         <item name="android:windowBackground">@color/colorSurface</item>
     </style>
 
-    <!-- 标签页面板：顶部圆角、贴合主题的浅色底，不铺满全屏 -->
+    <!-- 底部面板：比页面浅一档的容器色，靠色差浮起来，而不是靠阴影 -->
     <style name="Theme.PluginBrowser.BottomSheet" parent="Theme.Material3.DayNight.BottomSheetDialog">
         <item name="bottomSheetStyle">@style/Widget.PluginBrowser.BottomSheet</item>
+        <item name="elevationOverlayEnabled">false</item>
         <item name="colorSurface">@color/colorSurface</item>
+        <item name="colorSurfaceContainerLow">@color/colorSurfaceContainerLow</item>
         <item name="colorOnSurface">@color/colorOnSurface</item>
         <item name="colorOnSurfaceVariant">@color/colorOnSurfaceVariant</item>
         <item name="colorOutlineVariant">@color/colorOutlineVariant</item>
@@ -32,14 +63,14 @@
     </style>
 
     <style name="Widget.PluginBrowser.BottomSheet" parent="Widget.Material3.BottomSheet.Modal">
-        <item name="backgroundTint">?attr/colorSurface</item>
+        <item name="backgroundTint">?attr/colorSurfaceContainerLow</item>
         <item name="shapeAppearance">@style/ShapeAppearance.PluginBrowser.Sheet</item>
     </style>
 
     <style name="ShapeAppearance.PluginBrowser.Sheet" parent="ShapeAppearance.Material3.LargeComponent">
         <item name="cornerFamily">rounded</item>
-        <item name="cornerSizeTopLeft">28dp</item>
-        <item name="cornerSizeTopRight">28dp</item>
+        <item name="cornerSizeTopLeft">@dimen/radius_sheet</item>
+        <item name="cornerSizeTopRight">@dimen/radius_sheet</item>
         <item name="cornerSizeBottomLeft">0dp</item>
         <item name="cornerSizeBottomRight">0dp</item>
     </style>
@@ -47,38 +78,76 @@
     <!-- 动态生成的输入框用：Material3 描边风格 -->
     <style name="Widget.PluginBrowser.TextField" parent="Widget.Material3.TextInputLayout.OutlinedBox" />
 
+    <!-- ============ 文本样式：整个 App 只有这 6 档字号 ============ -->
 
-    <!-- 功能面板里的小号分组标题 -->
-    <style name="TextAppearance.PluginBrowser.GroupLabel" parent="TextAppearance.Material3.LabelMedium">
-        <item name="android:textSize">11.5sp</item>
-        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
-        <item name="android:letterSpacing">0.1</item>
-        <item name="android:paddingStart">20dp</item>
-        <item name="android:paddingEnd">20dp</item>
-        <item name="android:paddingTop">14dp</item>
-        <item name="android:paddingBottom">2dp</item>
+    <style name="TextAppearance.PluginBrowser.Display" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="android:textSize">@dimen/text_display</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">-0.02</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
     </style>
-    <!-- 站点信息面板的行样式：用 style 复用到 4 个权限行，避免每行重复写 8 个属性 -->
+
+    <style name="TextAppearance.PluginBrowser.Title" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textSize">@dimen/text_title</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">-0.01</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+
+    <style name="TextAppearance.PluginBrowser.Subtitle" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textSize">@dimen/text_subtitle</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+
+    <style name="TextAppearance.PluginBrowser.Body" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textSize">@dimen/text_body</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+
+    <style name="TextAppearance.PluginBrowser.Label" parent="TextAppearance.Material3.LabelMedium">
+        <item name="android:textSize">@dimen/text_label</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+
+    <style name="TextAppearance.PluginBrowser.Caption" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textSize">@dimen/text_caption</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+
+    <!-- 面板里的分组标题：字号小、字距松，但不抢视觉 -->
+    <style name="TextAppearance.PluginBrowser.GroupLabel" parent="TextAppearance.Material3.LabelMedium">
+        <item name="android:textSize">@dimen/text_label</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+        <item name="android:letterSpacing">0.04</item>
+        <item name="android:paddingStart">@dimen/screen_margin</item>
+        <item name="android:paddingEnd">@dimen/screen_margin</item>
+        <item name="android:paddingTop">@dimen/space_16</item>
+        <item name="android:paddingBottom">@dimen/space_4</item>
+    </style>
+
+    <!-- ============ 站点信息面板 ============ -->
+
     <style name="SiteSheetSection">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:paddingStart">24dp</item>
-        <item name="android:paddingTop">18dp</item>
-        <item name="android:paddingEnd">24dp</item>
-        <item name="android:paddingBottom">6dp</item>
-        <item name="android:textColor">?attr/colorPrimary</item>
-        <item name="android:textSize">12sp</item>
+        <item name="android:paddingStart">@dimen/space_20</item>
+        <item name="android:paddingTop">@dimen/space_20</item>
+        <item name="android:paddingEnd">@dimen/space_20</item>
+        <item name="android:paddingBottom">@dimen/space_4</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+        <item name="android:textSize">@dimen/text_label</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:letterSpacing">0.06</item>
+        <item name="android:letterSpacing">0.04</item>
     </style>
 
     <style name="SiteSheetRow">
         <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">48dp</item>
+        <item name="android:layout_height">@dimen/touch_target</item>
         <item name="android:orientation">horizontal</item>
         <item name="android:gravity">center_vertical</item>
-        <item name="android:paddingStart">24dp</item>
-        <item name="android:paddingEnd">24dp</item>
+        <item name="android:paddingStart">@dimen/space_20</item>
+        <item name="android:paddingEnd">@dimen/space_20</item>
         <item name="android:background">?attr/selectableItemBackground</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
@@ -89,13 +158,47 @@
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_weight">1</item>
         <item name="android:textColor">?attr/colorOnSurface</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:textSize">@dimen/text_body</item>
     </style>
 
     <style name="SiteSheetRowValue">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
-        <item name="android:textSize">13sp</item>
+        <item name="android:textSize">@dimen/text_label</item>
+    </style>
+
+    <!-- ============ 列表行：下载 / 书签 / 资源 共用一套规格 ============ -->
+
+    <style name="Widget.PluginBrowser.ListRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">@dimen/list_row_min_height</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingStart">@dimen/screen_margin</item>
+        <item name="android:paddingEnd">@dimen/space_8</item>
+        <item name="android:paddingTop">@dimen/space_12</item>
+        <item name="android:paddingBottom">@dimen/space_12</item>
+        <item name="android:background">?attr/selectableItemBackground</item>
+    </style>
+
+    <style name="Widget.PluginBrowser.ListRowTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:textSize">@dimen/text_body</item>
+    </style>
+
+    <style name="Widget.PluginBrowser.ListRowMeta">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:layout_marginTop">@dimen/space_2</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+        <item name="android:textSize">@dimen/text_label</item>
     </style>
 </resources>

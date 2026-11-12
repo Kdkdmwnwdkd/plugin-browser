@@ -124,7 +124,7 @@ class TabSwitcherFragment : BottomSheetDialogFragment() {
         root.findViewById<TextView>(R.id.empty_view)?.isVisible = entries.isEmpty()
         root.findViewById<RecyclerView>(R.id.tabs_recycler)?.isVisible = entries.isNotEmpty()
 
-        val active = themeColor(com.google.android.material.R.attr.colorOnSurface)
+        val active = themeColor(com.google.android.material.R.attr.colorPrimary)
         val inactive = themeColor(com.google.android.material.R.attr.colorOnSurfaceVariant)
         filterAll.setTextColor(if (incognitoOnly) inactive else active)
         filterIncognito.setTextColor(if (incognitoOnly) active else inactive)

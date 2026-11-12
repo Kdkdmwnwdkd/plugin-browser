@@ -193,11 +193,14 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         val icon = ImageView(ctx).apply {
             setImageResource(action.icon)
             imageTintList = ColorStateList.valueOf(onSurface)
-            layoutParams = LinearLayout.LayoutParams(dp(23), dp(23))
+            layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
         }
         val label = TextView(ctx).apply {
             text = action.label
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
+            setTextSize(
+                TypedValue.COMPLEX_UNIT_PX,
+                resources.getDimension(R.dimen.text_label),
+            )
             setTextColor(onSurfaceVariant)
             gravity = Gravity.CENTER
             maxLines = 1
@@ -205,7 +208,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = dp(7) }
+            ).apply { topMargin = dp(8) }
         }
         cell.addView(icon)
         cell.addView(label)
@@ -246,11 +249,11 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(52),
+                dp(56),
             )
             isClickable = true
             isFocusable = true
-            setPadding(dp(20), 0, dp(20), 0)
+            setPadding(dp(16), 0, dp(16), 0)
             background = rippleBackground(ctx)
         }
         row.addView(
@@ -266,7 +269,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                 setTextColor(onSurface)
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                    .apply { marginStart = dp(14) }
+                    .apply { marginStart = dp(12) }
             },
         )
         if (checked != null) {
@@ -289,7 +292,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
 
     private fun rippleBackground(ctx: android.content.Context) = run {
         val value = TypedValue()
-        ctx.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, value, true)
+        ctx.theme.resolveAttribute(android.R.attr.selectableItemBackground, value, true)
         androidx.core.content.ContextCompat.getDrawable(ctx, value.resourceId)
     }
 

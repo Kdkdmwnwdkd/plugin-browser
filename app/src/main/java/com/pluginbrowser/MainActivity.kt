@@ -131,8 +131,12 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
         window.statusBarColor = surface
         @Suppress("DEPRECATION")
         window.navigationBarColor = surface
-        WindowCompat.getInsetsController(window, window.decorView)
-            .isAppearanceLightStatusBars = !night
+        WindowCompat.getInsetsController(window, window.decorView).let { controller ->
+            controller.isAppearanceLightStatusBars = !night
+            // 导航栏底色跟着主题走，图标明暗也必须跟着走，否则浅色主题下
+            // 三键导航的白色图标压在 #FAFAFA 上看不见。
+            controller.isAppearanceLightNavigationBars = !night
+        }
     }
 
     override fun onResume() {

@@ -1,29 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Material3 颜色角色（深色）—— 近黑分层，靠 1px 细线而不是阴影区分层级 -->
-    <color name="colorPrimary">#6E8BFF</color>
-    <color name="colorOnPrimary">#0A1024</color>
-    <color name="colorPrimaryContainer">#1B2A57</color>
-    <color name="colorOnPrimaryContainer">#DDE3FF</color>
-    <color name="colorSecondary">#BFC6D8</color>
-    <color name="colorOnSecondary">#20252E</color>
-    <color name="colorSecondaryContainer">#2A303C</color>
-    <color name="colorOnSecondaryContainer">#DDE2EE</color>
-    <color name="colorSurface">#0C0C0E</color>
-    <color name="colorOnSurface">#F2F2F4</color>
-    <color name="colorSurfaceVariant">#17171A</color>
-    <color name="colorOnSurfaceVariant">#8B8B93</color>
-    <color name="colorOutline">#565660</color>
-    <color name="colorOutlineVariant">#1E1E23</color>
+    <!--
+      Material3 颜色角色（深色）。
+
+      深色下不再靠阴影分层（阴影在近黑背景上根本看不见），而是靠表面亮度的
+      5 级台阶 + 1dp 细线。container 系列必须补全，否则菜单/对话框会退回
+      框架默认的深紫灰，和这套近黑中性色对不上。
+    -->
+    <color name="colorPrimary">#B7C4FF</color>
+    <color name="colorOnPrimary">#0A1B63</color>
+    <color name="colorPrimaryContainer">#23408F</color>
+    <color name="colorOnPrimaryContainer">#DCE3FF</color>
+
+    <color name="colorSecondary">#BFC5D6</color>
+    <color name="colorOnSecondary">#293141</color>
+    <color name="colorSecondaryContainer">#3F4656</color>
+    <color name="colorOnSecondaryContainer">#DBE2F2</color>
+
+    <color name="colorTertiary">#A2CDDF</color>
+    <color name="colorOnTertiary">#033542</color>
+    <color name="colorTertiaryContainer">#21485A</color>
+    <color name="colorOnTertiaryContainer">#BEE3F5</color>
+
+    <color name="colorSurface">#0E0F12</color>
+    <color name="colorSurfaceDim">#0E0F12</color>
+    <color name="colorSurfaceBright">#34353A</color>
+    <color name="colorSurfaceContainerLowest">#09090B</color>
+    <color name="colorSurfaceContainerLow">#15161A</color>
+    <color name="colorSurfaceContainer">#1A1B1F</color>
+    <color name="colorSurfaceContainerHigh">#212226</color>
+    <color name="colorSurfaceContainerHighest">#282A2E</color>
+    <color name="colorSurfaceVariant">#22242A</color>
+    <color name="colorOnSurface">#E4E5EA</color>
+    <color name="colorOnSurfaceVariant">#A0A1AB</color>
+    <color name="colorOutline">#767780</color>
+    <color name="colorOutlineVariant">#2A2C32</color>
+
+    <color name="colorInverseSurface">#E4E5EA</color>
+    <color name="colorInverseOnSurface">#2E3034</color>
+    <color name="colorInversePrimary">#2F5BD8</color>
+
     <color name="colorError">#FFB4AB</color>
     <color name="colorOnError">#690005</color>
+    <color name="colorErrorContainer">#93000A</color>
+    <color name="colorOnErrorContainer">#FFDAD6</color>
+    <color name="colorScrim">#000000</color>
 
-    <color name="pb_progress">#6E8BFF</color>
-    <color name="pb_incognito">#B69DF8</color>
-    <color name="pb_thumbnail_bg">#141418</color>
+    <color name="pb_progress">#B7C4FF</color>
+    <color name="pb_incognito">#BDAAF0</color>
+    <color name="pb_thumbnail_bg">#212226</color>
     <color name="pb_scrim">#99000000</color>
-    <color name="pb_accent_soft">#1F6E8BFF</color>
+    <color name="pb_accent_soft">#2EB7C4FF</color>
     <color name="pb_tag_border">#33FFFFFF</color>
     <color name="pb_divider">#0FFFFFFF</color>
-    <color name="pb_icon_disabled">#565660</color>
+    <color name="pb_icon_disabled">#5A5B64</color>
 </resources>

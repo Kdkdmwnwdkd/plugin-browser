@@ -34,7 +34,7 @@
                 android:layout_height="wrap_content"
                 android:text="页面图片"
                 android:textColor="?attr/colorOnSurface"
-                android:textSize="22sp"
+                android:textSize="20sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -45,7 +45,7 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="?attr/colorOnSurfaceVariant"
-                android:textSize="11.5sp" />
+                android:textSize="12sp" />
         </LinearLayout>
 
         <TextView
@@ -59,7 +59,7 @@
             android:paddingBottom="6dp"
             android:text="全选"
             android:textColor="?attr/colorPrimary"
-            android:textSize="13sp" />
+            android:textSize="14sp" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
@@ -81,7 +81,7 @@
         android:gravity="center"
         android:text="这个页面没有可保存的图片"
         android:textColor="?attr/colorOnSurfaceVariant"
-        android:textSize="13sp"
+        android:textSize="14sp"
         android:visibility="gone" />
 
     <LinearLayout

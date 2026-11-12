@@ -4,15 +4,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface"
     android:orientation="vertical"
-    android:paddingBottom="8dp">
+    android:paddingBottom="@dimen/space_8">
 
     <View
-        android:layout_width="36dp"
-        android:layout_height="4dp"
+        android:layout_width="@dimen/sheet_handle_width"
+        android:layout_height="@dimen/sheet_handle_height"
         android:layout_gravity="center_horizontal"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="@dimen/space_8"
         android:background="@drawable/bg_sheet_handle" />
 
     <!-- 标题行 -->
@@ -21,19 +20,17 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="20dp"
-        android:paddingTop="14dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="10dp">
+        android:paddingStart="@dimen/space_20"
+        android:paddingTop="@dimen/space_12"
+        android:paddingEnd="@dimen/space_8"
+        android:paddingBottom="@dimen/space_8">
 
         <TextView
+            style="@style/TextAppearance.PluginBrowser.Title"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/tabs_title"
-            android:textColor="?attr/colorOnSurface"
-            android:textSize="22sp"
-            android:textStyle="bold" />
+            android:text="@string/tabs_title" />
 
         <ImageButton
             android:id="@+id/btn_incognito"
@@ -41,7 +38,8 @@
             android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/incognito_badge"
-            android:scaleType="centerInside"
+            android:padding="@dimen/space_8"
+            android:scaleType="fitCenter"
             android:src="@drawable/ic_incognito"
             app:tint="?attr/colorOnSurfaceVariant" />
 
@@ -50,46 +48,46 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:paddingStart="10dp"
-            android:paddingTop="8dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="8dp"
+            android:paddingStart="@dimen/space_12"
+            android:paddingTop="@dimen/space_8"
+            android:paddingEnd="@dimen/space_8"
+            android:paddingBottom="@dimen/space_8"
             android:text="@string/tabs_done"
             android:textColor="?attr/colorPrimary"
-            android:textSize="13sp"
+            android:textSize="@dimen/text_body"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- 全部 / 无痕 筛选 -->
+    <!-- 全部 / 无痕 筛选：选中态由代码切文字色与字重 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:paddingStart="20dp"
-        android:paddingEnd="20dp"
-        android:paddingBottom="8dp">
+        android:paddingStart="@dimen/space_20"
+        android:paddingEnd="@dimen/space_20"
+        android:paddingBottom="@dimen/space_8">
 
         <TextView
             android:id="@+id/filter_all"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="18dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="6dp"
+            android:layout_marginEnd="@dimen/space_20"
+            android:paddingTop="@dimen/space_4"
+            android:paddingBottom="@dimen/space_4"
             android:text="@string/tabs_filter_all"
             android:textColor="?attr/colorOnSurface"
-            android:textSize="13sp"
+            android:textSize="@dimen/text_body"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/filter_incognito"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingTop="4dp"
-            android:paddingBottom="6dp"
+            android:paddingTop="@dimen/space_4"
+            android:paddingBottom="@dimen/space_4"
             android:text="@string/tabs_filter_incognito"
             android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="13sp" />
+            android:textSize="@dimen/text_body" />
 
         <Space
             android:layout_width="0dp"
@@ -101,16 +99,18 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:paddingTop="4dp"
-            android:paddingBottom="6dp"
+            android:paddingStart="@dimen/space_8"
+            android:paddingTop="@dimen/space_4"
+            android:paddingEnd="@dimen/space_8"
+            android:paddingBottom="@dimen/space_4"
             android:text="@string/tabs_close_all"
             android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="12.5sp" />
+            android:textSize="@dimen/text_label" />
     </LinearLayout>
 
     <View
         android:layout_width="match_parent"
-        android:layout_height="1dp"
+        android:layout_height="@dimen/hairline"
         android:background="?attr/colorOutlineVariant" />
 
     <FrameLayout
@@ -123,10 +123,10 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clipToPadding="false"
-            android:paddingStart="13dp"
-            android:paddingTop="10dp"
-            android:paddingEnd="13dp"
-            android:paddingBottom="8dp" />
+            android:paddingStart="@dimen/space_12"
+            android:paddingTop="@dimen/space_8"
+            android:paddingEnd="@dimen/space_12"
+            android:paddingBottom="@dimen/space_8" />
 
         <TextView
             android:id="@+id/empty_view"
@@ -135,34 +135,40 @@
             android:layout_gravity="center"
             android:text="@string/tabs_empty"
             android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="13sp"
+            android:textSize="@dimen/text_body"
             android:visibility="gone" />
     </FrameLayout>
 
+    <!--
+      主操作用强调色实心按钮。
+      原来是纯黑底 + 白字：在这套中性灰 + 单一蓝的界面里，它是唯一一块黑，
+      而且黑色在深色模式下会和背景糊成一片。
+    -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_new_tab"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginStart="20dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="20dp"
+        android:layout_height="@dimen/touch_target"
+        android:layout_marginStart="@dimen/space_20"
+        android:layout_marginTop="@dimen/space_8"
+        android:layout_marginEnd="@dimen/space_20"
         android:text="@string/tabs_new"
-        android:textColor="?attr/colorSurface"
-        android:textSize="14sp"
-        app:backgroundTint="?attr/colorOnSurface"
-        app:cornerRadius="15dp"
+        android:textColor="?attr/colorOnPrimary"
+        android:textSize="@dimen/text_body"
+        app:backgroundTint="?attr/colorPrimary"
+        app:cornerRadius="@dimen/radius_md"
         app:icon="@drawable/ic_add"
         app:iconGravity="textStart"
+        app:iconPadding="@dimen/space_8"
         app:iconSize="18dp"
-        app:iconTint="?attr/colorSurface" />
+        app:iconTint="?attr/colorOnPrimary" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:paddingTop="8dp"
-        android:paddingBottom="4dp"
+        android:paddingTop="@dimen/space_8"
+        android:paddingBottom="@dimen/space_4"
         android:text="@string/tabs_hint"
         android:textColor="?attr/colorOnSurfaceVariant"
-        android:textSize="11sp" />
+        android:textSize="@dimen/text_caption" />
 </LinearLayout>

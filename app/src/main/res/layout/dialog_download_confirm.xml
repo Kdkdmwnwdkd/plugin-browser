@@ -23,7 +23,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:textColor="?attr/colorOnSurfaceVariant"
-        android:textSize="13sp" />
+        android:textSize="14sp" />
 
     <TextView
         android:id="@+id/download_file_path"
@@ -40,5 +40,5 @@
         android:layout_marginTop="12dp"
         android:minHeight="0dp"
         android:text="对此网站不再询问"
-        android:textSize="13sp" />
+        android:textSize="14sp" />
 </LinearLayout>

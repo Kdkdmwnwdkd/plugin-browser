@@ -1,61 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:background="?attr/selectableItemBackground"
-    android:gravity="center_vertical"
-    android:minHeight="62dp"
-    android:orientation="horizontal"
-    android:paddingStart="20dp"
-    android:paddingTop="10dp"
-    android:paddingEnd="10dp"
-    android:paddingBottom="10dp">
+    style="@style/Widget.PluginBrowser.ListRow">
 
     <TextView
         android:id="@+id/res_kind"
-        android:layout_width="34dp"
-        android:layout_height="34dp"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginEnd="@dimen/space_12"
         android:background="@drawable/bg_icon_tile"
         android:gravity="center"
         android:textColor="?attr/colorOnSurfaceVariant"
-        android:textSize="13sp"
+        android:textSize="@dimen/text_caption"
         android:textStyle="bold" />
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
         <TextView
             android:id="@+id/res_name"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="middle"
-            android:maxLines="1"
-            android:textColor="?attr/colorOnSurface"
-            android:textSize="13sp" />
+            style="@style/Widget.PluginBrowser.ListRowTitle"
+            android:ellipsize="middle" />
 
         <TextView
             android:id="@+id/res_meta"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="11sp" />
+            style="@style/Widget.PluginBrowser.ListRowMeta" />
     </LinearLayout>
 
     <ImageButton
         android:id="@+id/res_action"
         android:layout_width="40dp"
         android:layout_height="40dp"
+        android:layout_marginStart="@dimen/space_4"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/sniffer_download"
-        android:scaleType="centerInside"
+        android:padding="@dimen/space_8"
+        android:scaleType="fitCenter"
         android:src="@drawable/ic_download"
         app:tint="?attr/colorOnSurfaceVariant" />
 </LinearLayout>

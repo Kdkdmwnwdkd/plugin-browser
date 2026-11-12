@@ -63,7 +63,7 @@
                     android:paddingBottom="1dp"
                     android:text="@string/plugins_builtin_tag"
                     android:textColor="?attr/colorOnSurfaceVariant"
-                    android:textSize="9sp"
+                    android:textSize="11sp"
                     android:visibility="gone" />
             </LinearLayout>
 

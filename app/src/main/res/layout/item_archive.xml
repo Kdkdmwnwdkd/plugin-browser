@@ -1,20 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:background="?attr/selectableItemBackground"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:paddingStart="12dp"
-    android:paddingTop="10dp"
-    android:paddingEnd="8dp"
-    android:paddingBottom="10dp">
+    style="@style/Widget.PluginBrowser.ListRow">
 
     <ImageView
         android:id="@+id/archive_icon"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
+        android:layout_width="@dimen/icon_md"
+        android:layout_height="@dimen/icon_md"
+        android:layout_marginEnd="@dimen/space_12"
         android:contentDescription="@string/bookmarks_title"
         android:src="@drawable/ic_bookmark_border"
         app:tint="?attr/colorOnSurfaceVariant" />
@@ -22,35 +15,27 @@
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
         <TextView
             android:id="@+id/archive_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textColor="?attr/colorOnSurface"
-            android:textSize="15sp" />
+            style="@style/Widget.PluginBrowser.ListRowTitle" />
 
         <TextView
             android:id="@+id/archive_url"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="12sp" />
+            style="@style/Widget.PluginBrowser.ListRowMeta" />
     </LinearLayout>
 
     <ImageButton
         android:id="@+id/btn_delete"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="@dimen/space_4"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/archive_clear"
+        android:padding="@dimen/space_8"
+        android:scaleType="fitCenter"
         android:src="@drawable/ic_delete"
         app:tint="?attr/colorOnSurfaceVariant" />
 </LinearLayout>

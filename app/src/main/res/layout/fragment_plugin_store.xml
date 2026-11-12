@@ -52,7 +52,7 @@
             android:layout_width="match_parent"
             android:layout_height="46dp"
             android:text="@string/plugins_import_pbp"
-            android:textSize="13sp"
+            android:textSize="14sp"
             app:cornerRadius="14dp" />
 
         <TextView
@@ -63,6 +63,6 @@
             android:paddingBottom="2dp"
             android:text="@string/plugins_footer_note"
             android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="10.5sp" />
+            android:textSize="11sp" />
     </LinearLayout>
 </LinearLayout>

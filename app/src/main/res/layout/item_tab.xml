@@ -5,12 +5,12 @@
     android:id="@+id/tab_card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="7dp"
-    app:cardBackgroundColor="?attr/colorSurface"
-    app:cardCornerRadius="16dp"
+    android:layout_margin="@dimen/space_8"
+    app:cardBackgroundColor="?attr/colorSurfaceContainerLowest"
+    app:cardCornerRadius="@dimen/radius_md"
     app:cardElevation="0dp"
     app:strokeColor="?attr/colorOutlineVariant"
-    app:strokeWidth="1dp">
+    app:strokeWidth="@dimen/hairline">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -19,8 +19,8 @@
 
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="104dp"
-            android:background="@color/pb_thumbnail_bg">
+            android:layout_height="96dp"
+            android:background="?attr/colorSurfaceContainerHigh">
 
             <ImageView
                 android:id="@+id/tab_thumbnail"
@@ -34,55 +34,53 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="top|start"
-                android:layout_margin="8dp"
+                android:layout_margin="@dimen/space_8"
                 android:background="@drawable/bg_incognito_badge"
-                android:paddingStart="6dp"
-                android:paddingEnd="6dp"
+                android:paddingStart="@dimen/space_8"
+                android:paddingTop="@dimen/space_2"
+                android:paddingEnd="@dimen/space_8"
+                android:paddingBottom="@dimen/space_2"
                 android:text="@string/incognito_badge"
                 android:textColor="@color/pb_incognito"
-                android:textSize="10sp"
+                android:textSize="@dimen/text_caption"
                 android:visibility="gone" />
 
+            <!--
+              底是 40% 黑，图标必须是白色。原来 tint 取了 colorOnSurface，
+              浅色模式下就是近黑压近黑，这个按钮在白云上基本看不见。
+            -->
             <ImageButton
                 android:id="@+id/btn_close_tab"
-                android:layout_width="26dp"
-                android:layout_height="26dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:layout_gravity="top|end"
-                android:layout_margin="7dp"
+                android:layout_margin="@dimen/space_8"
                 android:background="@drawable/bg_close_tab"
                 android:contentDescription="@string/cancel"
-                android:scaleType="centerInside"
+                android:padding="@dimen/space_4"
+                android:scaleType="fitCenter"
                 android:src="@drawable/ic_close"
-                app:tint="?attr/colorOnSurface" />
+                app:tint="@android:color/white" />
         </FrameLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="12dp"
-            android:paddingTop="10dp"
-            android:paddingEnd="12dp"
-            android:paddingBottom="12dp">
+            android:paddingStart="@dimen/space_12"
+            android:paddingTop="@dimen/space_12"
+            android:paddingEnd="@dimen/space_12"
+            android:paddingBottom="@dimen/space_12">
 
             <TextView
                 android:id="@+id/tab_title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="12.5sp" />
+                style="@style/Widget.PluginBrowser.ListRowTitle"
+                android:layout_height="wrap_content" />
 
             <TextView
                 android:id="@+id/tab_url"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textColor="?attr/colorOnSurfaceVariant"
-                android:textSize="11sp" />
+                style="@style/Widget.PluginBrowser.ListRowMeta"
+                android:layout_height="wrap_content" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

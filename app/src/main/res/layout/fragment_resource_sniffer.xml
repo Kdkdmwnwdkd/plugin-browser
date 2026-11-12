@@ -34,7 +34,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/sniffer_title"
                 android:textColor="?attr/colorOnSurface"
-                android:textSize="22sp"
+                android:textSize="20sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -45,7 +45,7 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="?attr/colorOnSurfaceVariant"
-                android:textSize="11.5sp" />
+                android:textSize="12sp" />
         </LinearLayout>
 
         <TextView
@@ -59,7 +59,7 @@
             android:paddingBottom="8dp"
             android:text="@string/sniffer_clear"
             android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="12.5sp" />
+            android:textSize="12sp" />
     </LinearLayout>
 
     <View
@@ -90,7 +90,7 @@
             android:paddingEnd="40dp"
             android:text="@string/sniffer_empty"
             android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="12.5sp"
+            android:textSize="12sp"
             android:visibility="gone" />
     </FrameLayout>
 
@@ -102,5 +102,5 @@
         android:paddingBottom="2dp"
         android:text="@string/sniffer_hint"
         android:textColor="?attr/colorOnSurfaceVariant"
-        android:textSize="10.5sp" />
+        android:textSize="11sp" />
 </LinearLayout>
