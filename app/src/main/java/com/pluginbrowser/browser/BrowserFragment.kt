@@ -48,6 +48,9 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updateLayoutParams
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -348,6 +351,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             }
         }
 
+        applyStatusBarInset()
         setupAddressBar()
         setupFindBar()
         setupBottomBar()
@@ -437,6 +441,27 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
     }
 
     /* ---------------- 界面组装 ---------------- */
+
+    /**
+     * 地址栏让出状态栏那一条。
+     *
+     * 整页走 edge-to-edge，地址栏又是从屏幕最顶上开始画的通栏，不补这段的话
+     * 输入框文字直接顶着时间和电量那一行。截图上看着就像顶部残留了半个搜索框，
+     * 而下面新标签页里还有一个——「两个搜索框」的观感，一半是这么来的。
+     */
+    private fun applyStatusBarInset() {
+        val baseHeight = resources.getDimensionPixelSize(R.dimen.address_bar_height)
+        ViewCompat.setOnApplyWindowInsetsListener(addressBarRow) { v, insets ->
+            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            if (v.paddingTop != top) {
+                v.setPadding(v.paddingLeft, top, v.paddingRight, v.paddingBottom)
+                v.updateLayoutParams { height = baseHeight + top }
+                progressBar.updateLayoutParams<ConstraintLayout.LayoutParams> { topMargin = top }
+            }
+            insets
+        }
+        ViewCompat.requestApplyInsets(requireView())
+    }
 
     private fun setupAddressBar() {
         addressInput.setAdapter(suggestionAdapter)

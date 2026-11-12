@@ -271,7 +271,19 @@
     <!-- 浏览器功能面板 -->
     <string name="menu_open_failed">菜单打开失败，请重试</string>
     <string name="menu_group_page">页面</string>
+    <string name="menu_group_current">当前页</string>
+    <string name="menu_group_open">打开</string>
+    <string name="menu_group_display">显示</string>
+    <string name="menu_group_more">更多</string>
     <string name="menu_group_tabs">标签</string>
+    <string name="menu_new_incognito">无痕标签页</string>
+    <string name="menu_bookmark_current">收藏本页</string>
+    <string name="menu_save_images">保存图片</string>
+    <string name="menu_block_element">屏蔽页面元素</string>
+    <string name="menu_reader">阅读模式</string>
+    <string name="menu_exit_reader">退出阅读</string>
+    <string name="menu_night">网页夜间</string>
+    <string name="menu_image_mode">无图模式</string>
     <string name="menu_group_tools">工具</string>
     <string name="menu_group_plugins">插件</string>
     <string name="menu_translate_short">翻译</string>

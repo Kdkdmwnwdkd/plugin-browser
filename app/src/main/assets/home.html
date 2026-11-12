@@ -30,20 +30,9 @@
     color:var(--faint);text-transform:uppercase;
   }
 
-  /* 搜索框：直角、1px 描边。整页只有这一个输入口，点它就等于点地址栏 */
-  .sbox{
-    margin-top:12px;height:50px;background:var(--bg);
-    border:1px solid var(--edge);
-    display:flex;align-items:center;gap:10px;padding:0 14px;
-    color:var(--faint);font-size:14.5px;
-    transition:border-color .18s ease;
-  }
-  .sbox:active{border-color:var(--muted)}
-  .sbox svg{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8}
-
   /* 站点：四列等分，46dp 直角块。圆角会让它看起来像应用图标，这里是「入口」不是「应用」 */
   .sites{
-    margin-top:30px;display:grid;grid-template-columns:repeat(4,1fr);
+    margin-top:20px;display:grid;grid-template-columns:repeat(4,1fr);
     gap:24px 8px;
   }
   a{
@@ -71,12 +60,7 @@
 </head>
 <body>
 
-  <div class="lbl">新标签页</div>
-
-  <div class="sbox">
-    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16 L20.5 20.5"/></svg>
-    搜索或输入网址
-  </div>
+  <div class="lbl">常用</div>
 
   <div class="sites">
     <a href="https://www.baidu.com"><span class="tile">百</span><span class="nm">百度</span></a>

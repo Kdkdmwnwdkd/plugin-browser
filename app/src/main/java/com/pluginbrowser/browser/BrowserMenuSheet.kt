@@ -1,13 +1,11 @@
 package com.pluginbrowser.browser
 
-import android.content.res.ColorStateList
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.view.ViewCompat
@@ -19,9 +17,18 @@ import com.pluginbrowser.R
 /**
  * 浏览器功能面板。
  *
- * 之前是 PopupMenu 拉出一长条文字列表，功能一多就显得又长又杂。
- * 这里改成底部升起的四列图标网格，按「页面 / 标签 / 工具」分组，
- * 低频项（桌面版、设置）放在最下面的列表里。
+ * 版式只有一种元素：一行一个动作，左边文字，右边状态。没有图标。
+ *
+ * 走到这一步是被图标逼的。图库里一半是 Material 实心字形（书签、下载、无痕），
+ * 一半是后来补的 1.7dp 线框（翻译、查找、分享）。tint 成同一个颜色之后，
+ * 实心的块状、线框的轻盈，20 个排下来节奏是乱的——再怎么调行高、缩进都救不回来，
+ * 除非把 40 多个图标重画一遍。那就先不要图标：中文两个字就是最好的图标。
+ *
+ * 上一版的另一个毛病是「四列图标格 + 底部长条行」两段式：上半屏 12 个格子挤成一片、
+ * 标签 11sp 顶到边，下半屏突然变成松散长条，中间还横一条分割线。两套密度拼在一张
+ * 面板上，眼睛找不到落点。现在统一压成列表，分组靠小标题和留白，不画线。
+ *
+ * 关闭态不写「已关闭」——那是默认值，信息量为零，只标开着的。
  */
 class BrowserMenuSheet : BottomSheetDialogFragment() {
 
@@ -42,6 +49,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
 
     private var onSurface = 0
     private var onSurfaceVariant = 0
+    private var accent = 0
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -83,6 +91,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         onSurface = MaterialColors.getColor(view, com.google.android.material.R.attr.colorOnSurface)
         onSurfaceVariant =
             MaterialColors.getColor(view, com.google.android.material.R.attr.colorOnSurfaceVariant)
+        accent = MaterialColors.getColor(view, com.google.android.material.R.attr.colorPrimary)
 
         // 三键导航的机型上，最后一行会被导航栏压掉半截，文字只剩上半截，看着像坏了。
         //
@@ -108,140 +117,92 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
             insets
         }
 
-        val pageRow = view.findViewById<LinearLayout>(R.id.row_page)
-        val tabRow = view.findViewById<LinearLayout>(R.id.row_tabs)
-        val toolRow = view.findViewById<LinearLayout>(R.id.row_tools)
-        val pluginRow = view.findViewById<LinearLayout>(R.id.row_plugins)
-        val pluginTitle = view.findViewById<TextView>(R.id.title_plugins)
-        val listRow = view.findViewById<LinearLayout>(R.id.row_list)
+        val current = view.findViewById<LinearLayout>(R.id.group_current)
+        val open = view.findViewById<LinearLayout>(R.id.group_open)
+        val tools = view.findViewById<LinearLayout>(R.id.group_tools)
+        val display = view.findViewById<LinearLayout>(R.id.group_display)
+        val plugins = view.findViewById<LinearLayout>(R.id.group_plugins)
+        val more = view.findViewById<LinearLayout>(R.id.group_more)
 
-        cell(pageRow, Action("refresh", R.drawable.ic_refresh, getString(R.string.menu_refresh)))
-        cell(
-            pageRow,
-            Action(
-                "translate",
-                R.drawable.ic_translate,
-                getString(
-                    if (state.translated) R.string.menu_restore_translate else R.string.menu_translate_short,
-                ),
-            ),
+        // —— 当前页：对这一页做点什么。刷新不在这里，地址栏右边就有。
+        listRow(
+            current,
+            "translate",
+            if (state.translated) getString(R.string.menu_restore_translate)
+            else getString(R.string.menu_translate_short),
         )
-        cell(pageRow, Action("find", R.drawable.ic_search, getString(R.string.menu_find_short)))
-        cell(pageRow, Action("share", R.drawable.ic_share, getString(R.string.menu_share_short)))
+        listRow(current, "find", getString(R.string.menu_find_short))
+        listRow(current, "share", getString(R.string.menu_share_short))
+        listRow(current, "add_bookmark", getString(R.string.menu_bookmark_current))
 
-        cell(tabRow, Action("new_tab", R.drawable.ic_add, getString(R.string.menu_new_tab_short)))
-        cell(
-            tabRow,
-            Action("new_incognito", R.drawable.ic_incognito, getString(R.string.menu_new_incognito_short)),
+        // —— 打开：去哪
+        listRow(open, "new_tab", getString(R.string.menu_new_tab))
+        listRow(open, "new_incognito", getString(R.string.menu_new_incognito))
+        listRow(open, "bookmarks", getString(R.string.menu_bookmark_short))
+        listRow(open, "history", getString(R.string.menu_history_short))
+        listRow(open, "downloads", getString(R.string.menu_downloads_short))
+
+        // —— 工具：页面内容本身的处理
+        listRow(tools, "sniffer", getString(R.string.menu_sniffer_short))
+        listRow(tools, "screenshot", getString(R.string.menu_screenshot_short))
+        listRow(tools, "images", getString(R.string.menu_save_images))
+        listRow(tools, "block_element", getString(R.string.menu_block_element))
+
+        // —— 显示：读起来怎么样。开着才标注，关闭是默认态。
+        listRow(
+            display,
+            "reader",
+            if (state.readerMode) getString(R.string.menu_exit_reader)
+            else getString(R.string.menu_reader),
+            if (state.readerMode) "开" else null,
+            state.readerMode,
         )
-        cell(tabRow, Action("bookmarks", R.drawable.ic_bookmark, getString(R.string.menu_bookmark_short)))
-        cell(tabRow, Action("history", R.drawable.ic_history, getString(R.string.menu_history_short)))
-
-        cell(toolRow, Action("downloads", R.drawable.ic_download, getString(R.string.menu_downloads_short)))
-        cell(toolRow, Action("sniffer", R.drawable.ic_radar, getString(R.string.menu_sniffer_short)))
-        cell(toolRow, Action("screenshot", R.drawable.ic_image, getString(R.string.menu_screenshot_short)))
-        cell(toolRow, Action("plugins", R.drawable.ic_extension, getString(R.string.menu_plugins_short)))
+        listRow(
+            display,
+            "night",
+            getString(R.string.menu_night),
+            if (state.nightMode) "开" else null,
+            state.nightMode,
+        )
+        listRow(
+            display,
+            "image_mode",
+            getString(R.string.menu_image_mode),
+            state.imageLabel,
+            state.imageLabel != "关闭",
+        )
+        listRow(
+            display,
+            "desktop",
+            getString(R.string.menu_desktop_ua),
+            if (state.desktopUa) "开" else null,
+            state.desktopUa,
+        )
 
         if (state.plugins.isNotEmpty()) {
-            pluginTitle.visibility = View.VISIBLE
-            pluginRow.visibility = View.VISIBLE
-            state.plugins.forEach { cell(pluginRow, it) }
+            view.findViewById<View>(R.id.title_plugins).visibility = View.VISIBLE
+            plugins.visibility = View.VISIBLE
+            state.plugins.forEach { listRow(plugins, it.id, it.label) }
         }
 
-        // 列表区会超出一屏，靠前的才是「一眼能看见、不用往下翻」的位置。
-        // 无图模式和阅读模式是日常最常改的两个开关，所以排在最上面；
-        // 桌面版 UA 属于偶尔用一次，沉到后面去。
-        listRow(listRow, "image_mode", R.drawable.ic_image_off, "无图模式 · ${state.imageLabel}", null)
-        listRow(
-            listRow,
-            "reader",
-            R.drawable.ic_reader,
-            if (state.readerMode) "退出阅读" else "阅读模式",
-            null,
-        )
-        listRow(listRow, "night", R.drawable.ic_night, "网页夜间", state.nightMode)
-        listRow(listRow, "images", R.drawable.ic_image, "保存图片", null)
-        listRow(listRow, "block_element", R.drawable.ic_block, "屏蔽页面元素", null)
-        listRow(listRow, "desktop", R.drawable.ic_desktop, getString(R.string.menu_desktop_ua), state.desktopUa)
-        listRow(
-            listRow,
-            "diag",
-            R.drawable.ic_pulse,
-            getString(R.string.diag_title),
-            null,
-        )
-        listRow(
-            listRow,
-            "add_bookmark",
-            R.drawable.ic_bookmark_border,
-            getString(R.string.menu_add_bookmark),
-            null,
-        )
-        listRow(listRow, "settings", R.drawable.ic_settings, getString(R.string.menu_settings), null)
+        // —— 更多
+        listRow(more, "plugins", getString(R.string.menu_plugins))
+        listRow(more, "diag", getString(R.string.diag_title))
+        listRow(more, "settings", getString(R.string.menu_settings))
     }
 
-    private fun cell(row: LinearLayout, action: Action) {
-        val ctx = row.context
-        val cell = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, dp(cellHeightDp()), 1f)
-            isClickable = true
-            isFocusable = true
-            background = rippleBackground(ctx)
-        }
-        val icon = ImageView(ctx).apply {
-            setImageResource(action.icon)
-            imageTintList = ColorStateList.valueOf(onSurface)
-            layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
-        }
-        val label = TextView(ctx).apply {
-            text = action.label
-            setTextSize(
-                TypedValue.COMPLEX_UNIT_PX,
-                resources.getDimension(R.dimen.text_label),
-            )
-            setTextColor(onSurfaceVariant)
-            gravity = Gravity.CENTER
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = dp(8) }
-        }
-        cell.addView(icon)
-        cell.addView(label)
-        cell.setOnClickListener {
-            dismissAllowingStateLoss()
-            onAction?.invoke(action.id)
-        }
-        row.addView(cell)
-    }
-
-    /** 列表行：左图标 + 文字 + 右侧可选状态 */
     /**
-     * 图标格子的高度。
+     * 列表行：左边标题，右边状态。
      *
-     * 固定 76dp 是按 640dp 高的机器定的，720×1280 这类机器逻辑高度只有 640dp，
-     * 1080p 的国产手机普遍只有 360~410dp——三组图标就是 540dp，光格子就超出全屏。
-     * 按屏幕高度分档压缩，配合外层滚动，小屏才不至于一打开就只能看见两组。
+     * 左右内边距取 24dp，跟组标题的缩进对齐——上一版是 16dp，标题在 24、行在 16，
+     * 整片文字像被人推歪了一格。
      */
-    private fun cellHeightDp(): Int {
-        val h = resources.configuration.screenHeightDp
-        return when {
-            h >= 660 -> 76
-            h >= 560 -> 66
-            else -> 58
-        }
-    }
-
     private fun listRow(
         parent: LinearLayout,
         id: String,
-        iconRes: Int,
         title: String,
-        checked: Boolean?,
+        trailing: String? = null,
+        trailingOn: Boolean = false,
     ) {
         val ctx = parent.context
         val row = LinearLayout(ctx).apply {
@@ -249,37 +210,37 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(56),
+                dp(50),
             )
             isClickable = true
             isFocusable = true
-            setPadding(dp(16), 0, dp(16), 0)
+            setPadding(dp(24), 0, dp(24), 0)
             background = rippleBackground(ctx)
         }
         row.addView(
-            ImageView(ctx).apply {
-                setImageResource(iconRes)
-                imageTintList = ColorStateList.valueOf(onSurfaceVariant)
-                layoutParams = LinearLayout.LayoutParams(dp(20), dp(20))
-            },
-        )
-        row.addView(
             TextView(ctx).apply {
                 text = title
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
                 setTextColor(onSurface)
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                    .apply { marginStart = dp(12) }
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f,
+                )
             },
         )
-        if (checked != null) {
+        if (trailing != null) {
             row.addView(
                 TextView(ctx).apply {
-                    text = getString(
-                        if (checked) R.string.menu_desktop_on else R.string.menu_desktop_off,
-                    )
+                    text = trailing
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                    setTextColor(onSurfaceVariant)
+                    setTextColor(if (trailingOn) accent else onSurfaceVariant)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                    ).apply { marginStart = dp(8) }
                 },
             )
         }

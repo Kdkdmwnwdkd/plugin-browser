@@ -6,6 +6,12 @@
     超出的部分不是「滚动到看不见」，而是直接不存在——在 360~410dp 高的机型上
     （魅族 20 这类 1080p 手机逻辑高度就是这个数），「添加书签 / 设置 / 网络诊断」
     这三行永远够不到。功能藏在根本点不进去的地方，用起来就跟裸浏览器一样。
+
+    版式：五组列表，只有一种元素。
+
+    上一版是「四列图标格 + 底部长条行」两套密度拼在一起，中间还横一条分割线：
+    上半屏 12 个格子挤成一片，下半屏突然变松，扫视时眼睛找不到落点。
+    现在全部收成同一种行——左图标、右状态——分组靠小标题和留白区分，不画线。
 -->
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -31,66 +37,82 @@
             style="@style/TextAppearance.PluginBrowser.GroupLabel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/menu_group_page" />
+            android:paddingTop="@dimen/space_20"
+            android:text="@string/menu_group_current" />
 
         <LinearLayout
-            android:id="@+id/row_page"
+            android:id="@+id/group_current"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal" />
+            android:orientation="vertical" />
 
         <TextView
             style="@style/TextAppearance.PluginBrowser.GroupLabel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/menu_group_tabs" />
+            android:paddingTop="@dimen/space_20"
+            android:text="@string/menu_group_open" />
 
         <LinearLayout
-            android:id="@+id/row_tabs"
+            android:id="@+id/group_open"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal" />
+            android:orientation="vertical" />
 
         <TextView
             style="@style/TextAppearance.PluginBrowser.GroupLabel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:paddingTop="@dimen/space_20"
             android:text="@string/menu_group_tools" />
 
         <LinearLayout
-            android:id="@+id/row_tools"
+            android:id="@+id/group_tools"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal" />
+            android:orientation="vertical" />
 
+        <TextView
+            style="@style/TextAppearance.PluginBrowser.GroupLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="@dimen/space_20"
+            android:text="@string/menu_group_display" />
+
+        <LinearLayout
+            android:id="@+id/group_display"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <!-- 装插件之后会在这里再冒出一组，没有插件就整组不占位 -->
         <TextView
             android:id="@+id/title_plugins"
             style="@style/TextAppearance.PluginBrowser.GroupLabel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:paddingTop="@dimen/space_20"
             android:text="@string/menu_group_plugins"
             android:visibility="gone" />
 
         <LinearLayout
-            android:id="@+id/row_plugins"
+            android:id="@+id/group_plugins"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:visibility="gone" />
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/hairline"
-            android:layout_marginStart="@dimen/screen_margin"
-            android:layout_marginTop="@dimen/space_12"
-            android:layout_marginEnd="@dimen/screen_margin"
-            android:background="?attr/colorOutlineVariant" />
-
-        <LinearLayout
-            android:id="@+id/row_list"
+        <TextView
+            style="@style/TextAppearance.PluginBrowser.GroupLabel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/space_4"
+            android:paddingTop="@dimen/space_20"
+            android:text="@string/menu_group_more" />
+
+        <LinearLayout
+            android:id="@+id/group_more"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:orientation="vertical" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>
