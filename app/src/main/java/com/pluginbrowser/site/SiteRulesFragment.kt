@@ -40,16 +40,20 @@ class SiteRulesFragment : PreferenceFragmentCompat() {
         val screen = preferenceManager.createPreferenceScreen(requireContext())
         preferenceScreen = screen
 
-        val ruleSwitches = ArrayList<SwitchPreferenceCompat>()
+        val ruleSwitches = ArrayList<Pair<SiteRule, SwitchPreferenceCompat>>()
 
         val master = SwitchPreferenceCompat(requireContext()).apply {
             key = "site_master"
             title = "启用站点适配"
             summary = "按站点决定加载方式和注入内容。关掉后所有规则都不生效，但各自的选择会保留"
             isChecked = engine.masterEnabled
+            // 值只由 SiteRuleEngine 持有（pb_site_rules）。不关掉的话，Preference
+            // 还会按 key 往默认偏好文件里另存一份，同一个开关两处真相。
+            isPersistent = false
             setOnPreferenceChangeListener { _, newValue ->
-                engine.masterEnabled = newValue as Boolean
-                ruleSwitches.forEach { it.isEnabled = newValue as Boolean }
+                val on = newValue as Boolean
+                engine.masterEnabled = on
+                ruleSwitches.forEach { (_, sw) -> sw.isEnabled = on }
                 true
             }
         }
@@ -67,42 +71,50 @@ class SiteRulesFragment : PreferenceFragmentCompat() {
                     summary = "${rule.summary}\n${rule.hostLabel}"
                     isChecked = engine.isEnabled(rule)
                     isEnabled = engine.masterEnabled
+                    isPersistent = false
                     setOnPreferenceChangeListener { _, newValue ->
                         engine.setEnabled(rule.id, newValue as Boolean)
                         true
                     }
                 }
-                ruleSwitches.add(item)
+                ruleSwitches.add(rule to item)
                 category.addPreference(item)
             }
         }
 
-        screen.addPreference(PreferenceCategory(requireContext()).apply {
-            title = "说明"
-            addPreference(Preference(requireContext()).apply {
-                title = "单个网站的设置不在这里"
-                summary = "打开某个网站后，点地址栏左边的锁：可以单独设桌面版、字号、JavaScript、图片，" +
-                    "也能看证书、给相机/麦克风/定位授权、清除这个站的数据"
-                isSelectable = false
-            })
-            addPreference(Preference(requireContext()).apply {
-                title = "这些开关都立即生效"
-                summary = "当前页面重新加载一次即可看到效果；自动播放、后台播放这类 WebView 设置在下一次加载时套用"
-                isSelectable = false
-            })
-            addPreference(Preference(requireContext()).apply {
-                key = "site_reset"
-                title = "恢复默认"
-                summary = "把所有站点规则恢复成出厂状态"
-                setOnPreferenceClickListener {
-                    engine.resetToDefault()
-                    // 重建这一页最省事，也避免出现「开关显示旧值」的错觉
-                    requireActivity().supportFragmentManager.beginTransaction()
-                        .replace(R.id.main_container, SiteRulesFragment())
-                        .commitAllowingStateLoss()
-                    true
+        // 先挂到 screen 上，再往里加子项。
+        // PreferenceGroup 只有 attached 之后才持有 PreferenceManager；对一个还没挂上去的组
+        // 调 addPreference，内部会走 onAttachedToHierarchy(null)，在分配 id 时直接
+        // NullPointerException —— 也就是 getNextId() on a null object reference。
+        val about = PreferenceCategory(requireContext()).apply { title = "说明" }
+        screen.addPreference(about)
+
+        about.addPreference(Preference(requireContext()).apply {
+            title = "单个网站的设置不在这里"
+            summary = "打开某个网站后，点地址栏左边的锁：可以单独设桌面版、字号、JavaScript、图片，" +
+                "也能看证书、给相机/麦克风/定位授权、清除这个站的数据"
+            isSelectable = false
+        })
+        about.addPreference(Preference(requireContext()).apply {
+            title = "这些开关都立即生效"
+            summary = "当前页面重新加载一次即可看到效果；自动播放、后台播放这类 WebView 设置在下一次加载时套用"
+            isSelectable = false
+        })
+        about.addPreference(Preference(requireContext()).apply {
+            key = "site_reset"
+            title = "恢复默认"
+            summary = "把所有站点规则恢复成出厂状态"
+            setOnPreferenceClickListener {
+                engine.resetToDefault()
+                // 原地刷新，不再 replace 一个新 Fragment：这一页本身就是 replace 进来的、
+                // 没进回退栈，重建后按返回会直接退出设置而不是回到上一页。
+                master.isChecked = engine.masterEnabled
+                ruleSwitches.forEach { (rule, sw) ->
+                    sw.isEnabled = engine.masterEnabled
+                    sw.isChecked = engine.isEnabled(rule)
                 }
-            })
+                true
+            }
         })
 
         // 这些行都没有图标，留着 Material 默认的 56dp 图标位就是一条空白带
