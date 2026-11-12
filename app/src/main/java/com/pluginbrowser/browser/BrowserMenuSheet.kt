@@ -1,11 +1,13 @@
 package com.pluginbrowser.browser
 
+import android.content.res.ColorStateList
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.view.ViewCompat
@@ -17,16 +19,16 @@ import com.pluginbrowser.R
 /**
  * 浏览器功能面板。
  *
- * 版式只有一种元素：一行一个动作，左边文字，右边状态。没有图标。
+ * 版式只有一种元素：一行一个动作——左图标、中间文字、右边状态。
  *
- * 走到这一步是被图标逼的。图库里一半是 Material 实心字形（书签、下载、无痕），
- * 一半是后来补的 1.7dp 线框（翻译、查找、分享）。tint 成同一个颜色之后，
- * 实心的块状、线框的轻盈，20 个排下来节奏是乱的——再怎么调行高、缩进都救不回来，
- * 除非把 40 多个图标重画一遍。那就先不要图标：中文两个字就是最好的图标。
+ * 上一版是「四列图标格 + 底部长条行」两段式：上半屏 12 个格子挤成一片、标签 11sp 顶到边，
+ * 下半屏突然变成松散长条，中间还横一条分割线。两套密度拼在一张面板上，眼睛找不到落点。
+ * 现在统一压成列表，分组靠小标题和留白，不画线。
  *
- * 上一版的另一个毛病是「四列图标格 + 底部长条行」两段式：上半屏 12 个格子挤成一片、
- * 标签 11sp 顶到边，下半屏突然变成松散长条，中间还横一条分割线。两套密度拼在一张
- * 面板上，眼睛找不到落点。现在统一压成列表，分组靠小标题和留白，不画线。
+ * 图标这次是真统一了。之前图库里一半是 Material 实心字形、一半是后来补的 1.7dp 线框，
+ * 染成同一个颜色之后块状和线条混着排，越看越乱——所以 2.10.1 干脆全撤了，结果又变成
+ * 「全靠读字认功能」。现在动作图标全部换成 Material Icons 同一套字形；底栏那五个另算，
+ * 它们内部一致，形状也是手绘的「多层页面」语义，换掉反而更差。
  *
  * 关闭态不写「已关闭」——那是默认值，信息量为零，只标开着的。
  */
@@ -128,30 +130,50 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         listRow(
             current,
             "translate",
+            R.drawable.ic_translate,
             if (state.translated) getString(R.string.menu_restore_translate)
             else getString(R.string.menu_translate_short),
         )
-        listRow(current, "find", getString(R.string.menu_find_short))
-        listRow(current, "share", getString(R.string.menu_share_short))
-        listRow(current, "add_bookmark", getString(R.string.menu_bookmark_current))
+        listRow(current, "find", R.drawable.ic_search, getString(R.string.menu_find_short))
+        listRow(current, "share", R.drawable.ic_share, getString(R.string.menu_share_short))
+        listRow(
+            current,
+            "add_bookmark",
+            R.drawable.ic_bookmark_border,
+            getString(R.string.menu_bookmark_current),
+        )
+        listRow(current, "qrcode", R.drawable.ic_qrcode, getString(R.string.menu_qrcode))
 
         // —— 打开：去哪
-        listRow(open, "new_tab", getString(R.string.menu_new_tab))
-        listRow(open, "new_incognito", getString(R.string.menu_new_incognito))
-        listRow(open, "bookmarks", getString(R.string.menu_bookmark_short))
-        listRow(open, "history", getString(R.string.menu_history_short))
-        listRow(open, "downloads", getString(R.string.menu_downloads_short))
+        listRow(open, "new_tab", R.drawable.ic_add, getString(R.string.menu_new_tab))
+        listRow(
+            open,
+            "new_incognito",
+            R.drawable.ic_incognito,
+            getString(R.string.menu_new_incognito),
+        )
+        listRow(open, "bookmarks", R.drawable.ic_bookmark, getString(R.string.menu_bookmark_short))
+        listRow(open, "history", R.drawable.ic_history, getString(R.string.menu_history_short))
+        listRow(open, "downloads", R.drawable.ic_download, getString(R.string.menu_downloads_short))
 
         // —— 工具：页面内容本身的处理
-        listRow(tools, "sniffer", getString(R.string.menu_sniffer_short))
-        listRow(tools, "screenshot", getString(R.string.menu_screenshot_short))
-        listRow(tools, "images", getString(R.string.menu_save_images))
-        listRow(tools, "block_element", getString(R.string.menu_block_element))
+        listRow(tools, "sniffer", R.drawable.ic_radar, getString(R.string.menu_sniffer_short))
+        listRow(
+            tools,
+            "screenshot",
+            R.drawable.ic_camera,
+            getString(R.string.menu_screenshot_short),
+        )
+        listRow(tools, "images", R.drawable.ic_image, getString(R.string.menu_save_images))
+        listRow(tools, "block_element", R.drawable.ic_block, getString(R.string.menu_block_element))
+        listRow(tools, "print", R.drawable.ic_print, getString(R.string.menu_print))
+        listRow(tools, "clean_url", R.drawable.ic_clean_url, getString(R.string.menu_clean_url))
 
         // —— 显示：读起来怎么样。开着才标注，关闭是默认态。
         listRow(
             display,
             "reader",
+            R.drawable.ic_reader,
             if (state.readerMode) getString(R.string.menu_exit_reader)
             else getString(R.string.menu_reader),
             if (state.readerMode) "开" else null,
@@ -160,6 +182,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         listRow(
             display,
             "night",
+            R.drawable.ic_night,
             getString(R.string.menu_night),
             if (state.nightMode) "开" else null,
             state.nightMode,
@@ -167,6 +190,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         listRow(
             display,
             "image_mode",
+            R.drawable.ic_image_off,
             getString(R.string.menu_image_mode),
             state.imageLabel,
             state.imageLabel != "关闭",
@@ -174,6 +198,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         listRow(
             display,
             "desktop",
+            R.drawable.ic_desktop,
             getString(R.string.menu_desktop_ua),
             if (state.desktopUa) "开" else null,
             state.desktopUa,
@@ -182,24 +207,26 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
         if (state.plugins.isNotEmpty()) {
             view.findViewById<View>(R.id.title_plugins).visibility = View.VISIBLE
             plugins.visibility = View.VISIBLE
-            state.plugins.forEach { listRow(plugins, it.id, it.label) }
+            state.plugins.forEach { listRow(plugins, it.id, it.icon, it.label) }
         }
 
         // —— 更多
-        listRow(more, "plugins", getString(R.string.menu_plugins))
-        listRow(more, "diag", getString(R.string.diag_title))
-        listRow(more, "settings", getString(R.string.menu_settings))
+        listRow(more, "desktop_shortcut", R.drawable.ic_shortcut, getString(R.string.menu_shortcut))
+        listRow(more, "plugins", R.drawable.ic_extension, getString(R.string.menu_plugins))
+        listRow(more, "diag", R.drawable.ic_pulse, getString(R.string.diag_title))
+        listRow(more, "settings", R.drawable.ic_settings, getString(R.string.menu_settings))
     }
 
     /**
-     * 列表行：左边标题，右边状态。
+     * 列表行：左图标、中间标题、右边状态。
      *
-     * 左右内边距取 24dp，跟组标题的缩进对齐——上一版是 16dp，标题在 24、行在 16，
+     * 左右内边距取 24dp，跟组标题的缩进对齐——2.10.0 那版是 16dp，标题在 24、行在 16，
      * 整片文字像被人推歪了一格。
      */
     private fun listRow(
         parent: LinearLayout,
         id: String,
+        iconRes: Int,
         title: String,
         trailing: String? = null,
         trailingOn: Boolean = false,
@@ -210,13 +237,20 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(50),
+                dp(52),
             )
             isClickable = true
             isFocusable = true
             setPadding(dp(24), 0, dp(24), 0)
             background = rippleBackground(ctx)
         }
+        row.addView(
+            ImageView(ctx).apply {
+                setImageResource(iconRes)
+                imageTintList = ColorStateList.valueOf(onSurfaceVariant)
+                layoutParams = LinearLayout.LayoutParams(dp(20), dp(20))
+            },
+        )
         row.addView(
             TextView(ctx).apply {
                 text = title
@@ -228,7 +262,7 @@ class BrowserMenuSheet : BottomSheetDialogFragment() {
                     0,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     1f,
-                )
+                ).apply { marginStart = dp(14) }
             },
         )
         if (trailing != null) {

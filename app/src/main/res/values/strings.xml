@@ -278,6 +278,10 @@
     <string name="menu_group_tabs">标签</string>
     <string name="menu_new_incognito">无痕标签页</string>
     <string name="menu_bookmark_current">收藏本页</string>
+    <string name="menu_qrcode">二维码</string>
+    <string name="menu_print">打印 / 存为 PDF</string>
+    <string name="menu_clean_url">清除跟踪参数</string>
+    <string name="menu_shortcut">添加到桌面</string>
     <string name="menu_save_images">保存图片</string>
     <string name="menu_block_element">屏蔽页面元素</string>
     <string name="menu_reader">阅读模式</string>

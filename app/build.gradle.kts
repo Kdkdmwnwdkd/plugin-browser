@@ -64,4 +64,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     // GitHub 通道要用自定义 DNS（DoH）和代理，WebView 自带的网络栈这两样都改不了
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // 二维码：只取 core（纯 Java 编码器），不要 android 那个包——它带一堆 Activity
+    implementation("com.google.zxing:core:3.5.3")
 }

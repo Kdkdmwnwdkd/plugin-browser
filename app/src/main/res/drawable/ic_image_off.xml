@@ -1,26 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Material Icons · hide_image（Apache 2.0）。整套菜单共用同一套字形与字重。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
     <path
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="?attr/colorOnSurface"
-        android:strokeLineJoin="round"
-        android:strokeWidth="1.7"
-        android:pathData="M4,5 L20,5 L20,19 L4,19 Z" />
-    <path
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="?attr/colorOnSurface"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:strokeWidth="1.7"
-        android:pathData="M4,16 L9,11 L12.5,14.5 L15.5,11.5 L20,16" />
-    <path
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="?attr/colorOnSurface"
-        android:strokeLineCap="round"
-        android:strokeWidth="1.9"
-        android:pathData="M3.6,3.6 L20.4,20.4" />
+        android:fillColor="@android:color/white"
+        android:pathData="M21 5c0-1.1-.9-2-2-2H5.83L21 18.17V5zM2.81 2.81 1.39 4.22 3 5.83V19c0 1.1.9 2 2 2h13.17l1.61 1.61 1.41-1.41L2.81 2.81zM6 17l3-4 2.25 3 .82-1.1 2.1 2.1H6z" />
 </vector>

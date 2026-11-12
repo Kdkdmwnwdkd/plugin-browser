@@ -5,6 +5,11 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
+import android.graphics.drawable.Icon
+import android.os.Build
+import android.print.PrintManager
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.text.style.StyleSpan
@@ -42,6 +47,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.annotation.RequiresApi
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.PopupMenu
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -1573,6 +1579,10 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             "screenshot" -> captureLongScreenshot()
             "images" -> pickImages()
             "block_element" -> startElementPick()
+            "qrcode" -> showQrCode()
+            "print" -> printPage()
+            "clean_url" -> cleanTrackingParams()
+            "desktop_shortcut" -> addToHomeScreen()
             "sniffer" -> {
                 if (requireActivity().supportFragmentManager.findFragmentByTag(TAG_SNIFFER) == null) {
                     ResourceSnifferFragment().show(
@@ -1593,6 +1603,92 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
             "plugins" -> openScreen(PluginStoreFragment())
             "settings" -> openScreen(SettingsFragment())
         }
+    }
+
+    /* ---------------- 把这一页带出去 ---------------- */
+
+    private fun currentPageUrl(): String {
+        val tab = tabManager.currentTab() ?: return ""
+        return tab.url.ifBlank { tab.webView.url.orEmpty() }
+    }
+
+    private fun showQrCode() {
+        val url = currentPageUrl()
+        if (!UrlUtils.isWebPage(url)) {
+            toast("这一页没有可以扫描的地址")
+            return
+        }
+        QrCodeDialog.show(requireActivity(), url)
+    }
+
+    /**
+     * 打印。系统打印面板里自带「另存为 PDF」，所以不再单独做一个导出按钮——
+     * 两个入口做同一件事，用户还得猜哪个才是导 PDF 的。
+     */
+    private fun printPage() {
+        val wv = tabManager.currentWebViewOrNull()
+        if (wv == null) {
+            toast("这一页还没加载完")
+            return
+        }
+        val pm = requireContext().getSystemService(Context.PRINT_SERVICE) as? PrintManager
+        if (pm == null) {
+            toast("这台设备没有打印服务")
+            return
+        }
+        val job = wv.title?.takeIf { it.isNotBlank() } ?: "网页"
+        runCatching {
+            pm.print(job, wv.createPrintDocumentAdapter(job), null)
+        }.onFailure {
+            toast("这一页打不出来")
+        }
+    }
+
+    private fun cleanTrackingParams() {
+        val raw = currentPageUrl()
+        if (raw.isBlank()) return
+        val cleaned = UrlUtils.stripTracking(raw)
+        if (cleaned == raw) {
+            toast("这个链接没有跟踪参数")
+            return
+        }
+        toast("已去掉跟踪参数，重新加载")
+        navigateTo(cleaned)
+    }
+
+    private fun addToHomeScreen() {
+        val url = currentPageUrl()
+        if (!UrlUtils.isWebPage(url)) {
+            toast("这一页没有可以添加的地址")
+            return
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            toast("系统版本太低，不能把网页固定到桌面")
+            return
+        }
+        val ctx = requireContext()
+        val sm = ctx.getSystemService(ShortcutManager::class.java)
+        if (sm == null || !sm.isRequestPinShortcutSupported) {
+            toast("这个桌面不支持添加快捷方式")
+            return
+        }
+        val title = tabManager.currentTab()?.title?.takeIf { it.isNotBlank() }
+            ?: UrlUtils.hostOf(url)
+        pinShortcut(sm, ctx, url, title)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun pinShortcut(sm: ShortcutManager, ctx: Context, url: String, title: String) {
+        val launch = Intent(Intent.ACTION_VIEW, Uri.parse(url), ctx, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val shortcut = ShortcutInfo.Builder(ctx, "kite-site-" + url.hashCode())
+            .setShortLabel(title.take(6))
+            .setLongLabel(title.take(25))
+            .setIcon(Icon.createWithResource(ctx, R.mipmap.ic_launcher))
+            .setIntent(launch)
+            .build()
+        val ok = runCatching { sm.requestPinShortcut(shortcut, null) }.getOrDefault(false)
+        toast(if (ok) "已放到桌面" else "没能添加到桌面")
     }
 
     private fun openScreen(fragment: Fragment) {
