@@ -96,19 +96,15 @@ class TabManager(
 
     /* ---------------- 标签操作 ---------------- */
 
+    /**
+     * 造一个配好的 WebView，不加载、不挂载。
+     *
+     * 从 newTab 里抽出来，是因为休眠恢复要复用同一份配置：如果重建时少设一项
+     * （比如 textZoom 或 mixedContentMode），休眠过的页面就会和普通页面表现不一样，
+     * 这种差异极难复现，也极难解释。
+     */
     @SuppressLint("SetJavaScriptEnabled")
-    fun newTab(
-        url: String? = null,
-        incognito: Boolean = incognitoMode,
-        select: Boolean = true,
-        deferLoad: Boolean = false,
-    ): Tab {
-        // 标签数上限：超出时先回收最早的非当前标签，避免每个标签一个 WebView 把内存吃满
-        if (tabs.size >= MAX_TABS) {
-            val victim = tabs.indexOfFirst { it !== currentTab() }
-            if (victim >= 0) closeTab(victim)
-        }
-        val tab = Tab(url = url ?: "", incognito = incognito)
+    private fun createWebView(tab: Tab, url: String?): WebView {
         val wv = KiteWebView(webViewContext())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // 当前标签的渲染进程保持 IMPORTANT：被降级后切回来要整页重新布局，观感就是"卡一下"
@@ -168,6 +164,22 @@ class TabManager(
         val cfg = webViewConfigurator
         if (cfg != null) cfg(tab, wv) else pendingConfig.add(tab)
         tab.webView = wv
+        return wv
+    }
+
+    fun newTab(
+        url: String? = null,
+        incognito: Boolean = incognitoMode,
+        select: Boolean = true,
+        deferLoad: Boolean = false,
+    ): Tab {
+        // 标签数上限：超出时先回收最早的非当前标签，避免每个标签一个 WebView 把内存吃满
+        if (tabs.size >= MAX_TABS) {
+            val victim = tabs.indexOfFirst { it !== currentTab() }
+            if (victim >= 0) closeTab(victim)
+        }
+        val tab = Tab(url = url ?: "", incognito = incognito)
+        val wv = createWebView(tab, url)
 
         tabs.add(tab)
         if (select) {
@@ -262,6 +274,47 @@ class TabManager(
         }
     }
 
+    /**
+     * 休眠一个后台标签：连带它的渲染进程一起销毁，只留下地址。
+     *
+     * 一个标签就是一个渲染进程。开着七八个页面，中低端机迟早被判内存不足，
+     * 整个 App 被系统杀掉——用户看到的是「用着用着回到桌面」，一句提示都没有。
+     * 降级渲染优先级只能让系统更愿意回收它，救不了「同时活着」这件事本身。
+     *
+     * 代价是切回来要重新加载、后退历史丢失，所以只对「不是当前、不是无痕」的标签动手，
+     * 而且只在系统真喊内存紧张时才做。
+     */
+    fun hibernate(tab: Tab?): Boolean {
+        if (tab == null || tab === currentTab()) return false
+        if (!tab.usable || tab.incognito) return false
+        val url = tab.webView.url?.takeIf { it.isNotBlank() && it != "about:blank" }
+            ?: tab.url.takeIf { it.isNotBlank() }
+            ?: return false
+        tab.url = url
+        tab.pendingUrl = url
+        tab.alive = false
+        (tab.webView.parent as? ViewGroup)?.removeView(tab.webView)
+        runCatching { tab.webView.stopLoading() }
+        runCatching { tab.webView.destroy() }
+        EventLog.log("TAB", "hibernate ${hostOf(url)}")
+        return true
+    }
+
+    /** 内存见底时把后台标签全收掉（当前标签不动） */
+    fun hibernateIdle(): Int = tabs.toList().count { hibernate(it) }
+
+    /** 把休眠过的标签重建出来，返回是否真的重建了 */
+    private fun revive(tab: Tab): Boolean {
+        if (!tab.isCreated || tab.incognito) return false
+        val url = tab.pendingUrl ?: tab.url.takeIf { it.isNotBlank() } ?: return false
+        tab.pendingUrl = null
+        val wv = createWebView(tab, url)
+        tab.alive = true
+        runCatching { wv.loadUrl(url) }
+        EventLog.log("TAB", "revive ${hostOf(url)}")
+        return true
+    }
+
     /** 内存吃紧时只留当前标签，其余全部降级 */
     fun trimInactive() {
         EventLog.log("TAB", "trimInactive total=${tabs.size}")
@@ -304,8 +357,8 @@ class TabManager(
     fun attachTo(container: ViewGroup) {
         container.removeAllViews()
         val tab = currentTab() ?: return
-        // 销毁过的 WebView 不能再挂回界面：挂上去就是一张不动的静止画面
-        if (!tab.alive) return
+        // 休眠过的标签（WebView 已销毁）先按原地址重建一个，否则挂上去是一张静止画面
+        if (!tab.alive && !revive(tab)) return
         loadPending(tab)
         (tab.webView.parent as? ViewGroup)?.removeView(tab.webView)
         container.addView(

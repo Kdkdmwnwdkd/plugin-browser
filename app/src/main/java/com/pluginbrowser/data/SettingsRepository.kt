@@ -36,6 +36,33 @@ class SettingsRepository(context: Context) {
         set(value) = prefs.edit().putString(KEY_THEME, value).apply()
 
     /**
+     * WebDAV 备份。
+     *
+     * 密码存在应用私有 SharedPreferences 里（未 root 的设备，别的应用读不到）。
+     * 导出备份时会把这四个键排除掉——否则备份文件里会带着自己的密码，
+     * 再传回网盘，等于把钥匙和保险箱放在一起。
+     */
+    var webdavUrl: String
+        get() = prefs.getString(KEY_WEBDAV_URL, "")!!
+        set(value) = prefs.edit().putString(KEY_WEBDAV_URL, value.trim()).apply()
+
+    var webdavUser: String
+        get() = prefs.getString(KEY_WEBDAV_USER, "")!!
+        set(value) = prefs.edit().putString(KEY_WEBDAV_USER, value.trim()).apply()
+
+    var webdavPassword: String
+        get() = prefs.getString(KEY_WEBDAV_PASSWORD, "")!!
+        set(value) = prefs.edit().putString(KEY_WEBDAV_PASSWORD, value).apply()
+
+    var webdavFile: String
+        get() = prefs.getString(KEY_WEBDAV_FILE, "kite-backup.json")!!
+        set(value) = prefs.edit()
+            .putString(KEY_WEBDAV_FILE, value.trim().ifBlank { "kite-backup.json" })
+            .apply()
+
+    val webdavConfigured: Boolean get() = webdavUrl.isNotBlank()
+
+    /**
      * 网页夜间：给页面整体套一层反色滤镜。
      *
      * 存成全局而不是每标签一个，是因为用户夜里浏览时不会希望「切个标签突然变白」。
@@ -195,6 +222,10 @@ class SettingsRepository(context: Context) {
                 "Mobile Safari/537.36 baiduboxapp/13.42.0.10"
 
         private const val KEY_SEARCH_ENGINE = "search_engine"
+        private const val KEY_WEBDAV_URL = "webdav_url"
+        private const val KEY_WEBDAV_USER = "webdav_user"
+        private const val KEY_WEBDAV_PASSWORD = "webdav_password"
+        private const val KEY_WEBDAV_FILE = "webdav_file"
         private const val KEY_HOME_URL = "home_url"
         private const val KEY_JS = "javascript"
         private const val KEY_TPC = "third_party_cookies"

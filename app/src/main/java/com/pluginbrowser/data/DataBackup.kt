@@ -9,14 +9,29 @@ import org.json.JSONObject
  * 数据备份：书签 / 历史 / 设置 打包成一个 JSON。
  *
  * 自用场景下这是唯一的"后路"——换机、刷机、误删都靠它。
+ *
+ * 内容之外还多了两条路：写到本地文件（SAF），或者整包扔给 WebDAV。
+ * 两条路用的是同一份快照，所以云端和本地文件永远是同一个格式。
  */
 object DataBackup {
 
     data class Stats(val bookmarks: Int, val history: Int)
 
+    data class Snapshot(val json: String, val stats: Stats)
+
     private const val PREFS_SETTINGS = "pb_settings"
 
-    fun export(context: Context, uri: Uri): Stats {
+    /**
+     * 这些键不进备份。
+     *
+     * WebDAV 的账号密码是「取钥匙的方式」，不是钥匙本身保管的东西。把它们写进
+     * 备份文件再传回同一个网盘，等于把钥匙挂在保险箱门上。
+     */
+    private val SKIP_KEYS = setOf(
+        "webdav_url", "webdav_user", "webdav_password", "webdav_file",
+    )
+
+    fun snapshot(context: Context): Snapshot {
         val db = BrowserDatabase(context).writableDatabase
         val root = JSONObject()
         root.put("app", "kite")
@@ -51,17 +66,21 @@ object DataBackup {
 
         val settings = JSONObject()
         context.getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE).all.forEach { (k, v) ->
-            if (v != null) settings.put(k, v)
+            if (v != null && k !in SKIP_KEYS) settings.put(k, v)
         }
         root.put("settings", settings)
 
+        db.close()
+        return Snapshot(root.toString(2), Stats(bookmarks.length(), history.length()))
+    }
+
+    fun export(context: Context, uri: Uri): Stats {
+        val snap = snapshot(context)
         context.contentResolver.openOutputStream(uri)?.use { out ->
-            out.write(root.toString(2).toByteArray(Charsets.UTF_8))
+            out.write(snap.json.toByteArray(Charsets.UTF_8))
             out.flush()
         } ?: error("打不开输出文件")
-
-        db.close()
-        return Stats(bookmarks.length(), history.length())
+        return snap.stats
     }
 
     /** 覆盖式恢复：现有书签与历史会被清空 */
@@ -69,7 +88,10 @@ object DataBackup {
         val text = context.contentResolver.openInputStream(uri)?.use { input ->
             input.readBytes().toString(Charsets.UTF_8)
         } ?: error("打不开备份文件")
+        return restore(context, text)
+    }
 
+    fun restore(context: Context, text: String): Stats {
         val root = runCatching { JSONObject(text) }.getOrElse { error("不是有效的备份文件") }
         if (root.optString("app") != "kite") error("这不是青鸢的备份")
 

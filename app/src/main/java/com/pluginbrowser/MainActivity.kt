@@ -381,11 +381,18 @@ class MainActivity : AppCompatActivity(), TabManager.Listener, BrowserHost {
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        // 系统开始喊内存紧张了：把看不见的标签全部降级，先保住正在看的这一页
-        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW &&
-            ::tabManager.isInitialized
-        ) {
-            tabManager.trimInactive()
+        if (!::tabManager.isInitialized) return
+        // 只认「前台 + 内存低」这两个值。
+        //
+        // 原来写的是 level >= RUNNING_LOW，而 UI_HIDDEN 是 20、比 10 大——切到后台
+        // 也会走这里。降级本身无害，但要是把休眠也挂在这条分支上，退到桌面一次
+        // 所有标签就全被收掉，切回来一片重载。
+        when (level) {
+            android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> tabManager.trimInactive()
+            android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> {
+                tabManager.trimInactive()
+                tabManager.hibernateIdle()
+            }
         }
     }
 

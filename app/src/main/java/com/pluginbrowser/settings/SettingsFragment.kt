@@ -9,6 +9,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
@@ -16,11 +17,14 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreferenceCompat
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.TextInputEditText
 import com.pluginbrowser.PluginBrowserApp
 import com.pluginbrowser.R
 import com.pluginbrowser.data.BrowserStore
 import com.pluginbrowser.data.DataBackup
 import com.pluginbrowser.data.SettingsRepository
+import com.pluginbrowser.net.WebDav
 import com.pluginbrowser.plugin.PluginManager
 import com.pluginbrowser.translate.TranslateSettings
 import com.pluginbrowser.translate.TranslateSettingsFragment
@@ -288,6 +292,15 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
+        findPreference<Preference>("webdav_backup")?.apply {
+            summary = if (settings.webdavConfigured) settings.webdavUrl
+            else getString(R.string.webdav_summary)
+            setOnPreferenceClickListener {
+                showWebDavDialog()
+                true
+            }
+        }
+
         // 版本号从安装包读，发版不用再回来改文案
         findPreference<Preference>("about")?.apply {
             val version = UpdateManager.currentVersionName(requireContext())
@@ -377,6 +390,118 @@ class SettingsFragment : PreferenceFragmentCompat() {
     }
 
     /* ---------------- 应用内更新 ---------------- */
+
+    /* ---------------- WebDAV 备份 ---------------- */
+
+    private fun showWebDavDialog() {
+        val view = layoutInflater.inflate(R.layout.dialog_webdav, null)
+        view.findViewById<TextInputEditText>(R.id.dav_url).setText(settings.webdavUrl)
+        view.findViewById<TextInputEditText>(R.id.dav_user).setText(settings.webdavUser)
+        view.findViewById<TextInputEditText>(R.id.dav_pass).setText(settings.webdavPassword)
+        view.findViewById<TextInputEditText>(R.id.dav_file).setText(settings.webdavFile)
+
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.webdav_title)
+            .setView(view)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setNeutralButton(R.string.webdav_upload, null)
+            .setPositiveButton(R.string.webdav_restore, null)
+            .create()
+
+        // 两个动作按钮都自己接管：默认点击会顺手把对话框关掉，
+        // 用户就看不到「正在上传」和「上传失败」了
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+                if (readDavConfig(view)) davUpload()
+            }
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                if (readDavConfig(view)) {
+                    MaterialAlertDialogBuilder(requireContext())
+                        .setMessage(R.string.webdav_confirm_restore)
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setPositiveButton(R.string.webdav_restore) { _, _ ->
+                            dialog.dismiss()
+                            davRestore()
+                        }
+                        .show()
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun readDavConfig(view: android.view.View): Boolean {
+        val url = view.findViewById<TextInputEditText>(R.id.dav_url).text?.toString()?.trim().orEmpty()
+        if (url.isBlank()) {
+            Toast.makeText(requireContext(), R.string.webdav_need_url, Toast.LENGTH_SHORT).show()
+            return false
+        }
+        settings.webdavUrl = url
+        settings.webdavUser =
+            view.findViewById<TextInputEditText>(R.id.dav_user).text?.toString().orEmpty()
+        settings.webdavPassword =
+            view.findViewById<TextInputEditText>(R.id.dav_pass).text?.toString().orEmpty()
+        settings.webdavFile =
+            view.findViewById<TextInputEditText>(R.id.dav_file).text?.toString().orEmpty()
+        return true
+    }
+
+    private fun davConfig() = WebDav.Config(
+        baseUrl = settings.webdavUrl,
+        user = settings.webdavUser,
+        password = settings.webdavPassword,
+        fileName = settings.webdavFile,
+    )
+
+    private fun davUpload() {
+        val cfg = davConfig()
+        val appContext = requireContext().applicationContext
+        Toast.makeText(requireContext(), R.string.webdav_working, Toast.LENGTH_SHORT).show()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val snap = DataBackup.snapshot(appContext)
+                    WebDav.upload(cfg, snap.json.toByteArray(Charsets.UTF_8))
+                    snap.stats
+                }
+            }
+            val act = activity ?: return@launch
+            result.onSuccess { stats ->
+                Toast.makeText(
+                    act,
+                    getString(R.string.webdav_uploaded, stats.bookmarks, stats.history),
+                    Toast.LENGTH_LONG,
+                ).show()
+                findPreference<Preference>("webdav_backup")?.summary = settings.webdavUrl
+            }.onFailure { e ->
+                Toast.makeText(act, e.message ?: "上传失败", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun davRestore() {
+        val cfg = davConfig()
+        val appContext = requireContext().applicationContext
+        Toast.makeText(requireContext(), R.string.webdav_working, Toast.LENGTH_SHORT).show()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val bytes = WebDav.download(cfg)
+                    DataBackup.restore(appContext, bytes.toString(Charsets.UTF_8))
+                }
+            }
+            val act = activity ?: return@launch
+            result.onSuccess { stats ->
+                Toast.makeText(
+                    act,
+                    getString(R.string.webdav_restored, stats.bookmarks, stats.history),
+                    Toast.LENGTH_LONG,
+                ).show()
+            }.onFailure { e ->
+                Toast.makeText(act, e.message ?: "恢复失败", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     private fun checkForUpdate() {
         val app = requireContext().applicationContext

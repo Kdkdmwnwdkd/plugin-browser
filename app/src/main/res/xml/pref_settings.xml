@@ -177,6 +177,11 @@
             android:summary="@string/backup_import_summary"
             android:title="@string/backup_import" />
 
+        <Preference
+            android:key="webdav_backup"
+            android:title="@string/webdav_title"
+            android:summary="@string/webdav_summary" />
+
     </PreferenceCategory>
 
         <Preference
