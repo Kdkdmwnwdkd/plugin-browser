@@ -1,13 +1,13 @@
 {
-  "versionCode": 52,
-  "versionName": "2.9.9",
-  "size": 8865898,
-  "sha256": "59bc83d9a884df3c7302da66c0dce1c5d434bd7b49e300c82e88bc523842b625",
-  "notes": "修复「设置 → 站点适配」一打开就闪退\n\n崩溃出在页面最后那个「说明」分组：它先往里塞子项、再整体挂到页面上。\nAndroidX 的 PreferenceGroup 在挂载之前拿不到 PreferenceManager，加子项时\n分配 id 会取到 null（getNextId() on a null object reference），整页随之打不开。\n现在改成先挂组、再填内容。\n\n顺带两处：\n\n- 「恢复默认」不再重建整页。原来它 replace 一个新实例，会把整页重跑一遍、\n  滚动位置也一起丢掉；现在直接按存储值重刷已经渲染出来的开关。\n- 开关不再往默认偏好文件里另存一份。值只由站点规则引擎持有，避免同一个开关\n  在两处存储里各说各话。\n",
+  "versionCode": 53,
+  "versionName": "2.10.0",
+  "size": 8872990,
+  "sha256": "7a48aaa1088b69180f8abe13885b315ab5bc92bfe0b205c21b1c669f74c61c78",
+  "notes": "界面重做：去掉所有「容器」，只留线和留白\n\n上一版把颜色和字号统一了，但版式还是「一块一块拼起来」的：地址栏一个胶囊、\n底栏一条、标签页一堆卡片。这次换的是骨架本身。\n\n地址栏\n- 从 48dp 胶囊改成 56dp 通栏。左右不再是浮在页面上的一个圆角块，\n  而是和网页同宽的一条带子，下面一条 1dp 线收尾。\n- 文字左边缘对齐到 24dp 基线，和标签页、设置页、首页全部对齐。\n\n底栏\n- 56dp → 52dp。五个动作照旧，但不再是五个等距大图标。\n- 标签数从「居中的 24dp 空心方框」改成图标右上角 15dp 的实心块。\n  原来那个方框是底栏里最大的元素，视线全被它拽过去，而它其实只是个状态。\n\n标签页\n- 两列大卡改成 76dp 列表行：44dp 缩略图 + 标题 + 域名。\n  一屏能看见的标签从 4 个变成 8 个，开了几个一眼就数得出来。\n- 当前标签用左边 2.5dp 的竖线标出，不再给整张卡描边 —— 描边会让它看起来像按钮。\n- 底部「新建标签页」从整块实心按钮改成一行「+ 新建标签页」，右侧显示标签数量。\n\n新标签页\n- 去掉品牌大图标和 4×2 圆角磁贴，改成：小标签 + 50dp 直角搜索框 + 46dp 直角站点格。\n- 站点名从 12px 降到 11px，图标从 60dp 圆角 19dp 降到 46dp 直角。\n  圆角磁贴看起来像「应用」，而这里只是「入口」。\n\n全局\n- 圆角归零。除了底部面板的顶边（从屏幕底边掀起来，直角会被看成切了一刀），\n  全界面没有第二个圆角。分界只有 1dp 线。\n- 左右边距 16dp → 24dp。\n- 强调色从 #2F5BD8 调到 #1E4FD8；无痕标识从紫色收成墨灰 —— 这套界面只有一支蓝。\n- 分组小标题字号降到 11sp、字距拉开到 0.12em，靠字距而不是字号区分层级。\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.9/Kite-2.9.9-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.9/Kite-2.9.9-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.9/Kite-2.9.9-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.10.0/Kite-2.10.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.10.0/Kite-2.10.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.10.0/Kite-2.10.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
