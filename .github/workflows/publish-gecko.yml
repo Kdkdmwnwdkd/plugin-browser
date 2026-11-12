@@ -1,0 +1,55 @@
+name: Publish Gecko Preview
+
+# 只做一件事：把某次构建的 APK 挂到一个 pre-release 上。
+#
+# 为什么不直接在 CI 里出 Release：release.yml 会改 version.json，
+# 而原型包绝不能进更新通道——用户手机上的「检查更新」读的就是它。
+# 所以这里单独开一条线，只发文件，不碰版本清单。
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 要发布的构建 run id（Android CI 那次）
+        required: true
+      tag:
+        description: Release tag
+        required: true
+        default: gecko-preview
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 列出产物
+        run: ls -lh
+
+      - name: 建 pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TAG="${{ inputs.tag }}"
+          gh release delete "$TAG" --yes --repo "$GITHUB_REPOSITORY" || true
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "GeckoView 原型（$TAG）" \
+            --prerelease \
+            --notes "自带内核的第一个可跑版本。
+
+它和正式版是两个东西：
+- 内核是 GeckoView 135（Firefox 的），不是手机里的 WebView
+- 入口在 设置 → 设备 → GeckoView 内核（实验）
+- 只支持 arm64，包体约 85MB（正式版 8.8MB）
+- 不进更新通道，version.json 没动
+
+验证目标只有一个：中文网页能不能正常打开。" \
+            *.apk
