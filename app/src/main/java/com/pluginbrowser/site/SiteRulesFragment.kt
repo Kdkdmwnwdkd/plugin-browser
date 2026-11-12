@@ -106,8 +106,8 @@ class SiteRulesFragment : PreferenceFragmentCompat() {
             summary = "把所有站点规则恢复成出厂状态"
             setOnPreferenceClickListener {
                 engine.resetToDefault()
-                // 原地刷新，不再 replace 一个新 Fragment：这一页本身就是 replace 进来的、
-                // 没进回退栈，重建后按返回会直接退出设置而不是回到上一页。
+                // 原地刷新，不再 replace 一个新实例：那样会把整页重跑一遍，
+                // 当前滚动位置也一起丢掉。
                 master.isChecked = engine.masterEnabled
                 ruleSwitches.forEach { (rule, sw) ->
                     sw.isEnabled = engine.masterEnabled

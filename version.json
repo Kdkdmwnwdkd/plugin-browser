@@ -3,7 +3,7 @@
   "versionName": "2.9.9",
   "size": 8865898,
   "sha256": "59bc83d9a884df3c7302da66c0dce1c5d434bd7b49e300c82e88bc523842b625",
-  "notes": "修复「设置 → 站点适配」一打开就闪退\n\n崩溃出在页面最后那个「说明」分组：它先往里塞子项、再整体挂到页面上。\nAndroidX 的 PreferenceGroup 在挂载之前拿不到 PreferenceManager，加子项时\n分配 id 会取到 null（getNextId() on a null object reference），整页随之打不开。\n现在改成先挂组、再填内容。\n\n顺带两处：\n\n- 「恢复默认」不再重建 Fragment。原来它 replace 一个新的页面，而这一页本身\n  没有进回退栈，重建后按返回会直接退出设置；现在直接按存储值重刷已渲染的开关。\n- 开关不再往默认偏好文件里另存一份。值只由站点规则引擎持有，避免同一个开关\n  在两处存储里各说各话。\n",
+  "notes": "修复「设置 → 站点适配」一打开就闪退\n\n崩溃出在页面最后那个「说明」分组：它先往里塞子项、再整体挂到页面上。\nAndroidX 的 PreferenceGroup 在挂载之前拿不到 PreferenceManager，加子项时\n分配 id 会取到 null（getNextId() on a null object reference），整页随之打不开。\n现在改成先挂组、再填内容。\n\n顺带两处：\n\n- 「恢复默认」不再重建整页。原来它 replace 一个新实例，会把整页重跑一遍、\n  滚动位置也一起丢掉；现在直接按存储值重刷已经渲染出来的开关。\n- 开关不再往默认偏好文件里另存一份。值只由站点规则引擎持有，避免同一个开关\n  在两处存储里各说各话。\n",
   "apk": [
     "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.9/Kite-2.9.9-debug.apk",
     "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.9.9/Kite-2.9.9-debug.apk",
