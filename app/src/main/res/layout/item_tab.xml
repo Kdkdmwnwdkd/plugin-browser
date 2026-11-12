@@ -1,26 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 标签卡片：缩略图 + 域名信息，当前标签用细描边标记（由适配器切换 strokeColor） -->
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  标签行：横向一条，不是卡片。
+
+  原来每张标签是一个 96dp 缩略图的大卡，两列排下来一屏只能看见 4 个，
+  标签一多就要滚很久，还看不出「我到底开了几个」。改成 76dp 的列表行：
+  一张 44dp 的缩略图当色块提示，标题和域名各一行，当前标签用左边
+  2.5dp 的竖条标出来。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/tab_card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="@dimen/space_8"
-    app:cardBackgroundColor="?attr/colorSurfaceContainerLowest"
-    app:cardCornerRadius="@dimen/radius_md"
-    app:cardElevation="0dp"
-    app:strokeColor="?attr/colorOutlineVariant"
-    app:strokeWidth="@dimen/hairline">
+    android:orientation="vertical">
 
     <LinearLayout
+        android:id="@+id/tab_row"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:layout_height="@dimen/tab_row_height"
+        android:background="?attr/selectableItemBackground"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/screen_margin"
+        android:paddingEnd="@dimen/space_4">
+
+        <!-- 当前标签：贴左的一条竖线，不是整卡描边 -->
+        <View
+            android:id="@+id/tab_active_bar"
+            android:layout_width="2.5dp"
+            android:layout_height="44dp"
+            android:background="?attr/colorPrimary"
+            android:visibility="invisible" />
 
         <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="96dp"
-            android:background="?attr/colorSurfaceContainerHigh">
+            android:layout_width="@dimen/tab_thumb_size"
+            android:layout_height="@dimen/tab_thumb_size"
+            android:layout_marginStart="14dp"
+            android:background="@color/pb_thumbnail_bg">
 
             <ImageView
                 android:id="@+id/tab_thumbnail"
@@ -28,59 +43,68 @@
                 android:layout_height="match_parent"
                 android:contentDescription="@string/tabs_title"
                 android:scaleType="centerCrop" />
-
-            <TextView
-                android:id="@+id/tab_incognito_badge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="top|start"
-                android:layout_margin="@dimen/space_8"
-                android:background="@drawable/bg_incognito_badge"
-                android:paddingStart="@dimen/space_8"
-                android:paddingTop="@dimen/space_2"
-                android:paddingEnd="@dimen/space_8"
-                android:paddingBottom="@dimen/space_2"
-                android:text="@string/incognito_badge"
-                android:textColor="@color/pb_incognito"
-                android:textSize="@dimen/text_caption"
-                android:visibility="gone" />
-
-            <!--
-              底是 40% 黑，图标必须是白色。原来 tint 取了 colorOnSurface，
-              浅色模式下就是近黑压近黑，这个按钮在白云上基本看不见。
-            -->
-            <ImageButton
-                android:id="@+id/btn_close_tab"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:layout_gravity="top|end"
-                android:layout_margin="@dimen/space_8"
-                android:background="@drawable/bg_close_tab"
-                android:contentDescription="@string/cancel"
-                android:padding="@dimen/space_4"
-                android:scaleType="fitCenter"
-                android:src="@drawable/ic_close"
-                app:tint="@android:color/white" />
         </FrameLayout>
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingStart="@dimen/space_12"
-            android:paddingTop="@dimen/space_12"
-            android:paddingEnd="@dimen/space_12"
-            android:paddingBottom="@dimen/space_12">
+            android:layout_marginStart="14dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
 
             <TextView
                 android:id="@+id/tab_title"
                 style="@style/Widget.PluginBrowser.ListRowTitle"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/tab_url"
-                style="@style/Widget.PluginBrowser.ListRowMeta"
-                android:layout_height="wrap_content" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tab_incognito_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="@dimen/space_8"
+                    android:background="@drawable/bg_incognito_badge"
+                    android:paddingStart="5dp"
+                    android:paddingTop="1dp"
+                    android:paddingEnd="5dp"
+                    android:paddingBottom="1dp"
+                    android:text="@string/incognito_badge"
+                    android:textColor="@color/pb_incognito"
+                    android:textSize="10sp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tab_url"
+                    style="@style/Widget.PluginBrowser.ListRowMeta"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="0dp"
+                    android:layout_weight="1" />
+            </LinearLayout>
         </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/btn_close_tab"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/cancel"
+            android:padding="@dimen/space_12"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_close"
+            app:tint="?attr/colorOnSurfaceVariant" />
     </LinearLayout>
-</com.google.android.material.card.MaterialCardView>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/hairline"
+        android:layout_marginStart="@dimen/screen_margin"
+        android:background="?attr/colorOutlineVariant" />
+</LinearLayout>

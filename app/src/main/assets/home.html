@@ -6,13 +6,13 @@
 <title>青鸢</title>
 <style>
   :root{
-    --bg:#fafafa; --card:#f2f2f5; --line:rgba(19,19,22,.08);
-    --text:#131316; --muted:#6a6a73; --faint:#9c9ca4; --accent:#3d5bd9;
+    --bg:#FAFAFA; --text:#17181B; --muted:#71757F; --faint:#9AA0AA;
+    --line:#E7E8EB; --edge:#D9DBE0; --soft:#F6F6F7; --accent:#1E4FD8;
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --bg:#0c0c0e; --card:#17171a; --line:rgba(255,255,255,.055);
-      --text:#f2f2f4; --muted:#8b8b93; --faint:#6b6b73; --accent:#6e8bff;
+      --bg:#0E0F12; --text:#E4E5EA; --muted:#A0A1AB; --faint:#6E717A;
+      --line:#2A2C32; --edge:#34363D; --soft:#1A1B1F; --accent:#7E9BFF;
     }
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -20,69 +20,78 @@
   body{
     margin:0;background:var(--bg);color:var(--text);
     font-family:-apple-system,"PingFang SC","HarmonyOS Sans","Microsoft YaHei",sans-serif;
-    display:flex;flex-direction:column;padding:0 24px 18px;
+    display:flex;flex-direction:column;padding:26px 24px 20px;
     -webkit-user-select:none;user-select:none;
   }
 
-  /* 品牌：全页唯一重心，其余元素都让位 */
-  .brand{
-    margin-top:9vh;display:flex;align-items:center;gap:9px;
-    font-size:25px;font-weight:650;letter-spacing:-.02em;
+  /* 小标签：唯一一处「标题」，不放大字号，靠字距和颜色区分层级 */
+  .lbl{
+    font-size:11px;letter-spacing:1.4px;font-weight:700;
+    color:var(--faint);text-transform:uppercase;
   }
-  .brand svg{width:25px;height:25px;color:var(--accent);flex:0 0 25px}
 
-  /* 快捷入口：4×2，统一 56dp，字母与标签同一套字号 */
-  .grid{
-    margin-top:36px;display:grid;grid-template-columns:repeat(4,1fr);
-    gap:24px 10px;
+  /* 搜索框：直角、1px 描边。整页只有这一个输入口，点它就等于点地址栏 */
+  .sbox{
+    margin-top:12px;height:50px;background:var(--bg);
+    border:1px solid var(--edge);
+    display:flex;align-items:center;gap:10px;padding:0 14px;
+    color:var(--faint);font-size:14.5px;
+    transition:border-color .18s ease;
+  }
+  .sbox:active{border-color:var(--muted)}
+  .sbox svg{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8}
+
+  /* 站点：四列等分，46dp 直角块。圆角会让它看起来像应用图标，这里是「入口」不是「应用」 */
+  .sites{
+    margin-top:30px;display:grid;grid-template-columns:repeat(4,1fr);
+    gap:24px 8px;
   }
   a{
     text-decoration:none;color:var(--text);
     display:flex;flex-direction:column;align-items:center;gap:9px;
   }
   .tile{
-    width:60px;height:60px;border-radius:19px;
-    background:var(--card);border:1px solid var(--line);
+    width:46px;height:46px;background:var(--soft);
+    border:1px solid var(--line);
     display:flex;align-items:center;justify-content:center;
-    font-size:21px;font-weight:600;letter-spacing:-.01em;color:var(--muted);
-    transition:transform .18s ease,border-color .18s ease;
+    font-size:15px;font-weight:700;color:#454952;
   }
-  a:active .tile{transform:scale(.95)}
-  a span.label{font-size:12px;color:var(--muted);letter-spacing:.01em}
+  @media (prefers-color-scheme: dark){ .tile{color:#C6C9D1} }
+  a:active .tile{background:var(--line)}
+  a .nm{font-size:11px;color:#5A5E68;letter-spacing:-.1px;white-space:nowrap}
+  @media (prefers-color-scheme: dark){ a .nm{color:var(--muted)} }
 
-  /* 提示：一行，把用户引导到唯一的输入口 */
-  .hint{
-    margin-top:52px;text-align:center;
-    font-size:11.5px;line-height:1.7;color:var(--faint);
+  /* 底部：把「怎么开始」放在视线尽头，不抢中间那条搜索框 */
+  .foot{
+    margin-top:auto;padding-top:16px;border-top:1px solid var(--line);
+    display:flex;align-items:baseline;justify-content:space-between;
+    font-size:11px;color:var(--faint);
   }
-  .hint b{color:var(--muted);font-weight:600}
 </style>
 </head>
 <body>
 
-  <div class="brand">
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M11.55 2.6 L4.35 10.3 L11.55 16.75 Z" fill="currentColor" opacity=".92"/>
-      <path d="M12.45 2.6 L19.65 10.3 L12.45 16.75 Z" fill="currentColor" opacity=".62"/>
-      <path d="M12 16.75 C13.7 18.3 10.55 19.3 11.4 21.7" fill="none" stroke="currentColor"
-            stroke-width="1.7" stroke-linecap="round" opacity=".85"/>
-    </svg>
-    青鸢
+  <div class="lbl">新标签页</div>
+
+  <div class="sbox">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16 L20.5 20.5"/></svg>
+    搜索或输入网址
   </div>
 
-  <div class="grid">
-    <a href="https://www.baidu.com"><span class="tile">百</span><span class="label">百度</span></a>
-    <a href="https://www.bilibili.com"><span class="tile">B</span><span class="label">哔哩哔哩</span></a>
-    <a href="https://www.zhihu.com"><span class="tile">知</span><span class="label">知乎</span></a>
-    <a href="https://www.taobao.com"><span class="tile">淘</span><span class="label">淘宝</span></a>
-    <a href="https://weibo.com"><span class="tile">博</span><span class="label">微博</span></a>
-    <a href="https://github.com"><span class="tile">G</span><span class="label">GitHub</span></a>
-    <a href="https://www.douyin.com"><span class="tile">抖</span><span class="label">抖音</span></a>
-    <a href="https://map.baidu.com"><span class="tile">图</span><span class="label">地图</span></a>
+  <div class="sites">
+    <a href="https://www.baidu.com"><span class="tile">百</span><span class="nm">百度</span></a>
+    <a href="https://www.bilibili.com"><span class="tile">B</span><span class="nm">哔哩哔哩</span></a>
+    <a href="https://www.zhihu.com"><span class="tile">知</span><span class="nm">知乎</span></a>
+    <a href="https://www.taobao.com"><span class="tile">淘</span><span class="nm">淘宝</span></a>
+    <a href="https://weibo.com"><span class="tile">博</span><span class="nm">微博</span></a>
+    <a href="https://github.com"><span class="tile">G</span><span class="nm">GitHub</span></a>
+    <a href="https://www.douyin.com"><span class="tile">抖</span><span class="nm">抖音</span></a>
+    <a href="https://map.baidu.com"><span class="tile">图</span><span class="nm">地图</span></a>
   </div>
 
-  <div class="hint">
-    点上方 <b>地址栏</b> 输入网址或搜索词
+  <div class="foot">
+    <span>青鸢 2.10.0</span>
+    <span>点上方地址栏开始</span>
   </div>
 
 <script>

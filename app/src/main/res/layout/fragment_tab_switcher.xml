@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 标签页面板：从底部掀起的模态面板（BottomSheetDialogFragment 的根布局） -->
+<!--
+  标签页面板：从底部掀起的模态面板（BottomSheetDialogFragment 的根布局）。
+
+  头部 58dp，标题单独一行；列表直接铺满，行与行之间只有一条 1dp 线；
+  底部不是实心按钮，而是「+ 新建标签页」这样一行 —— 一个次要动作，
+  不值得用一整块强调色把它抬成页面主视觉。
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:paddingBottom="@dimen/space_8">
+    android:orientation="vertical">
 
     <View
         android:layout_width="@dimen/sheet_handle_width"
@@ -17,20 +22,19 @@
     <!-- 标题行 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="58dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="@dimen/space_20"
-        android:paddingTop="@dimen/space_12"
-        android:paddingEnd="@dimen/space_8"
-        android:paddingBottom="@dimen/space_8">
+        android:paddingStart="@dimen/screen_margin"
+        android:paddingEnd="@dimen/space_4">
 
         <TextView
             style="@style/TextAppearance.PluginBrowser.Title"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/tabs_title" />
+            android:text="@string/tabs_title"
+            android:textSize="17sp" />
 
         <ImageButton
             android:id="@+id/btn_incognito"
@@ -50,7 +54,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:paddingStart="@dimen/space_12"
             android:paddingTop="@dimen/space_8"
-            android:paddingEnd="@dimen/space_8"
+            android:paddingEnd="@dimen/space_12"
             android:paddingBottom="@dimen/space_8"
             android:text="@string/tabs_done"
             android:textColor="?attr/colorPrimary"
@@ -58,22 +62,25 @@
             android:textStyle="bold" />
     </LinearLayout>
 
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/hairline"
+        android:background="?attr/colorOutlineVariant" />
+
     <!-- 全部 / 无痕 筛选：选中态由代码切文字色与字重 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="44dp"
+        android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="@dimen/space_20"
-        android:paddingEnd="@dimen/space_20"
-        android:paddingBottom="@dimen/space_8">
+        android:paddingStart="@dimen/screen_margin"
+        android:paddingEnd="@dimen/screen_margin">
 
         <TextView
             android:id="@+id/filter_all"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="@dimen/space_20"
-            android:paddingTop="@dimen/space_4"
-            android:paddingBottom="@dimen/space_4"
             android:text="@string/tabs_filter_all"
             android:textColor="?attr/colorOnSurface"
             android:textSize="@dimen/text_body"
@@ -83,8 +90,6 @@
             android:id="@+id/filter_incognito"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingTop="@dimen/space_4"
-            android:paddingBottom="@dimen/space_4"
             android:text="@string/tabs_filter_incognito"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="@dimen/text_body" />
@@ -100,9 +105,9 @@
             android:layout_height="wrap_content"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:paddingStart="@dimen/space_8"
-            android:paddingTop="@dimen/space_4"
-            android:paddingEnd="@dimen/space_8"
-            android:paddingBottom="@dimen/space_4"
+            android:paddingTop="@dimen/space_8"
+            android:paddingEnd="0dp"
+            android:paddingBottom="@dimen/space_8"
             android:text="@string/tabs_close_all"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="@dimen/text_label" />
@@ -122,11 +127,7 @@
             android:id="@+id/tabs_recycler"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:clipToPadding="false"
-            android:paddingStart="@dimen/space_12"
-            android:paddingTop="@dimen/space_8"
-            android:paddingEnd="@dimen/space_12"
-            android:paddingBottom="@dimen/space_8" />
+            android:clipToPadding="false" />
 
         <TextView
             android:id="@+id/empty_view"
@@ -139,36 +140,55 @@
             android:visibility="gone" />
     </FrameLayout>
 
-    <!--
-      主操作用强调色实心按钮。
-      原来是纯黑底 + 白字：在这套中性灰 + 单一蓝的界面里，它是唯一一块黑，
-      而且黑色在深色模式下会和背景糊成一片。
-    -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_new_tab"
+    <!-- 底部：新建标签页是一行，不是一块按钮 -->
+    <View
         android:layout_width="match_parent"
-        android:layout_height="@dimen/touch_target"
-        android:layout_marginStart="@dimen/space_20"
-        android:layout_marginTop="@dimen/space_8"
-        android:layout_marginEnd="@dimen/space_20"
-        android:text="@string/tabs_new"
-        android:textColor="?attr/colorOnPrimary"
-        android:textSize="@dimen/text_body"
-        app:backgroundTint="?attr/colorPrimary"
-        app:cornerRadius="@dimen/radius_md"
-        app:icon="@drawable/ic_add"
-        app:iconGravity="textStart"
-        app:iconPadding="@dimen/space_8"
-        app:iconSize="18dp"
-        app:iconTint="?attr/colorOnPrimary" />
+        android:layout_height="@dimen/hairline"
+        android:background="?attr/colorOutlineVariant" />
 
-    <TextView
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:paddingTop="@dimen/space_8"
-        android:paddingBottom="@dimen/space_4"
-        android:text="@string/tabs_hint"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        android:textSize="@dimen/text_caption" />
+        android:layout_height="56dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/screen_margin"
+        android:paddingEnd="@dimen/screen_margin">
+
+        <LinearLayout
+            android:id="@+id/btn_new_tab"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:background="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@string/tabs_new"
+                android:src="@drawable/ic_add"
+                app:tint="?attr/colorOnSurface" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/space_8"
+                android:text="@string/tabs_new"
+                android:textColor="?attr/colorOnSurface"
+                android:textSize="@dimen/text_body"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/tab_count_hint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="@dimen/text_caption" />
+    </LinearLayout>
 </LinearLayout>

@@ -40,6 +40,7 @@
     <string name="tabs_incognito_on">无痕模式：开</string>
     <string name="tabs_incognito_off">无痕模式：关</string>
     <string name="tabs_empty">没有标签页，点击下方按钮新建</string>
+    <string name="tabs_count_hint">%1$d 个标签</string>
 
     <!-- 插件 -->
     <string name="plugins_title">插件管理</string>

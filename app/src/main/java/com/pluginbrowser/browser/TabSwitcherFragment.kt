@@ -1,6 +1,5 @@
 package com.pluginbrowser.browser
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Typeface
 import android.os.Bundle
@@ -13,13 +12,11 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
-import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.card.MaterialCardView
 import com.pluginbrowser.MainActivity
 import com.pluginbrowser.R
 import com.pluginbrowser.data.SettingsRepository
@@ -49,7 +46,7 @@ class TabSwitcherFragment : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val recycler = view.findViewById<RecyclerView>(R.id.tabs_recycler)
-        recycler.layoutManager = GridLayoutManager(requireContext(), 2)
+        recycler.layoutManager = LinearLayoutManager(requireContext())
         adapter = TabAdapter(
             currentIndex = { tabManager.currentIndex },
             onSelect = { index ->
@@ -81,7 +78,7 @@ class TabSwitcherFragment : BottomSheetDialogFragment() {
             refresh()
         }
 
-        view.findViewById<MaterialButton>(R.id.btn_new_tab).setOnClickListener {
+        view.findViewById<View>(R.id.btn_new_tab).setOnClickListener {
             tabManager.newTab(
                 url = SettingsRepository(requireContext()).homeUrl,
                 incognito = tabManager.incognitoMode,
@@ -123,6 +120,8 @@ class TabSwitcherFragment : BottomSheetDialogFragment() {
         val root = view ?: return
         root.findViewById<TextView>(R.id.empty_view)?.isVisible = entries.isEmpty()
         root.findViewById<RecyclerView>(R.id.tabs_recycler)?.isVisible = entries.isNotEmpty()
+        root.findViewById<TextView>(R.id.tab_count_hint)?.text =
+            getString(R.string.tabs_count_hint, entries.size)
 
         val active = themeColor(com.google.android.material.R.attr.colorPrimary)
         val inactive = themeColor(com.google.android.material.R.attr.colorOnSurfaceVariant)
@@ -164,7 +163,7 @@ class TabSwitcherFragment : BottomSheetDialogFragment() {
         class Entry(val index: Int, val tab: Tab)
 
         class VH(view: View) : RecyclerView.ViewHolder(view) {
-            val card: MaterialCardView = view.findViewById(R.id.tab_card)
+            val activeBar: View = view.findViewById(R.id.tab_active_bar)
             val thumbnail: ImageView = view.findViewById(R.id.tab_thumbnail)
             val title: TextView = view.findViewById(R.id.tab_title)
             val url: TextView = view.findViewById(R.id.tab_url)
@@ -192,15 +191,8 @@ class TabSwitcherFragment : BottomSheetDialogFragment() {
             holder.url.text = tab.url.ifBlank { "" }
             holder.badge.isVisible = tab.incognito
 
-            // 当前标签 2dp 强调色描边，其余 1dp 细线
-            val active = entry.index == currentIndex()
-            val density = holder.itemView.resources.displayMetrics.density
-            holder.card.strokeWidth = ((if (active) 2 else 1) * density).toInt()
-            holder.card.strokeColor = themeColor(
-                ctx,
-                if (active) com.google.android.material.R.attr.colorPrimary
-                else com.google.android.material.R.attr.colorOutlineVariant,
-            )
+            // 当前标签：左侧一条竖线。不描边、不换底色 —— 描边会让整行看起来像按钮
+            holder.activeBar.isVisible = entry.index == currentIndex()
 
             // 已销毁的 WebView 再取绘制缓存，轻则空白，重则直接崩在 native 层
             val bitmap = if (tab.usable) capture(tab.webView) else null
@@ -216,16 +208,6 @@ class TabSwitcherFragment : BottomSheetDialogFragment() {
         }
 
         override fun getItemCount(): Int = items.size
-
-        private fun themeColor(context: Context, attr: Int): Int {
-            val value = TypedValue()
-            context.theme.resolveAttribute(attr, value, true)
-            return if (value.resourceId != 0) {
-                ContextCompat.getColor(context, value.resourceId)
-            } else {
-                value.data
-            }
-        }
 
         @Suppress("DEPRECATION")
         private fun capture(webView: android.webkit.WebView): Bitmap? = try {

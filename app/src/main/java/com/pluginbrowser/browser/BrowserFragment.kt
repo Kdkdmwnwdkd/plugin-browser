@@ -1479,6 +1479,9 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         val duration = if (hide) 180L else 200L
         addressBarRow.animate().translationY(up).setDuration(duration).start()
         progressBar.animate().translationY(up).setDuration(duration).start()
+        // 地址栏下面那条 1dp 线不在动画里的话，会留在原地压在网页上
+        view?.findViewById<View>(R.id.address_bottom_line)
+            ?.animate()?.translationY(up)?.setDuration(duration)?.start()
         bottomBar.animate().translationY(down).setDuration(duration).start()
         view?.findViewById<View>(R.id.bar_divider)
             ?.animate()?.translationY(down)?.setDuration(duration)?.start()
@@ -2245,6 +2248,8 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         )
         addressBarRow.isVisible = false
         bottomBar.isVisible = false
+        // 地址栏那条 1dp 线是独立 View，不跟着地址栏一起藏就会浮在视频上沿
+        requireView().findViewById<View>(R.id.address_bottom_line).isVisible = false
         // 视频站点：进全屏直接锁横屏。这是「适配」和「原样跑」差别最明显的一处——
         // 不锁的话用户得先手动转手机，转完还要等一次重排
         if (siteRules.has(tabManager.currentTab()?.url, SiteAction.FULLSCREEN_LANDSCAPE)) {
@@ -2263,6 +2268,7 @@ class BrowserFragment : Fragment(R.layout.fragment_browser),
         customView = null
         addressBarRow.isVisible = true
         bottomBar.isVisible = true
+        requireView().findViewById<View>(R.id.address_bottom_line).isVisible = true
         if (landscapeLocked) {
             landscapeLocked = false
             // UNSPECIFIED 才会回到「跟随系统旋转」，USER 会把用户自己的锁定也一起废掉

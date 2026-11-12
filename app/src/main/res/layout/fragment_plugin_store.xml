@@ -53,7 +53,7 @@
             android:layout_height="46dp"
             android:text="@string/plugins_import_pbp"
             android:textSize="14sp"
-            app:cornerRadius="14dp" />
+            app:cornerRadius="@dimen/radius_md" />
 
         <TextView
             android:layout_width="match_parent"

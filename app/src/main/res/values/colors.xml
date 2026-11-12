@@ -10,7 +10,7 @@
     -->
 
     <!-- 强调色：只用于交互（进度、选中、链接），不做大面积填充 -->
-    <color name="colorPrimary">#2F5BD8</color>
+    <color name="colorPrimary">#1E4FD8</color>
     <color name="colorOnPrimary">#FFFFFF</color>
     <color name="colorPrimaryContainer">#DCE3FF</color>
     <color name="colorOnPrimaryContainer">#0A1740</color>
@@ -35,10 +35,10 @@
     <color name="colorSurfaceContainerHigh">#E9E9ED</color>
     <color name="colorSurfaceContainerHighest">#E3E3E8</color>
     <color name="colorSurfaceVariant">#EDEDF1</color>
-    <color name="colorOnSurface">#17181C</color>
-    <color name="colorOnSurfaceVariant">#5C5D66</color>
+    <color name="colorOnSurface">#17181B</color>
+    <color name="colorOnSurfaceVariant">#71757F</color>
     <color name="colorOutline">#8A8B94</color>
-    <color name="colorOutlineVariant">#E0E0E6</color>
+    <color name="colorOutlineVariant">#E7E8EB</color>
 
     <color name="colorInverseSurface">#2E3034</color>
     <color name="colorInverseOnSurface">#F1F1F4</color>
@@ -51,12 +51,13 @@
     <color name="colorScrim">#000000</color>
 
     <!-- 浏览器 UI 专用 -->
-    <color name="pb_progress">#2F5BD8</color>
-    <color name="pb_incognito">#5B4B8A</color>
+    <color name="pb_progress">#1E4FD8</color>
+    <!-- 无痕标识：这套界面只有一支蓝，紫色是唯一一个「不属于任何规则」的颜色，收成墨灰 -->
+    <color name="pb_incognito">#4A4E58</color>
     <color name="pb_thumbnail_bg">#E9E9ED</color>
     <color name="pb_scrim">#99000000</color>
     <!-- 强调色的低透明度填充（导入按钮、选中背景） -->
-    <color name="pb_accent_soft">#142F5BD8</color>
+    <color name="pb_accent_soft">#141E4FD8</color>
     <!-- 小徽标描边 -->
     <color name="pb_tag_border">#2617181C</color>
     <!-- 列表行分隔线，比 outlineVariant 更淡 -->

@@ -21,12 +21,21 @@
     <dimen name="space_24">24dp</dimen>
     <dimen name="space_32">32dp</dimen>
 
-    <!-- 圆角：只有四档，别再造第五种 -->
-    <dimen name="radius_sm">8dp</dimen>
-    <dimen name="radius_md">12dp</dimen>
-    <dimen name="radius_lg">16dp</dimen>
-    <dimen name="radius_pill">24dp</dimen>
-    <dimen name="radius_sheet">28dp</dimen>
+    <!--
+      圆角只有两档，而且是刻意的：
+
+      这套界面除了底部面板的顶边，全部是直角。东西靠 1dp 细线和留白分层，
+      不需要圆角来「软化」。唯一例外是面板顶边 —— 那是从屏幕底边掀起来的，
+      直角会让它看起来像被切了一刀。
+
+      所以 8/12/16/24 这些中间档全部归零，谁再想要一个「稍微圆一点」的角，
+      只能显式写 dimens，而不会有现成的档位可拿。
+    -->
+    <dimen name="radius_sm">0dp</dimen>
+    <dimen name="radius_md">0dp</dimen>
+    <dimen name="radius_lg">0dp</dimen>
+    <dimen name="radius_pill">0dp</dimen>
+    <dimen name="radius_sheet">16dp</dimen>
 
     <!-- 字号：6 档，全部整数 -->
     <dimen name="text_caption">11sp</dimen>
@@ -38,13 +47,19 @@
 
     <!-- 控件 -->
     <dimen name="touch_target">48dp</dimen>
-    <dimen name="bar_height">56dp</dimen>
-    <dimen name="address_bar_height">48dp</dimen>
+    <!-- 底栏 52dp：比 48dp 触控下限多 4dp，又不至于像 56dp 那样压住网页 -->
+    <dimen name="bar_height">52dp</dimen>
+    <!-- 地址栏是通栏的一条，不是胶囊；56dp 是它自己整条的高度 -->
+    <dimen name="address_bar_height">56dp</dimen>
     <dimen name="list_row_min_height">56dp</dimen>
+    <dimen name="tab_row_height">76dp</dimen>
+    <dimen name="tab_thumb_size">44dp</dimen>
+    <dimen name="tab_count_badge">15dp</dimen>
     <dimen name="icon_sm">20dp</dimen>
     <dimen name="icon_md">24dp</dimen>
     <dimen name="hairline">1dp</dimen>
-    <dimen name="screen_margin">16dp</dimen>
+    <!-- 24dp：这套排版的基线，所有左边缘都对齐到它 -->
+    <dimen name="screen_margin">24dp</dimen>
     <dimen name="sheet_handle_width">32dp</dimen>
     <dimen name="sheet_handle_height">4dp</dimen>
 </resources>

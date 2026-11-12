@@ -22,86 +22,86 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <!--
-      地址栏：一个 48dp 的胶囊。整条不带阴影 —— 顶栏和网页内容本身就有分界，
-      再叠一层阴影只会让上面这条变脏。
+      地址栏：一条通栏的带子，不是胶囊。
+
+      左边从 24dp 起，和下面的正文、上面的标题对齐到同一条基线；右边收到 4dp，
+      因为刷新按钮自己带 12dp 内边距。只在下面留一条 1dp 线 —— 上面顶着状态栏，
+      再加一条线就是画面里唯一一条没有分界作用的线。
     -->
     <LinearLayout
         android:id="@+id/address_bar_row"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="@dimen/address_bar_height"
         android:background="?attr/colorSurface"
-        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         android:paddingStart="@dimen/screen_margin"
-        android:paddingTop="@dimen/space_8"
-        android:paddingEnd="@dimen/screen_margin"
-        android:paddingBottom="@dimen/space_8"
+        android:paddingEnd="@dimen/space_4"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/progress_bar">
 
-        <LinearLayout
-            android:id="@+id/address_pill"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/address_bar_height"
-            android:background="@drawable/bg_address_pill"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="@dimen/space_12"
-            android:paddingEnd="@dimen/space_4">
+        <ImageView
+            android:id="@+id/security_icon"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginEnd="@dimen/space_8"
+            android:contentDescription="@string/security_https"
+            android:src="@drawable/ic_lock"
+            app:tint="?attr/colorOnSurfaceVariant" />
 
-            <ImageView
-                android:id="@+id/security_icon"
-                android:layout_width="@dimen/icon_sm"
-                android:layout_height="@dimen/icon_sm"
-                android:layout_marginEnd="@dimen/space_8"
-                android:contentDescription="@string/security_https"
-                android:src="@drawable/ic_lock"
-                app:tint="?attr/colorOnSurfaceVariant" />
+        <AutoCompleteTextView
+            android:id="@+id/address_input"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@null"
+            android:completionThreshold="1"
+            android:hint="@string/address_bar_hint"
+            android:imeOptions="actionGo"
+            android:inputType="textUri"
+            android:paddingStart="0dp"
+            android:paddingEnd="@dimen/space_8"
+            android:singleLine="true"
+            android:textColor="?attr/colorOnSurface"
+            android:textColorHint="?attr/colorOnSurfaceVariant"
+            android:textSize="@dimen/text_body" />
 
-            <AutoCompleteTextView
-                android:id="@+id/address_input"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="@null"
-                android:completionThreshold="1"
-                android:hint="@string/address_bar_hint"
-                android:imeOptions="actionGo"
-                android:inputType="textUri"
-                android:paddingStart="0dp"
-                android:paddingEnd="@dimen/space_8"
-                android:singleLine="true"
-                android:textColor="?attr/colorOnSurface"
-                android:textColorHint="?attr/colorOnSurfaceVariant"
-                android:textSize="@dimen/text_body" />
+        <TextView
+            android:id="@+id/incognito_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/space_8"
+            android:background="@drawable/bg_incognito_badge"
+            android:paddingStart="@dimen/space_8"
+            android:paddingTop="@dimen/space_2"
+            android:paddingEnd="@dimen/space_8"
+            android:paddingBottom="@dimen/space_2"
+            android:text="@string/incognito_badge"
+            android:textColor="@color/pb_incognito"
+            android:textSize="@dimen/text_caption"
+            android:visibility="gone" />
 
-            <TextView
-                android:id="@+id/incognito_badge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="@dimen/space_4"
-                android:background="@drawable/bg_incognito_badge"
-                android:paddingStart="@dimen/space_8"
-                android:paddingTop="@dimen/space_2"
-                android:paddingEnd="@dimen/space_8"
-                android:paddingBottom="@dimen/space_2"
-                android:text="@string/incognito_badge"
-                android:textColor="@color/pb_incognito"
-                android:textSize="@dimen/text_caption"
-                android:visibility="gone" />
-
-            <ImageButton
-                android:id="@+id/btn_reload"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/menu_refresh"
-                android:padding="@dimen/space_8"
-                android:scaleType="fitCenter"
-                android:src="@drawable/ic_refresh"
-                app:tint="?attr/colorOnSurfaceVariant" />
-        </LinearLayout>
+        <ImageButton
+            android:id="@+id/btn_reload"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/menu_refresh"
+            android:padding="@dimen/space_12"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_refresh"
+            app:tint="?attr/colorOnSurfaceVariant" />
     </LinearLayout>
+
+    <View
+        android:id="@+id/address_bottom_line"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/hairline"
+        android:background="?attr/colorOutlineVariant"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/address_bar_row" />
 
     <!-- 页内查找栏：默认隐藏，只在需要时占位 -->
     <LinearLayout
@@ -251,8 +251,11 @@
     </LinearLayout>
 
     <!--
-      底部工具栏：五个等宽动作，高 56dp。
+      底部工具栏：五个等宽动作，高 52dp。
+
       不加阴影，靠上面那条 1dp 细线和内容分开 —— 阴影压在白色网页上会显出一条灰带。
+      标签数是图标右上角的一小块，而不是一个居中的大圆：居中会把它变成底栏里最显眼的
+      东西，而它其实只是「现在有几个标签」这种随手可查的状态。
     -->
     <LinearLayout
         android:id="@+id/bottom_bar"
@@ -270,7 +273,7 @@
         <ImageButton
             android:id="@+id/btn_back"
             android:layout_width="0dp"
-            android:layout_height="@dimen/touch_target"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/nav_back"
@@ -282,7 +285,7 @@
         <ImageButton
             android:id="@+id/btn_forward"
             android:layout_width="0dp"
-            android:layout_height="@dimen/touch_target"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/nav_forward"
@@ -294,7 +297,7 @@
         <ImageButton
             android:id="@+id/btn_home"
             android:layout_width="0dp"
-            android:layout_height="@dimen/touch_target"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/menu_home"
@@ -306,26 +309,41 @@
         <FrameLayout
             android:id="@+id/btn_tabs"
             android:layout_width="0dp"
-            android:layout_height="@dimen/touch_target"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless">
 
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:contentDescription="@string/tabs_title"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_tabs"
+                app:tint="?attr/colorOnSurface" />
+
             <TextView
                 android:id="@+id/tab_count_badge"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/tab_count_badge"
                 android:layout_gravity="center"
+                android:layout_marginStart="9dp"
+                android:layout_marginBottom="12dp"
                 android:background="@drawable/bg_tab_counter"
                 android:gravity="center"
+                android:minWidth="@dimen/tab_count_badge"
+                android:paddingStart="3dp"
+                android:paddingEnd="3dp"
                 android:text="1"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="@dimen/text_caption" />
+                android:textColor="?attr/colorOnPrimary"
+                android:textSize="9sp"
+                android:textStyle="bold" />
         </FrameLayout>
 
         <ImageButton
             android:id="@+id/btn_menu"
             android:layout_width="0dp"
-            android:layout_height="@dimen/touch_target"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/menu_settings"

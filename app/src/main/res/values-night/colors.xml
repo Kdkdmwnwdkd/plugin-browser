@@ -38,7 +38,7 @@
 
     <color name="colorInverseSurface">#E4E5EA</color>
     <color name="colorInverseOnSurface">#2E3034</color>
-    <color name="colorInversePrimary">#2F5BD8</color>
+    <color name="colorInversePrimary">#1E4FD8</color>
 
     <color name="colorError">#FFB4AB</color>
     <color name="colorOnError">#690005</color>
@@ -47,7 +47,7 @@
     <color name="colorScrim">#000000</color>
 
     <color name="pb_progress">#B7C4FF</color>
-    <color name="pb_incognito">#BDAAF0</color>
+    <color name="pb_incognito">#B9BCC6</color>
     <color name="pb_thumbnail_bg">#212226</color>
     <color name="pb_scrim">#99000000</color>
     <color name="pb_accent_soft">#2EB7C4FF</color>
