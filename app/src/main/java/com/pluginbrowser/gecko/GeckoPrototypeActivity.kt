@@ -83,7 +83,12 @@ class GeckoPrototypeActivity : AppCompatActivity() {
         s.open(runtimeOf(this))
 
         s.navigationDelegate = object : GeckoSession.NavigationDelegate {
-            override fun onLocationChange(session: GeckoSession, url: String?) {
+            override fun onLocationChange(
+                session: GeckoSession,
+                url: String?,
+                perms: List<GeckoSession.PermissionDelegate.ContentPermission>,
+                hasUserGesture: Boolean,
+            ) {
                 if (url.isNullOrBlank()) return
                 // 用户正在输入时不抢焦点，否则地址栏每跳一次就把光标顶走
                 if (!address.hasFocus()) {
@@ -163,7 +168,8 @@ class GeckoPrototypeActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         session?.let {
-            geckoView.setSession(null)
+            // setSession 的参数是非空的，解除绑定得走 releaseSession()
+            runCatching { geckoView.releaseSession() }
             runCatching { it.close() }
         }
         session = null
