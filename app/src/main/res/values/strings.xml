@@ -332,4 +332,20 @@
     <string name="diag_hit_value">最近 %2$d 条里 %1$d 条走通道</string>
     <string name="diag_empty">还没有记录。打开一个 GitHub 页面，再回来看看。</string>
     <string name="diag_hint">「系」表示交回系统内核，「通」表示走了独立通道。回落原因写在每条记录下面。</string>
+
+    <!-- WebDAV 备份 -->
+    <string name="webdav_title">WebDAV 备份</string>
+    <string name="webdav_summary">把书签和历史存到自己的网盘</string>
+    <string name="webdav_hint">填到目录为止，不用带文件名。账号密码只存在本机，导出备份时会被排除。</string>
+    <string name="webdav_url">服务器地址</string>
+    <string name="webdav_user">用户名</string>
+    <string name="webdav_password">密码</string>
+    <string name="webdav_file">备份文件名</string>
+    <string name="webdav_upload">上传</string>
+    <string name="webdav_restore">从云端恢复</string>
+    <string name="webdav_need_url">先填服务器地址</string>
+    <string name="webdav_working">连接中…</string>
+    <string name="webdav_uploaded">已上传：%1$d 个书签、%2$d 条历史</string>
+    <string name="webdav_restored">已恢复：%1$d 个书签、%2$d 条历史</string>
+    <string name="webdav_confirm_restore">云端的备份会覆盖本机的书签和历史。确定恢复？</string>
 </resources>
