@@ -1,13 +1,13 @@
 {
-  "versionCode": 54,
-  "versionName": "2.10.1",
-  "size": 8877550,
-  "sha256": "50e18056c4bd94958aa1c65c9097eb412a72759169b5f06a211f8861ee5c4ea2",
-  "notes": "把两个输入口收成一个，把两套网格收成一套\n\n上一版把骨架换掉了，但留了两处「多出来的东西」。这次是减法。\n\n新标签页\n- 去掉页面中间那个搜索框。顶上地址栏本来就在手边，同一个动作画两遍，\n  第一眼看到的就是「怎么有两个输入框」。\n- 「新标签页」这个小标题改成「常用」——它标的是下面那八个格子，\n  不是这一页叫什么。\n- 站点格上移，页面从「小标题 + 入口」直接开始。点空白处仍然聚焦地址栏。\n\n功能面板\n- 四列图标格全部撤掉，改成单列行。原来上半屏十二个格子挤在一起、标签 11sp 顶到边，\n  下半屏突然变成 56dp 的松长条，中间还横一条分割线——两套密度拼在一张面板上，\n  眼睛找不到落点。\n- 图标也一起去掉了。这套图库里一半是 Material 实心字形，一半是后来补的 1.7dp 线框，\n  染成同一个颜色之后，块状和线条混着往下排，越看越乱。重画四十个图标不如先不要图标：\n  中文两个字本身就是最短的标签。\n- 分组改成「当前页 / 打开 / 工具 / 显示 / 更多」，靠小标题和 20dp 留白分开，不画线。\n- 行高 50dp，左右内边距 16 → 24dp，跟组标题对齐。上一版标题在 24、行在 16，\n  整片文字像被推歪了一格。\n- 关掉的状态不再写「已关闭」。那是默认值，二十行里出现十几次，只是噪音；\n  现在只标开着的，用那一支蓝。\n- 菜单里的「刷新」删了，地址栏右边就有。\n\n地址栏\n- 让出状态栏。整页是 edge-to-edge，地址栏从屏幕最顶上开始画，文字直接顶着\n  时间和电量那一行——截图里看着像顶部还残留了半个搜索框。\n",
+  "versionCode": 55,
+  "versionName": "2.11.0",
+  "size": 9182296,
+  "sha256": "51d407a451175e3078bdf7d751412b642e169a57b804c4ad9868b80cc554f9b5",
+  "notes": "图标回来了，而且是同一套\n\n2.10.1 把功能面板的图标全撤了，理由是那批图标一半实心、一半线框，染成同一个颜色之后\n块状和线条混着排，越看越乱。撤完之后确实干净，代价是得逐行读字才知道哪个是哪个。\n\n这次不是把旧图标放回去，是把它们换成同一套字形——Material Icons 的 filled 线，\n统一 20dp、统一字重、统一视觉重心。四十二个图标一起换，连地址栏的刷新、\n标签切换页的无痕标识也一起对齐了。\n\n功能面板\n- 每一行重新带上图标，左边图标、中间文字、右边状态。\n- 分组和留白保持上一版：当前页 / 打开 / 工具 / 显示 / 更多，不画线。\n\n新功能\n- 二维码：把当前地址变成一个方块，加一行域名。深色模式下也是白底黑码——\n  黑底白码有一半扫码器认不出来。\n- 打印 / 存为 PDF：走系统打印面板，里面自带「另存为 PDF」。不再单独做一个导出按钮，\n  两个入口做同一件事，用户还得猜哪个才是导 PDF 的。\n- 清除跟踪参数：删掉 utm_*、gclid、fbclid、spm、share_token 这些只用来跨站认人的参数，\n  然后重新加载。链接没脏就不动，只回一句「这个链接没有跟踪参数」。\n- 添加到桌面：把当前页钉到桌面，点开直接进这一页。\n\nWebDAV 备份\n设置 → 备份 → WebDAV 备份。填服务器地址（到目录为止）、账号、密码、文件名，\n就能把书签和历史整包传上去、整包拉回来。适配 Nextcloud / 坚果云 / 群晖这类标准实现。\n失败时给的是人话：401 是账号密码不对，404 是路径不存在，507 是网盘满了。\n密码只存在本机应用私有目录，而且导出备份时会把这个键排除掉——否则备份文件里带着\n自己的密码，再传回同一个网盘，等于把钥匙挂在保险箱门上。\n\n标签休眠\n一个标签就是一个渲染进程，开着七八个页面，中低端机迟早被判内存不足、整个 App 被杀。\n现在系统喊「内存见底」（TRIM_MEMORY_RUNNING_CRITICAL）时，后台标签的 WebView 会被销毁，\n只留地址，切回来按原地址重建。当前标签和无痕标签不动。\n\n顺带修了一个一直存在的问题：原来 onTrimMemory 写的是 level >= RUNNING_LOW，\n而 UI_HIDDEN 是 20、比 10 大——切到后台也会走这条分支。降级无害，但把休眠挂上去\n就会变成「退到桌面一次，所有标签全被收掉」。\n",
   "apk": [
-    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.10.1/Kite-2.10.1-debug.apk",
-    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.10.1/Kite-2.10.1-debug.apk",
-    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.10.1/Kite-2.10.1-debug.apk"
+    "https://gh-proxy.com/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.11.0/Kite-2.11.0-debug.apk",
+    "https://ghfast.top/https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.11.0/Kite-2.11.0-debug.apk",
+    "https://github.com/Kdkdmwnwdkd/plugin-browser/releases/download/v2.11.0/Kite-2.11.0-debug.apk"
   ],
   "manifest": [
     "https://gh-proxy.com/https://raw.githubusercontent.com/Kdkdmwnwdkd/plugin-browser/main/version.json",
